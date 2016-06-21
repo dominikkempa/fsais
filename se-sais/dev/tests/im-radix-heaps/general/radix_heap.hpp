@@ -55,7 +55,6 @@ class radix_heap {
       // Allocate queues.
       std::uint64_t m_depth = ((8UL * sizeof(key_type)) + m_radix_log - 1) / m_radix_log;
       std::uint64_t n_queues = m_depth * (m_radix - 1) + 1;
-//      fprintf(stderr, "\nn_queues = %lu\n", n_queues);
       m_queues = new queue_type*[n_queues];
       for (std::uint64_t i = 0; i < n_queues; ++i)
         m_queues[i] = new queue_type();
@@ -71,45 +70,32 @@ class radix_heap {
       std::uint64_t n_digs = ((64 - __builtin_clzll(x ^ m_min_key)) + m_radix_log - 1) >> m_radix_log_log;
       std::uint64_t most_sig_digit = ((x >> ((n_digs - 1) << m_radix_log_log)) & m_radix_mask);
       std::uint64_t queue_id = (((n_digs - 1) << m_radix_log) - (n_digs - 1)) + most_sig_digit;
-//      fprintf(stderr, "n_digs = %lu, most_sig_digit = %lu, queue_id = %lu\n", n_digs, most_sig_digit, queue_id);
       return queue_id;
     }
 
   public:
     inline void push(key_type key, value_type value) {
-//      fprintf(stderr, "radix_heap::push(%lu, %lu)\n", (std::uint64_t)key, (std::uint64_t)value);
       ++m_size;
       std::uint64_t id = get_queue_id(key);
-//      fprintf(stderr, "  id = %lu\n", id);
-//      fprintf(stderr, "  m_min_key = %lu\n", m_min_key);
       m_queues[id]->push(std::make_pair(key, value));
       m_queue_min[id] = std::min(m_queue_min[id], (std::uint64_t)key);
     }
 
     inline key_type top_key() {
-//      fprintf(stderr, "radix_heap::top_key()\n");
       if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
         redistribute();
-//      fprintf(stderr, "  m_cur_bottom_level_queue_ptr = %lu\n", m_cur_bottom_level_queue_ptr);
-//      fprintf(stderr, "  m_min_key = %lu\n", m_min_key);
       return m_queues[m_cur_bottom_level_queue_ptr]->front().first;
     }
 
     inline value_type& top_value() {
-//      fprintf(stderr, "radix_heap::top_value()\n");
       if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
         redistribute();
-//      fprintf(stderr, "  m_cur_bottom_level_queue_ptr = %lu\n", m_cur_bottom_level_queue_ptr);
-//      fprintf(stderr, "  m_min_key = %lu\n", m_min_key);
       return m_queues[m_cur_bottom_level_queue_ptr]->front().second;
     }
 
     inline void pop() {
-//      fprintf(stderr, "radix_heap::pop()\n");
       if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
         redistribute();
-//      fprintf(stderr, "  m_cur_bottom_level_queue_ptr = %lu\n", m_cur_bottom_level_queue_ptr);
-//      fprintf(stderr, "  m_min_key = %lu\n", m_min_key);
       m_queues[m_cur_bottom_level_queue_ptr]->pop();
       --m_size;
     }
@@ -133,19 +119,15 @@ class radix_heap {
 
   private:
     void redistribute() {
-//      fprintf(stderr, "redistrbute()\n");
       while (m_cur_bottom_level_queue_ptr < m_radix && m_queues[m_cur_bottom_level_queue_ptr]->empty())
         m_queue_min[m_cur_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
 
       if (m_cur_bottom_level_queue_ptr < m_radix) {
         m_min_key = m_queue_min[m_cur_bottom_level_queue_ptr];
-//        fprintf(stderr, "  m_cur_bottom_level_queue_ptr = %lu, returning\n", m_cur_bottom_level_queue_ptr);
-//        fprintf(stderr, "  m_min_key = %lu\n", m_min_key);
       } else {
         std::uint64_t id = m_radix;
         while (m_queues[id]->empty()) ++id;
         m_min_key = m_queue_min[id];
-//        fprintf(stderr, "  found id = %lu, m_min_key = %lu\n", id, m_min_key);
 
         // Redistribute elements in m_queues[id].
         std::uint64_t queue_size = m_queues[id]->size();
@@ -154,11 +136,9 @@ class radix_heap {
           std::uint64_t newid = get_queue_id(p.first);
           m_queues[newid]->push(p);
           m_queue_min[newid] = std::min(m_queue_min[newid], (std::uint64_t)p.first);
-//          fprintf(stderr, "  writing (%lu, %lu) to bucket %lu\n", (std::uint64_t)p.first, (std::uint64_t)p.second, newid);
           if (newid < m_cur_bottom_level_queue_ptr)
             m_cur_bottom_level_queue_ptr = newid;
         }
-//        fprintf(stderr, "  m_cur_bottom_level_queue_ptr after update = %lu\n", m_cur_bottom_level_queue_ptr);
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
     }

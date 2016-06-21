@@ -60,7 +60,6 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
     if (test_id % 100 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * test_id) / testcases);
 
-//    fprintf(stderr, "\nNEWTEST:\n");
     heap_type *heap = new heap_type(radix_log);
     std::vector<std::pair<std::uint8_t, std::uint64_t> > v;
     std::uint64_t min_heap_elem = 0;
@@ -77,13 +76,11 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
           std::uint64_t value = (std::uint64_t)utils::random_int64(0L, 1000000000L);
           heap->push(key, value);
           v.push_back(std::make_pair(key, value));
-//          fprintf(stderr, "PUSH(%lu,%lu)\n", (std::uint64_t)key, (std::uint64_t)value);
           comp8 cmp;
           std::stable_sort(v.begin(), v.end(), cmp);
         }
       } else if (op == 1) { // print top
         if (v.empty() == false) {
-//          fprintf(stderr, "TOP\n");
           std::uint8_t key = heap->top_key();
           std::uint64_t value = heap->top_value();
           if (key != v[0].first || value != v[0].second) {
@@ -97,7 +94,6 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
         }
       } else {  // pop
         if (v.empty() == false) {
-//          fprintf(stderr, "POP\n");
           min_heap_elem = v[0].first;
           v.erase(v.begin());
           heap->pop();
@@ -225,7 +221,6 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
     if (test_id % 100 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * test_id) / testcases);
 
-//    fprintf(stderr, "\nNEWTEST:\n");
     heap_type *heap = new heap_type(radix_log);
     std::vector<std::pair<uint40, std::uint64_t> > v;
     std::uint64_t min_heap_elem = 0;
@@ -242,13 +237,11 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
           std::uint64_t value = (std::uint64_t)utils::random_int64(0L, 1000000000L);
           heap->push(key, value);
           v.push_back(std::make_pair(key, value));
-//          fprintf(stderr, "PUSH(%lu,%lu)\n", (std::uint64_t)key, (std::uint64_t)value);
           comp40 cmp;
           std::stable_sort(v.begin(), v.end(), cmp);
         }
       } else if (op == 1) { // print top
         if (v.empty() == false) {
-//          fprintf(stderr, "TOP\n");
           uint40 key = heap->top_key();
           std::uint64_t value = heap->top_value();
           if (key != v[0].first || value != v[0].second) {
@@ -266,7 +259,6 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
         }
       } else {  // pop
         if (v.empty() == false) {
-//          fprintf(stderr, "POP\n");
           min_heap_elem = (std::uint64_t)v[0].first;
           v.erase(v.begin());
           heap->pop();
@@ -286,7 +278,6 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
     if (test_id % 100 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * test_id) / testcases);
 
-//    fprintf(stderr, "\nNEWTEST:\n");
     heap_type *heap = new heap_type(radix_log);
     std::vector<std::pair<uint48, std::uint64_t> > v;
     std::uint64_t min_heap_elem = 0;
@@ -303,13 +294,11 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
           std::uint64_t value = (std::uint64_t)utils::random_int64(0L, 1000000000L);
           heap->push(key, value);
           v.push_back(std::make_pair(key, value));
-//          fprintf(stderr, "PUSH(%lu,%lu)\n", (std::uint64_t)key, (std::uint64_t)value);
           comp48 cmp;
           std::stable_sort(v.begin(), v.end(), cmp);
         }
       } else if (op == 1) { // print top
         if (v.empty() == false) {
-//          fprintf(stderr, "TOP\n");
           uint48 key = heap->top_key();
           std::uint64_t value = heap->top_value();
           if (key != v[0].first || value != v[0].second) {
@@ -327,7 +316,6 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
         }
       } else {  // pop
         if (v.empty() == false) {
-//          fprintf(stderr, "POP\n");
           min_heap_elem = (std::uint64_t)v[0].first;
           v.erase(v.begin());
           heap->pop();
