@@ -61,7 +61,7 @@ class radix_heap {
     inline key_type top_key() {
       if (m_queues[0]->empty())
         redistribute();
-      return m_min_key;
+      return m_queues[0]->front().first;
     }
 
     inline value_type& top_value() {
