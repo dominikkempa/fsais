@@ -29,25 +29,34 @@ class radix_heap {
     std::uint64_t m_size;
     std::uint64_t m_min_key;
     std::uint64_t m_cur_bottom_level_queue_ptr;
-    std::uint64_t m_radix_log_log;
     std::uint64_t m_radix_log;
     std::uint64_t m_radix;
     std::uint64_t m_radix_mask;
+#ifdef ALLOW_ANY_RADIX_LOG
+    std::uint64_t m_div_ceil_radix_log[64];
+#else
+    std::uint64_t m_radix_log_log;
+#endif
 
     queue_type **m_queues;
     std::vector<std::uint64_t> m_queue_min;
 
   public:
     radix_heap(std::uint64_t radix_log) {
+#ifndef ALLOW_ANY_RADIX_LOG
       if (__builtin_popcountll(radix_log) != 1) {
         fprintf(stderr, "radix_heap: radix_log has to be a power of two!\n");
         std::exit(EXIT_FAILURE);
       }
+      m_radix_log_log = 63 - __builtin_clzll(radix_log);
+#else
+      for (std::uint64_t i = 0; i < 64; ++i)
+        m_div_ceil_radix_log[i] = (i + radix_log - 1) / radix_log;
+#endif
 
       m_size = 0;
       m_min_key = 0;
       m_cur_bottom_level_queue_ptr = 0;
-      m_radix_log_log = 63 - __builtin_clzll(radix_log);
       m_radix_log = radix_log;
       m_radix = (1UL << m_radix_log);
       m_radix_mask = m_radix - 1;
@@ -67,8 +76,13 @@ class radix_heap {
       std::uint64_t x = (std::uint64_t)key;
       if (x == m_min_key) return (x & m_radix_mask);
 
+#ifdef ALLOW_ANY_RADIX_LOG
+      std::uint64_t n_digs = m_div_ceil_radix_log[64 - __builtin_clzll(x ^ m_min_key)];
+      std::uint64_t most_sig_digit = ((x >> ((n_digs - 1) * m_radix_log)) & m_radix_mask);
+#else
       std::uint64_t n_digs = ((64 - __builtin_clzll(x ^ m_min_key)) + m_radix_log - 1) >> m_radix_log_log;
       std::uint64_t most_sig_digit = ((x >> ((n_digs - 1) << m_radix_log_log)) & m_radix_mask);
+#endif
       std::uint64_t queue_id = (((n_digs - 1) << m_radix_log) - (n_digs - 1)) + most_sig_digit;
       return queue_id;
     }
