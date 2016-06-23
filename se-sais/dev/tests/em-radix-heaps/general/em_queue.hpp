@@ -29,11 +29,14 @@ class em_queue {
     std::string m_filename;
     std::uint64_t m_file_size;
     std::uint64_t m_file_head;
+
     std::uint64_t m_size;
+    std::uint64_t m_io_volume;
 
   public:
     em_queue(std::uint64_t ram_use, std::string filename) {
       m_size = 0;
+      m_io_volume = 0;
 
       // Initialize file.
       m_filename = filename;
@@ -120,6 +123,7 @@ class em_queue {
             while (m_tail_buf_size > 0) {
               std::uint64_t towrite = std::min(m_items_per_buf - tail_buf_beg, m_tail_buf_size);
               utils::write_to_file(m_tail_buf + tail_buf_beg, towrite, m_file);
+              m_io_volume += towrite * sizeof(value_type);
               m_file_size += towrite;
               m_tail_buf_size -= towrite;
               tail_buf_beg += towrite;
@@ -133,6 +137,7 @@ class em_queue {
           while (m_tail_buf_size > 0) {
             std::uint64_t towrite = std::min(m_items_per_buf - tail_buf_beg, m_tail_buf_size);
             utils::write_to_file(m_tail_buf + tail_buf_beg, towrite, m_file);
+            m_io_volume += towrite * sizeof(value_type);
             m_file_size += towrite;
             m_tail_buf_size -= towrite;
             tail_buf_beg += towrite;
@@ -172,6 +177,7 @@ class em_queue {
           m_head_buf_size = std::min(m_file_size - m_file_head, m_items_per_buf);
           std::fseek(m_file, m_file_head * sizeof(value_type), SEEK_SET);
           utils::read_from_file(m_head_buf, m_head_buf_size, m_file);
+          m_io_volume += m_head_buf_size * sizeof(value_type);
           m_file_head += m_head_buf_size;
           m_head_buf_beg = 0;
         }
@@ -197,6 +203,10 @@ class em_queue {
 
     inline std::uint64_t size() const {
       return m_size;
+    }
+
+    inline std::uint64_t io_volume() const {
+      return m_io_volume;
     }
 
     ~em_queue() {

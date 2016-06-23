@@ -385,66 +385,27 @@ void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
   }
 }
 
-void run_tests1(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize) {
-  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(1, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(1, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(1, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(1, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(1, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key = std::max(max_key + 1, (max_key / 2) * 3))
-    test<std::uint64_t>(1, testcases, max_operations, max_key, bufsize);
+void run_tests(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize) {
+  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key *= 2) test<std::uint8_t>(radix_log,  testcases, max_operations, max_key, bufsize);
+  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key *= 2) test<std::uint16_t>(radix_log, testcases, max_operations, max_key, bufsize);
+  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key *= 2) test<std::uint32_t>(radix_log, testcases, max_operations, max_key, bufsize);
+  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key *= 2) test<uint40>(radix_log,        testcases, max_operations, max_key, bufsize);
+  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key *= 2) test<uint48>(radix_log,        testcases, max_operations, max_key, bufsize);
+  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key *= 2) test<std::uint64_t>(radix_log, testcases, max_operations, max_key, bufsize);
 }
 
-void run_tests2(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize) {
-  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(2, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(2, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(2, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(2, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(2, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key = std::max(max_key + 1, (max_key / 2) * 3))
-    test<std::uint64_t>(2, testcases, max_operations, max_key, bufsize);
-}
-
-void run_tests3(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize) {
-  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(4, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(4, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(4, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(4, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(4, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key = std::max(max_key + 1, (max_key / 2) * 3))
-    test<std::uint64_t>(4, testcases, max_operations, max_key, bufsize);
-}
-
-void run_tests4(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize) {
-  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(8, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(8, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(8, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(8, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(8, testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key = std::max(max_key + 1, (max_key / 2) * 3))
-    test<std::uint64_t>(8, testcases, max_operations, max_key, bufsize);
+void run_tests_with_given_radix_log(std::uint64_t radix_log, std::uint64_t bufsize) {
+  run_tests(radix_log, 10,   10, bufsize);
+  run_tests(radix_log, 10,  100, bufsize);
+  run_tests(radix_log, 10, 1000, bufsize);
 }
 
 int main() {
   srand(time(0) + getpid());
 
-  for (std::uint64_t bufsize = 0; bufsize <= (1UL << 20); bufsize = std::max(bufsize + 1, (bufsize * 3 + 1) / 2)) {
-    run_tests1(1000,  10, bufsize);
-    run_tests1(1000, 100, bufsize);
-    run_tests1(100, 1000, bufsize);
-
-    run_tests2(1000,  10, bufsize);
-    run_tests2(1000, 100, bufsize);
-    run_tests2(100, 1000, bufsize);
-
-    run_tests3(1000,  10, bufsize);
-    run_tests3(1000, 100, bufsize);
-    run_tests3(100, 1000, bufsize);
-
-    run_tests4(100,   10, bufsize);
-    run_tests4(100,  100, bufsize);
-    run_tests4(100, 1000, bufsize);
-  }
+  for (std::uint64_t bufsize = 0; bufsize <= (1UL << 20); bufsize = std::max(bufsize + 1, bufsize * 2))
+    for (std::uint64_t radix_log = 1; radix_log < 9; ++radix_log)
+      run_tests_with_given_radix_log(radix_log, bufsize);
 
   fprintf(stderr, "All tests passed.\n");
 }

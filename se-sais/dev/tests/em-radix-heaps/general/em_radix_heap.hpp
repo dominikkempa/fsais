@@ -33,27 +33,15 @@ class em_radix_heap {
     std::uint64_t m_radix_log;
     std::uint64_t m_radix;
     std::uint64_t m_radix_mask;
-#ifdef ALLOW_ANY_RADIX_LOG
     std::uint64_t m_div_ceil_radix_log[64];
-#else
-    std::uint64_t m_radix_log_log;
-#endif
 
     queue_type **m_queues;
     std::vector<std::uint64_t> m_queue_min;
 
   public:
     em_radix_heap(std::uint64_t radix_log, std::uint64_t buffer_size, std::string filename) {
-#ifndef ALLOW_ANY_RADIX_LOG
-      if (__builtin_popcountll(radix_log) != 1) {
-        fprintf(stderr, "em_radix_heap: radix_log has to be a power of two!\n");
-        std::exit(EXIT_FAILURE);
-      }
-      m_radix_log_log = 63 - __builtin_clzll(radix_log);
-#else
       for (std::uint64_t i = 0; i < 64; ++i)
         m_div_ceil_radix_log[i] = (i + radix_log - 1) / radix_log;
-#endif
 
       m_size = 0;
       m_min_key = 0;
@@ -80,13 +68,8 @@ class em_radix_heap {
       std::uint64_t x = (std::uint64_t)key;
       if (x == m_min_key) return (x & m_radix_mask);
 
-#ifdef ALLOW_ANY_RADIX_LOG
       std::uint64_t n_digs = m_div_ceil_radix_log[64 - __builtin_clzll(x ^ m_min_key)];
       std::uint64_t most_sig_digit = ((x >> ((n_digs - 1) * m_radix_log)) & m_radix_mask);
-#else
-      std::uint64_t n_digs = ((64 - __builtin_clzll(x ^ m_min_key)) + m_radix_log - 1) >> m_radix_log_log;
-      std::uint64_t most_sig_digit = ((x >> ((n_digs - 1) << m_radix_log_log)) & m_radix_mask);
-#endif
       std::uint64_t queue_id = (((n_digs - 1) << m_radix_log) - (n_digs - 1)) + most_sig_digit;
       return queue_id;
     }
@@ -124,6 +107,15 @@ class em_radix_heap {
 
     inline bool empty() const {
       return m_size == 0;
+    }
+
+    inline std::uint64_t io_volume() const {
+      std::uint64_t result = 0;
+      std::uint64_t m_depth = ((8UL * sizeof(key_type)) + m_radix_log - 1) / m_radix_log;
+      std::uint64_t n_queues = m_depth * (m_radix - 1) + 1;
+      for (std::uint64_t i = 0; i < n_queues; ++i)
+        result += m_queues[i]->io_volume();
+      return result;
     }
 
     ~em_radix_heap() {
