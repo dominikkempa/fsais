@@ -390,21 +390,21 @@ void run_tests(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t m
   for (std::uint64_t max_key = 1; max_key <= 64000;               max_key *= 2) test<std::uint16_t>(radix_log, testcases, max_operations, max_key, bufsize);
   for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key *= 2) test<std::uint32_t>(radix_log, testcases, max_operations, max_key, bufsize);
   for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key *= 2) test<uint40>(radix_log,        testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key *= 2) test<uint48>(radix_log,        testcases, max_operations, max_key, bufsize);
-  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key *= 2) test<std::uint64_t>(radix_log, testcases, max_operations, max_key, bufsize);
+//  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key *= 2) test<uint48>(radix_log,        testcases, max_operations, max_key, bufsize);
+//  for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key *= 2) test<std::uint64_t>(radix_log, testcases, max_operations, max_key, bufsize);
 }
 
 void run_tests_with_given_radix_log(std::uint64_t radix_log, std::uint64_t bufsize) {
   run_tests(radix_log, 10,   10, bufsize);
   run_tests(radix_log, 10,  100, bufsize);
-  run_tests(radix_log, 10, 1000, bufsize);
+//  run_tests(radix_log, 10, 1000, bufsize);
 }
 
 int main() {
   srand(time(0) + getpid());
 
-  for (std::uint64_t bufsize = 0; bufsize <= (1UL << 20); bufsize = std::max(bufsize + 1, bufsize * 2))
-    for (std::uint64_t radix_log = 1; radix_log < 9; ++radix_log)
+  for (std::uint64_t bufsize = 0; bufsize <= (1UL << 13); bufsize = std::max(bufsize + 1, bufsize * 2))
+    for (std::uint64_t radix_log = 1; radix_log <= 5; ++radix_log)
       run_tests_with_given_radix_log(radix_log, bufsize);
 
   fprintf(stderr, "All tests passed.\n");

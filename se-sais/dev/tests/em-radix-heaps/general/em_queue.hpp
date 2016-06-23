@@ -209,6 +209,14 @@ class em_queue {
       return m_io_volume;
     }
 
+    void reset_file() {
+      std::fclose(m_file);
+      utils::file_delete(m_filename);
+      m_file = utils::file_open(m_filename, "a+");
+      m_file_size = 0;
+      m_file_head = 0;
+    }
+
     ~em_queue() {
       std::fclose(m_file);
       if (utils::file_exists(m_filename))

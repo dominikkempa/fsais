@@ -97,8 +97,10 @@ class em_radix_heap {
     inline void pop() {
       if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
         redistribute();
-      m_queues[m_cur_bottom_level_queue_ptr]->pop();
       --m_size;
+      m_queues[m_cur_bottom_level_queue_ptr]->pop();
+      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+        m_queues[m_cur_bottom_level_queue_ptr]->reset_file();
     }
 
     inline std::uint64_t size() const {
@@ -149,6 +151,7 @@ class em_radix_heap {
           if (newid < m_cur_bottom_level_queue_ptr)
             m_cur_bottom_level_queue_ptr = newid;
         }
+        m_queues[id]->reset_file();
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
     }
