@@ -1,0 +1,129 @@
+#ifndef __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#define __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+
+#include <cstdio>
+#include <cstdlib>
+#include <cstdint>
+#include <string>
+#include <algorithm>
+
+#include "utils.hpp"
+#include "em_radix_heap.hpp"
+#include "io/async_stream_reader.hpp"
+#include "io/async_stream_writer.hpp"
+
+
+template<typename chr_t, typename saidx_t>
+void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
+    // also temporary:
+    // std::uint64_t ram_use,
+    std::string star_sufs_filename,
+    std::string minus_sufs_filename, std::uint64_t &total_io_volume,
+    // temporary:
+    std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
+//  fprintf(stderr, "Induce minus-suffixes:\n");
+//  long double start = utils::wclock();
+
+#if 0
+  // Decide on the radix and buffer size for the radix heap.
+  std::uint64_t radix_heap_bufsize = (1UL << 20);
+  std::uint64_t radix_log = 1;
+  {
+    std::uint64_t ram_left = ram_use - text_length * sizeof(chr_t);
+    while (radix_log <= 16) {
+      std::uint64_t depth = (8UL * sizeof(chr_t) + radix_log - 1) / radix_log;
+      std::uint64_t radix = (1UL << radix_log);
+      std::uint64_t n_queues = depth * (radix - 1) + 1;
+      std::uint64_t ram_needed = n_queues * radix_heap_bufsize;
+      if (ram_needed > ram_left) break;
+      else ++radix_log;
+    }
+
+    if (radix_log > 1) --radix_log;
+    else {
+      // ram_use was very small. Use the smallest
+      // possible radix and shrink the buffer size.
+      std::uint64_t depth = (8UL * sizeof(chr_t) + radix_log - 1) / radix_log;
+      std::uint64_t radix = (1UL << radix_log);
+      std::uint64_t n_queues = depth * (radix - 1) + 1;
+      radix_heap_bufsize = ram_left / n_queues;
+    }
+  }
+#endif
+
+  // Print decided values.
+//  fprintf(stderr, "  Radix log = %lu\n", radix_log);
+//  fprintf(stderr, "  Radix buffer size = %lu\n", radix_heap_bufsize);
+
+  // Initialize radix heap.
+  typedef em_radix_heap<chr_t, saidx_t> radix_heap_type;
+  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
+      radix_heap_bufsize, minus_sufs_filename);
+
+  // Initialize reading of sorted star-suffixes.
+  typedef async_stream_reader<saidx_t> star_reader_type;
+  star_reader_type *star_reader = new star_reader_type(star_sufs_filename);
+
+  // Initialize writer of sorted minus-suffixes.
+  typedef async_stream_writer<saidx_t> minus_writer_type;
+  minus_writer_type *minus_writer = new minus_writer_type(minus_sufs_filename);
+
+  // Inducing of minus-suffixes follows.
+//  fprintf(stderr, "  Induce: ");
+  bool is_next_star_suffix = false;
+  chr_t next_star_suffix_bucket = 0;
+  if (!star_reader->empty()) {
+    is_next_star_suffix = true;
+    next_star_suffix_bucket = text[(std::uint64_t)star_reader->peek()];
+  }
+  radix_heap->push(text[text_length - 1], (saidx_t)(text_length - 1));
+  while (!radix_heap->empty() || is_next_star_suffix) {
+    // Process minus-suffixes.
+    while (!radix_heap->empty() && (!is_next_star_suffix ||
+          radix_heap->top_key() <= next_star_suffix_bucket)) {
+      std::pair<chr_t, saidx_t> p = radix_heap->extract_min();
+      chr_t ch = p.first;
+      saidx_t pos = p.second;
+      minus_writer->write(pos);
+      std::uint64_t pos_uint64 = pos;
+      if (pos_uint64 > 0 && text[pos_uint64 - 1] >= ch)
+        radix_heap->push(text[pos_uint64 - 1], (saidx_t)(pos_uint64 - 1));
+    }
+
+    // Process star-suffixes.
+    if (is_next_star_suffix) {
+      is_next_star_suffix = false;
+      while (!star_reader->empty()) {
+        std::uint64_t pos = star_reader->peek();
+        chr_t ch = text[pos];
+        if (ch == next_star_suffix_bucket) {
+          star_reader->read();
+          radix_heap->push(text[pos - 1], (saidx_t)(pos - 1));
+        } else {
+          is_next_star_suffix = true;
+          next_star_suffix_bucket = ch;
+          break;
+        }
+      }
+    }
+  }
+
+  // Update I/O volume.
+  std::uint64_t io_volume = star_reader->bytes_read() +
+    minus_writer->bytes_written() + radix_heap->io_volume();
+  total_io_volume += io_volume;
+
+  // Clean up.
+  delete star_reader;
+  delete minus_writer;
+  delete radix_heap;
+
+  // Print summary.
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "  time = %.2Lfs, I/O = %.2LfMiB/s, "
+//      "total I/O vol = %.2Lfn\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time,
+//      (1.L * total_io_volume) / text_length);
+}
+
+#endif  // __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED

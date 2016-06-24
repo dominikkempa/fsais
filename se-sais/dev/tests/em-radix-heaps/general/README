@@ -1,2 +1,0 @@
-note: that after a queue has been emptied in redistribute() we should delete the temp file for the queue. How to best do it?
-delete and create new queue object, or add a method to the queue, that deletes a file?
