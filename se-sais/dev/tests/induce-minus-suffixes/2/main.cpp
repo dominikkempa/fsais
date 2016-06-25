@@ -120,8 +120,8 @@ int main() {
   srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1UL << 15); max_length *= 2)
-    for (std::uint64_t ram_use = 1; ram_use <= (1UL << 13); ram_use = std::max(ram_use + 1, (ram_use * 5 + 3) / 4))
-      for (std::uint64_t buffer_size = 1; buffer_size <= (1UL << 13); buffer_size = std::max(buffer_size + 1, (buffer_size * 5 + 3) / 4))
+    for (std::uint64_t ram_use = 1; ram_use <= (1UL << 10); ram_use = std::max(ram_use + 1, (ram_use * 5 + 3) / 4))
+      for (std::uint64_t buffer_size = 1; buffer_size <= (1UL << 10); buffer_size = std::max(buffer_size + 1, (buffer_size * 5 + 3) / 4))
         test(20, max_length, ram_use, buffer_size);
 
   fprintf(stderr, "All tests passed.\n");

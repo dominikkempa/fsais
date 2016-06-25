@@ -15,7 +15,7 @@
 
 template<typename chr_t, typename saidx_t>
 void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
-    std::uint64_t ram_use, std::string star_sufs_filename,
+    std::uint64_t ram_use, std::string plus_sufs_filename,
     std::string minus_sufs_filename, std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize = (1UL << 20)) {
   if (ram_use <= text_length * sizeof(chr_t)) {
@@ -59,9 +59,9 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
   radix_heap_type *radix_heap = new radix_heap_type(radix_log,
       radix_heap_bufsize, minus_sufs_filename);
 
-  // Initialize reading of sorted star-suffixes.
-  typedef async_stream_reader<saidx_t> star_reader_type;
-  star_reader_type *star_reader = new star_reader_type(star_sufs_filename);
+  // Initialize reading of sorted plus-suffixes.
+  typedef async_stream_reader<saidx_t> plus_reader_type;
+  plus_reader_type *plus_reader = new plus_reader_type(plus_sufs_filename);
 
   // Initialize writer of sorted minus-suffixes.
   typedef async_stream_writer<saidx_t> minus_writer_type;
@@ -69,17 +69,17 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
 
   // Inducing of minus-suffixes follows.
 //  fprintf(stderr, "  Induce: ");
-  bool is_next_star_suffix = false;
-  chr_t next_star_suffix_bucket = 0;
-  if (!star_reader->empty()) {
-    is_next_star_suffix = true;
-    next_star_suffix_bucket = text[(std::uint64_t)star_reader->peek()];
+  bool is_next_plus_suffix = false;
+  chr_t next_plus_suffix_bucket = 0;
+  if (!plus_reader->empty()) {
+    is_next_plus_suffix = true;
+    next_plus_suffix_bucket = text[(std::uint64_t)plus_reader->peek()];
   }
   radix_heap->push(text[text_length - 1], (saidx_t)(text_length - 1));
-  while (!radix_heap->empty() || is_next_star_suffix) {
+  while (!radix_heap->empty() || is_next_plus_suffix) {
     // Process minus-suffixes.
-    while (!radix_heap->empty() && (!is_next_star_suffix ||
-          radix_heap->top_key() <= next_star_suffix_bucket)) {
+    while (!radix_heap->empty() && (!is_next_plus_suffix ||
+          radix_heap->top_key() <= next_plus_suffix_bucket)) {
       std::pair<chr_t, saidx_t> p = radix_heap->extract_min();
       chr_t ch = p.first;
       saidx_t pos = p.second;
@@ -89,18 +89,18 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
         radix_heap->push(text[pos_uint64 - 1], (saidx_t)(pos_uint64 - 1));
     }
 
-    // Process star-suffixes.
-    if (is_next_star_suffix) {
-      is_next_star_suffix = false;
-      while (!star_reader->empty()) {
-        std::uint64_t pos = star_reader->peek();
+    // Process plus-suffixes.
+    if (is_next_plus_suffix) {
+      is_next_plus_suffix = false;
+      while (!plus_reader->empty()) {
+        std::uint64_t pos = plus_reader->peek();
         chr_t ch = text[pos];
-        if (ch == next_star_suffix_bucket) {
-          star_reader->read();
+        if (ch == next_plus_suffix_bucket) {
+          plus_reader->read();
           radix_heap->push(text[pos - 1], (saidx_t)(pos - 1));
         } else {
-          is_next_star_suffix = true;
-          next_star_suffix_bucket = ch;
+          is_next_plus_suffix = true;
+          next_plus_suffix_bucket = ch;
           break;
         }
       }
@@ -108,12 +108,12 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
   }
 
   // Update I/O volume.
-  std::uint64_t io_volume = star_reader->bytes_read() +
+  std::uint64_t io_volume = plus_reader->bytes_read() +
     minus_writer->bytes_written() + radix_heap->io_volume();
   total_io_volume += io_volume;
 
   // Clean up.
-  delete star_reader;
+  delete plus_reader;
   delete minus_writer;
   delete radix_heap;
 
