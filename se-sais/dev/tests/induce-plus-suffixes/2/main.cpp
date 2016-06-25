@@ -50,7 +50,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t ram
       writer_type *writer = new writer_type(minus_sufs_filename);
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
-        if (suf_type[s] == 0)
+        // BOTH WORK:
+        // if (suf_type[s] == 0)
+        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)
           writer->write((saidx_tt)s);
       }
       delete writer;

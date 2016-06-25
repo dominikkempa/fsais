@@ -48,7 +48,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       writer_type *writer = new writer_type(star_sufs_filename);
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
-        if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
+        // BOTH WORK:
+        // if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
+        if (suf_type[s] == 1)
           writer->write((saidx_tt)s);
       }
       delete writer;

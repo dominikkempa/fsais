@@ -98,7 +98,8 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
         chr_t ch = text[pos];
         if (ch == next_plus_suffix_bucket) {
           plus_reader->read();
-          radix_heap->push(text[pos - 1], (saidx_t)(pos - 1));
+          if (pos > 0 && text[pos - 1] > ch)
+            radix_heap->push(text[pos - 1], (saidx_t)(pos - 1));
         } else {
           is_next_plus_suffix = true;
           next_plus_suffix_bucket = ch;
