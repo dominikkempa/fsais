@@ -20,7 +20,7 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
     std::string sa_filename, std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize = (1UL << 20)) {
   if (ram_use <= text_length * sizeof(chr_t)) {
-    fprintf(stderr, "induce_minus_suffixes: indufficient ram_use\n");
+    fprintf(stderr, "induce_minus_suffixes: insufficient ram_use\n");
     std::exit(EXIT_FAILURE);
   }
 

@@ -79,14 +79,14 @@ void induce_plus_suffixes(const chr_t *text, std::uint64_t text_length,
   while (!radix_heap->empty() || is_next_minus_suffix) {
     // Process plus-suffixes.
     while (!radix_heap->empty() && (!is_next_minus_suffix ||
-          (std::numeric_limits<chr_t>::max() - 1 - radix_heap->top_key()) >= next_minus_suffix_bucket)) {
+          (std::numeric_limits<chr_t>::max() - radix_heap->top_key()) >= next_minus_suffix_bucket)) {
       std::pair<chr_t, saidx_t> p = radix_heap->extract_min();
-      chr_t ch = std::numeric_limits<chr_t>::max() - 1 - p.first;
+      chr_t ch = std::numeric_limits<chr_t>::max() - p.first;
       saidx_t pos = p.second;
       plus_writer->write(pos);
       std::uint64_t pos_uint64 = pos;
       if (pos_uint64 > 0 && text[pos_uint64 - 1] <= ch)
-        radix_heap->push(std::numeric_limits<chr_t>::max() - 1 - text[pos_uint64 - 1], (saidx_t)(pos_uint64 - 1));
+        radix_heap->push(std::numeric_limits<chr_t>::max() - text[pos_uint64 - 1], (saidx_t)(pos_uint64 - 1));
     }
 
     // Process minus-suffixes.
@@ -98,7 +98,7 @@ void induce_plus_suffixes(const chr_t *text, std::uint64_t text_length,
         if (ch == next_minus_suffix_bucket) {
           minus_reader->read();
           if (pos > 0 && text[pos - 1] < ch)
-            radix_heap->push(std::numeric_limits<chr_t>::max() - 1 - text[pos - 1], (saidx_t)(pos - 1));
+            radix_heap->push(std::numeric_limits<chr_t>::max() - text[pos - 1], (saidx_t)(pos - 1));
         } else {
           is_next_minus_suffix = true;
           next_minus_suffix_bucket = ch;
