@@ -13,7 +13,7 @@
 #include "io/async_stream_writer.hpp"
 
 
-template<typename T>
+/*template<typename T>
 struct radix_heap_item {
   T m_pos;
   T m_name;
@@ -29,7 +29,7 @@ struct radix_heap_item {
     m_name = name;
     m_type = type;
   }
-} __attribute__ ((packed));
+} __attribute__ ((packed));*/
 
 template<typename chr_t, typename saidx_t>
 void induce_minus_star_substrings(const chr_t *text, std::uint64_t text_length,
@@ -79,7 +79,7 @@ void induce_minus_star_substrings(const chr_t *text, std::uint64_t text_length,
       radix_heap_bufsize, minus_star_substrings_filename);
 
   // Initialize reading of sorted plus-substrings.
-  typedef async_stream_reader<saidx_t> plus_reader_type;
+  typedef async_backward_stream_reader<saidx_t> plus_reader_type;
   plus_reader_type *plus_reader = new plus_reader_type(plus_substrings_filename);
 
   // Initialize writer of sorted minus-star-substrings.

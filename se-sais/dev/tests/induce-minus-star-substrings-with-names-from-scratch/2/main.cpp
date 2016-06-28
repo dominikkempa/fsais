@@ -7,8 +7,9 @@
 #include <ctime>
 #include <unistd.h>
 
-//#include "induce_minus_substrings.hpp"
+#include "induce_plus_star_substrings.hpp"
 #include "induce_minus_star_substrings.hpp"
+
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "utils.hpp"
@@ -45,13 +46,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t ram
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
-//    fprintf(stderr, "\n\nNEWTEST:\n");
     if (testid % 100 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, 255L);
-      //text[j] = 'a' + utils::random_int64(0L, 25L);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
     for (std::uint64_t i = text_length; i > 0; --i) {
@@ -63,49 +62,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t ram
       }
     }
 
-    std::vector<bool> is_leftmost_suffix(text_length, false);
-    for (std::uint64_t j = 0; j < text_length; ++j)
-      if (j > 0 && suf_type[j] != suf_type[j - 1])
-        is_leftmost_suffix[j] = true;
-
-    std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
+    // Write starting positions of all minus-star-substrings to file.
+    std::string minus_star_positions_filename = "tmp." + utils::random_string_hash();
     {
-      // Create a list of plus-substrings.
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-//        if (/*j > 0 &&*/ suf_type[j] == 1 /*&& is_leftmost_suffix[j]*/) {  // the check for is_leftmost_suffix is optional
-        if (j > 0 && suf_type[j] == 1 && is_leftmost_suffix[j]) {  // the check for is_leftmost_suffix is optional
-          std::string s;
-          s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 1)
-            s += text[end++];
-          if (end < text_length) 
-            s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-
-      // Sort the list.
-      {
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-      }
-
-      // Write the list to file.
-      {
-        typedef async_stream_writer<saidx_tt> writer_type;
-        writer_type *writer = new writer_type(plus_substrings_filename);
-        std::uint64_t diff_items_counter = 0;
-        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
-            ++diff_items_counter;
-
-          writer->write((saidx_tt)substrings[j].m_beg);
-          writer->write((saidx_tt)(diff_items_counter - 1));
-        }
-        delete writer;
-      }
+      typedef async_stream_writer<saidx_tt> writer_type;
+      writer_type *writer = new writer_type(minus_star_positions_filename);
+      for (std::uint64_t i = 0; i < text_length; ++i)
+        if (i > 0 && suf_type[i] == 0 && suf_type[i - 1] == 1)
+          writer->write((saidx_tt)i);
+      delete writer;
     }
 
     // Create a vector with all minus-star-substring
@@ -146,16 +111,21 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t ram
     }
 
     // Run the tested algorithm.
+    std::string plus_star_substrings_filename = "tmp." + utils::random_string_hash();
     std::string minus_star_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
+
+    induce_plus_star_substrings<chr_t, saidx_tt>(text, text_length,
+        text_length * sizeof(chr_t) + ram_use,
+        minus_star_positions_filename, plus_star_substrings_filename,
+        total_io_volume, buffer_size);
+    utils::file_delete(minus_star_positions_filename);
     induce_minus_star_substrings<chr_t, saidx_tt>(text, text_length,
         text_length * sizeof(chr_t) + ram_use,
-        plus_substrings_filename, minus_star_substrings_filename,
+        plus_star_substrings_filename, minus_star_substrings_filename,
         total_io_volume, buffer_size);
+    utils::file_delete(plus_star_substrings_filename);
 
-    // Delete sorted star suffixes.
-    utils::file_delete(plus_substrings_filename);
-    
     // Read the computed output into vector.
     std::vector<saidx_tt> v_computed;
     std::vector<saidx_tt> v_computed_names;
