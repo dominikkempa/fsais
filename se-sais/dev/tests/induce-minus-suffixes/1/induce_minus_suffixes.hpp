@@ -80,7 +80,7 @@ void induce_minus_suffixes(const chr_t *text, std::uint64_t text_length,
   while (!radix_heap->empty() || is_next_plus_suffix) {
     // Process minus-suffixes.
     while (!radix_heap->empty() && (!is_next_plus_suffix ||
-          radix_heap->top_key() <= next_plus_suffix_bucket)) {
+          radix_heap->min_compare(next_plus_suffix_bucket))) {
       std::pair<chr_t, saidx_t> p = radix_heap->extract_min();
       chr_t ch = p.first;
       saidx_t pos = p.second;

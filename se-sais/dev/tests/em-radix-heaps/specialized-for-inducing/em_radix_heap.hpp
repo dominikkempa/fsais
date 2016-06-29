@@ -30,7 +30,7 @@ class em_radix_heap {
     std::uint64_t m_size;
     std::uint64_t m_key_lower_bound;
     std::uint64_t m_cur_bottom_level_queue_ptr;
-    std::uint64_t m_min_compare_ptr;
+    std::uint64_t m_aux_bottom_level_queue_ptr;
     std::uint64_t m_radix_log;
     std::uint64_t m_radix;
     std::uint64_t m_radix_mask;
@@ -47,7 +47,7 @@ class em_radix_heap {
       m_size = 0;
       m_key_lower_bound = 0;
       m_cur_bottom_level_queue_ptr = 0;
-      m_min_compare_ptr = 0;
+      m_aux_bottom_level_queue_ptr = 0;
       m_radix_log = radix_log;
       m_radix = (1UL << m_radix_log);
       m_radix_mask = m_radix - 1;
@@ -76,38 +76,51 @@ class em_radix_heap {
       return queue_id;
     }
 
+    inline key_type top_key_private() {
+      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+        redistribute();
+      return m_queues[m_cur_bottom_level_queue_ptr]->front().first;
+    }
+
+    inline value_type& top_value_private() {
+      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+        redistribute();
+      return m_queues[m_cur_bottom_level_queue_ptr]->front().second;
+    }
+
+    inline void pop() {
+      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+        redistribute();
+      --m_size;
+      m_queues[m_cur_bottom_level_queue_ptr]->pop();
+      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+        m_queues[m_cur_bottom_level_queue_ptr]->reset_file();
+    }
+
   public:
     inline void push(key_type key, value_type value) {
       ++m_size;
       std::uint64_t id = get_queue_id(key);
       m_queues[id]->push(std::make_pair(key, value));
       m_queue_min[id] = std::min(m_queue_min[id], (std::uint64_t)key);
-      m_min_compare_ptr = std::min(m_min_compare_ptr, id);
+      m_aux_bottom_level_queue_ptr = std::min(m_aux_bottom_level_queue_ptr, id);
     }
 
-    // Return true iff x <= key, where x is the
-    // smallest element currently stored in the heap.
-    inline bool min_compare(value_type key) {
+    inline bool is_top_key_leq(value_type key) {
       if (empty()) return false;
-      if (!m_queues[m_min_compare_ptr]->empty())
-        return (m_queue_min[m_min_compare_ptr] <= (std::uint64_t)key);
+      if (!m_queues[m_aux_bottom_level_queue_ptr]->empty())
+        return (m_queue_min[m_aux_bottom_level_queue_ptr] <= (std::uint64_t)key);
       std::uint64_t id = get_queue_id(key);
-      while (m_min_compare_ptr != id && m_queues[m_min_compare_ptr]->empty())
-        ++m_min_compare_ptr;
-      return (!m_queues[m_min_compare_ptr]->empty() &&
-          m_queue_min[m_min_compare_ptr] <= (std::uint64_t)key);
+      while (m_aux_bottom_level_queue_ptr != id && m_queues[m_aux_bottom_level_queue_ptr]->empty())
+        ++m_aux_bottom_level_queue_ptr;
+      return (!m_queues[m_aux_bottom_level_queue_ptr]->empty() &&
+          m_queue_min[m_aux_bottom_level_queue_ptr] <= (std::uint64_t)key);
     }
 
-    // Remove and return the item with the smallest key.
     inline std::pair<key_type, value_type> extract_min() {
-      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
-        redistribute();
-      key_type key = m_queues[m_cur_bottom_level_queue_ptr]->front().first;
-      value_type value = m_queues[m_cur_bottom_level_queue_ptr]->front().second;
-      m_queues[m_cur_bottom_level_queue_ptr]->pop();
-      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
-        m_queues[m_cur_bottom_level_queue_ptr]->reset_file();
-      --m_size;
+      key_type key = top_key_private();
+      value_type value = top_value_private();
+      pop();
       return std::make_pair(key, value);
     }
 
@@ -162,7 +175,7 @@ class em_radix_heap {
         m_queues[id]->reset_file();
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
-      m_min_compare_ptr = m_cur_bottom_level_queue_ptr;
+      m_aux_bottom_level_queue_ptr = m_cur_bottom_level_queue_ptr;
     }
 };
 
