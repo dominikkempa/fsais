@@ -87,7 +87,7 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
         std::uint8_t key = utils::random_int64(0L, (std::int64_t)max_key);
 //        fprintf(stderr, "IS-TOP-KEY-LEQ(%lu)\n", (std::uint64_t)key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
@@ -151,7 +151,7 @@ void test<std::uint16_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
       } else if (op == 1) { // is_top_key_leq
         std::uint16_t key = utils::random_int64(0L, (std::int64_t)max_key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
@@ -214,7 +214,7 @@ void test<std::uint32_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
       } else if (op == 1) { // is_top_key_leq
         std::uint32_t key = utils::random_int64(0L, (std::int64_t)max_key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
@@ -276,7 +276,7 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
       } else if (op == 1) { // is_top_key_leq
         uint40 key = utils::random_int64(0L, (std::int64_t)max_key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
@@ -338,7 +338,7 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
       } else if (op == 1) { // is_top_key_leq
         uint48 key = utils::random_int64(0L, (std::int64_t)max_key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
@@ -400,7 +400,7 @@ void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
       } else if (op == 1) { // is_top_key_leq
         std::uint64_t key = utils::random_int64(0L, (std::int64_t)max_key);
         bool correct_ans = (!v.empty() && v[0].first <= key);
-        bool ans = heap->is_top_key_leq(key);
+        bool ans = heap->min_compare(key);
         if (correct_ans != ans) {
           fprintf(stderr, "Error:\n");
           fprintf(stderr, "  key = %lu\n", (std::uint64_t)key);
