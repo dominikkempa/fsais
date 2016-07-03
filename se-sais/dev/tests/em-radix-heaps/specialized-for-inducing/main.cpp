@@ -95,7 +95,7 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
 //          fprintf(stderr, "EXTRACT-MIN\n");
@@ -159,7 +159,7 @@ void test<std::uint16_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
           std::pair<std::uint16_t, std::uint64_t> pp = heap->extract_min();
@@ -222,7 +222,7 @@ void test<std::uint32_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
           std::pair<std::uint32_t, std::uint64_t> pp = heap->extract_min();
@@ -284,7 +284,7 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
           std::pair<uint40, std::uint64_t> pp = heap->extract_min();
@@ -346,7 +346,7 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
           std::pair<uint48, std::uint64_t> pp = heap->extract_min();
@@ -408,7 +408,7 @@ void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
           fprintf(stderr, "  returned is_top_key_leq = %lu\n", (std::uint64_t)ans);
           std::exit(EXIT_FAILURE);
         }
-        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
+//        min_heap_elem = std::max(min_heap_elem, (std::uint64_t)key);
       } else {  // extract_min
         if (v.empty() == false) {
           std::pair<std::uint64_t, std::uint64_t> pp = heap->extract_min();
