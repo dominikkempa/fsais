@@ -26,7 +26,6 @@ class ram_queue {
 
   public:
     ram_queue(std::uint64_t max_size) {
-//      fprintf(stderr, "  ram_queue(%lu)\n", max_size);
       set_empty();
       m_max_size = max_size;
       m_data = (value_type *)malloc(max_size * sizeof(value_type));
@@ -144,7 +143,6 @@ class em_manager {
       for (std::uint64_t i = 0; i < n_queues; ++i)
         m_queues.push_back(new ram_queue_type(queue->get_items_per_ram_queue()));
       m_em_queue = queue;
-//      fprintf(stderr, "  m_queues.size() = %lu\n", m_queues.size());
     }
 
     void flush_latest_needed_queue() {
@@ -155,13 +153,10 @@ class em_manager {
     }
 
     ram_queue_type *get_free_ram_queue() {
-//      fprintf(stderr, "  get_free_ram_queue():");
       if (m_queues.empty())
         flush_latest_needed_queue();
-//      fprintf(stderr, "  obtaining the result from the back\n");
       ram_queue_type *result = m_queues.back();
       m_queues.pop_back();
-//      fprintf(stderr, "  about to return result\n");
       return result;
     }
 
