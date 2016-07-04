@@ -443,7 +443,7 @@ void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
 }
 
 void run_tests(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t bufsize, std::uint64_t em_ram_queues) {
-  for (std::uint64_t max_key = /*1*/255; max_key <= /*250*/255;           max_key *= 2) test<std::uint8_t>(radix_log,  testcases, max_operations, max_key, bufsize, em_ram_queues);
+  for (std::uint64_t max_key = 1; max_key <= 256;           max_key *= 2) test<std::uint8_t>(radix_log,  testcases, max_operations, std::min(255UL, max_key), bufsize, em_ram_queues);
 //  for (std::uint64_t max_key = 1; max_key <= 64000;         max_key *= 2) test<std::uint16_t>(radix_log, testcases, max_operations, max_key, bufsize, em_ram_queues);
 //  for (std::uint64_t max_key = 1; max_key <= 4000000000;    max_key *= 2) test<std::uint32_t>(radix_log, testcases, max_operations, max_key, bufsize, em_ram_queues);
 //  for (std::uint64_t max_key = 1; max_key <= 1000000000000; max_key *= 2) test<uint40>(radix_log,        testcases, max_operations, max_key, bufsize, em_ram_queues);
