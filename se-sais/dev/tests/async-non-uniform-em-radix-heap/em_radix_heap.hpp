@@ -537,18 +537,23 @@ class em_radix_heap {
         std::uint64_t ram_for_nonio_ram_queues = ram_use - k_io_queues * k_opt_single_queue_size_bytes;
         std::uint64_t n_ram_queues = ram_for_nonio_ram_queues / k_opt_single_queue_size_bytes;
         std::uint64_t items_per_ram_queue = std::max(1UL, k_opt_single_queue_size_bytes / sizeof(pair_type));
-        em_radix_heap(radix_logs, filename, n_ram_queues, items_per_ram_queue);
+        init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
       } else {
         // Not enough RAM to use optimal queue size. We shrink
         // the queue size and allocate only the required amount.
         std::uint64_t single_queue_size_bytes = ram_use / (required_ram_queues_count + k_io_queues);
         std::uint64_t n_ram_queues = required_ram_queues_count;
         std::uint64_t items_per_ram_queue = std::max(1UL, single_queue_size_bytes / sizeof(pair_type));
-        em_radix_heap(radix_logs, filename, n_ram_queues, items_per_ram_queue);
+        init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
       }
     }
 
     em_radix_heap(std::vector<std::uint64_t> radix_logs, std::string filename,
+        std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
+      init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
+    }
+
+    void init(std::vector<std::uint64_t> radix_logs, std::string filename,
         std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
       std::uint64_t radix_logs_sum = std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
       // Compute m_level_mask lookup table.

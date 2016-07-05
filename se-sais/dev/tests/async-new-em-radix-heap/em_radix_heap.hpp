@@ -534,18 +534,23 @@ class em_radix_heap {
         std::uint64_t ram_for_nonio_ram_queues = ram_use - k_io_queues * k_opt_single_queue_size_bytes;
         std::uint64_t n_ram_queues = ram_for_nonio_ram_queues / k_opt_single_queue_size_bytes;
         std::uint64_t items_per_ram_queue = std::max(1UL, k_opt_single_queue_size_bytes / sizeof(pair_type));
-        em_radix_heap(radix_log, filename, n_ram_queues, items_per_ram_queue);
+        init(radix_log, filename, n_ram_queues, items_per_ram_queue);
       } else {
         // Not enough RAM to use optimal queue size. We shrink
         // the queue size and allocate only the required amount.
         std::uint64_t single_queue_size_bytes = ram_use / (required_ram_queues_count + k_io_queues);
         std::uint64_t n_ram_queues = required_ram_queues_count;
         std::uint64_t items_per_ram_queue = std::max(1UL, single_queue_size_bytes / sizeof(pair_type));
-        em_radix_heap(radix_log, filename, n_ram_queues, items_per_ram_queue);
+        init(radix_log, filename, n_ram_queues, items_per_ram_queue);
       }
     }
 
     em_radix_heap(std::uint64_t radix_log, std::string filename,
+        std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
+      init(radix_log, filename, n_ram_queues, items_per_ram_queue);
+    }
+
+    void init(std::uint64_t radix_log, std::string filename,
         std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
       for (std::uint64_t i = 0; i < 64; ++i)
         m_div_ceil_radix_log[i] = (i + radix_log - 1) / radix_log;
@@ -579,7 +584,7 @@ class em_radix_heap {
       // Allocate collection of empty I/O queue.
       m_empty_io_queues = new ram_queue_collection_type(k_io_queues, items_per_ram_queue);
 
-      // Statrt I/O thread.
+      // Start I/O thread.
       m_io_thread = new std::thread(async_io_thread_code<key_type, value_type>, this);
     }
 
@@ -681,7 +686,6 @@ class em_radix_heap {
 
     inline std::uint64_t io_volume() const {
       std::uint64_t result = 0;
-      std::uint64_t m_depth = ((8UL * sizeof(key_type)) + m_radix_log - 1) / m_radix_log;
       for (std::uint64_t i = 0; i < m_em_queue_count; ++i)
         result += m_queues[i]->io_volume();
       return result;
