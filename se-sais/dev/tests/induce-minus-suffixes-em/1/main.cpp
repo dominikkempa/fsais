@@ -40,17 +40,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
-      // text[j] = utils::random_int64(0L, 255L);
-      text[j] = 'a' + utils::random_int64(0L, 25L);
+      text[j] = utils::random_int64(0L, 255L);
     divsufsort(text, (std::int32_t *)sa, text_length);
     std::uint64_t max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
     std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-
-/*    fprintf(stderr, "text = ");
-    for (std::uint64_t j = 0; j < text_length; ++j)
-      fprintf(stderr, "%c", text[j]);
-    fprintf(stderr, "\n");
-    fprintf(stderr, "max_block_size = %lu, n_blocks = %lu\n", max_block_size, n_blocks);*/
 
     for (std::uint64_t i = text_length; i > 0; --i) {
       if (i == text_length) suf_type[i - 1] = 0;              // minus
@@ -61,32 +54,18 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
-/*    fprintf(stderr, "T B SA:\n");
-    for (std::uint64_t j = 0; j < text_length; ++j) {
-      std::uint64_t s = sa[j];
-      fprintf(stderr, "%c %c %lu ", (suf_type[s] == 0 ? '-' : '+'), (s == 0 ? '.' : text[s - 1]), (std::uint64_t)sa[j]);
-      for (std::uint64_t t = s; t < text_length; ++t)
-        fprintf(stderr, "%c", text[t]);
-      fprintf(stderr, "\n");
-    }*/
-
-//    fprintf(stderr, "plus_type_filename: ");
     std::string plus_type_filename = "tmp." + utils::random_string_hash();
     {
       typedef async_bit_stream_writer bit_writer_type;
       bit_writer_type *bit_writer = new bit_writer_type(plus_type_filename);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 1) {
+        if (suf_type[s] == 1)
           bit_writer->write((s > 0) && (suf_type[s - 1] == 0));
-//          fprintf(stderr, "%lu ", (std::uint64_t)((s > 0) && (suf_type[s - 1] == 0)));
-        }
       }
       delete bit_writer;
     }
-//    fprintf(stderr, "\n");
 
-//    fprintf(stderr, "plus_count_filename: ");
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
     {
       typedef async_stream_writer<std::uint8_t> writer_type;
@@ -99,31 +78,24 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (suf_type[sa[end]] == 1) ++plus_count;
           ++end;
         }
-//        fprintf(stderr, "%lu ", plus_count);
         encode_vbyte_to_stream<std::uint64_t, writer_type>(plus_count, writer);
         beg = end;
       }
       delete writer;
     }
-//    fprintf(stderr, "\n");
 
-//    fprintf(stderr, "plus_symbols_filename: ");
     std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
     {
       typedef async_stream_writer<chr_t> writer_type;
       writer_type *writer = new writer_type(plus_symbols_filename);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 0) {
+        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 0)
           writer->write(text[s - 1]);
-//          fprintf(stderr, "%c", text[s - 1]);
-        }
       }
       delete writer;
     }
-//    fprintf(stderr, "\n");
 
-//    fprintf(stderr, "minus_symbols_filenames:\n");
     std::vector<std::string> minus_symbols_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
@@ -139,7 +111,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 0) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write(text[s - 1]);
-//          fprintf(stderr, "  %lu -> %c\n", block_id, text[s - 1]);
         }
       }
       for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -147,7 +118,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete[] writers;
     }
 
-//    fprintf(stderr, "minus_type_filenames:\n");
     std::vector<std::string> minus_type_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
@@ -164,7 +134,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           std::uint64_t block_id = s / max_block_size;
           std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 1);
           writers[block_id]->write(is_star);
-//          fprintf(stderr, "  %lu -> %lu\n", block_id, (std::uint64_t)is_star);
         }
       }
       for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -172,7 +141,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete[] writers;
     }
 
-//    fprintf(stderr, "minus_pos_filenames:\n");
     std::vector<std::string> minus_pos_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
@@ -188,7 +156,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         if (suf_type[s] == 0) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write((saidx_tt)s);
-//          fprintf(stderr, "  %lu -> %lu\n", block_id, (std::uint64_t)s);
         }
       }
       for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -197,7 +164,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Write all lex-sorted star suffixes to file.
-//    fprintf(stderr, "plus_pos_filename: ");
     std::string plus_pos_filename = "tmp." + utils::random_string_hash();
     {
       typedef async_stream_writer<saidx_tt> writer_type;
@@ -206,14 +172,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::uint64_t s = sa[i];
         // BOTH WORK:
         // if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
-        if (suf_type[s] == 1) {
+        if (suf_type[s] == 1)
           writer->write((saidx_tt)s);
-//          fprintf(stderr, "%lu ", (std::uint64_t)s);
-        }
       }
       delete writer;
     }
-//    fprintf(stderr, "\n");
 
     // Create a vector with all minus-suffixes (i.e., correct answer).
     std::vector<saidx_tt> v;
