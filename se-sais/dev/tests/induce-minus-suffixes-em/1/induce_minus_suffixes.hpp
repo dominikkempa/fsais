@@ -29,9 +29,9 @@ void induce_minus_suffixes(std::uint64_t text_length,
     std::string plus_type_filename,     // type (1 = star, 0 = not star)
     std::string plus_count_filename,    // number of plus sufs starting with each letter
     std::string plus_symbols_filename,  // preceding symbols for plus suffixes
-    std::vector<std::string> minus_symbols_filenames,  // one file per block
-    std::vector<std::string> minus_type_filenames,     // one file per block
-    std::vector<std::string> minus_pos_filenames) {    // one file per block
+    std::vector<std::string> &minus_symbols_filenames,  // one file per block
+    std::vector<std::string> &minus_type_filenames,     // one file per block
+    std::vector<std::string> &minus_pos_filenames) {    // one file per block
 
   // Initialize radix heap.
   typedef em_radix_heap<chr_t, blockidx_t> radix_heap_type;
@@ -70,7 +70,7 @@ void induce_minus_suffixes(std::uint64_t text_length,
   while (!plus_count_reader->empty() || !radix_heap->empty()) {
     // Process minus suffixes.
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
-      std::pair<chr_t, saidx_t> p = radix_heap->extract_min();
+      std::pair<chr_t, blockidx_t> p = radix_heap->extract_min();
       std::uint64_t block_id = p.second;
       saidx_t pos = minus_pos_reader->read_from_ith_file(block_id);
       std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
