@@ -112,7 +112,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         writers[j] = new writer_type(plus_symbols_filenames[j]);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 1) {
+        if (s > 0 && suf_type[s] == 1) {
+//        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 1) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write(text[s - 1]);
         }
@@ -188,13 +189,24 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         v.push_back((saidx_tt)s);
     }
 
+    // Compute preceding symbols of plus-star suffixes (in
+    // rev order), i.e., the second part of correct answer.
+    std::vector<chr_t> v2;
+    for (std::uint64_t i = text_length; i > 0; --i) {
+      std::uint64_t s = sa[i - 1];
+      if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
+        v2.push_back(text[s - 1]);
+    }
+
     // Run the tested algorithm.
-    std::string output_filename = "tmp." + utils::random_string_hash();
+    std::string output_pos_filename = "tmp." + utils::random_string_hash();
+    std::string output_symbols_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     induce_plus_suffixes<chr_t, saidx_tt>(text_length,
-        minus_sufs_filename, output_filename, total_io_volume,
-        radix_heap_bufsize, radix_log, max_block_size, 255,
-        minus_count_filename, minus_symbols_filename,
+        minus_sufs_filename, output_pos_filename,
+        output_symbols_filename, total_io_volume,
+        radix_heap_bufsize, radix_log, max_block_size,
+        255, minus_count_filename, minus_symbols_filename,
         plus_symbols_filenames, plus_type_filenames,
         plus_pos_filenames);
 
@@ -212,19 +224,29 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::vector<saidx_tt> v_computed;
     {
       typedef async_backward_stream_reader<saidx_tt> reader_type;
-      reader_type *reader = new reader_type(output_filename);
+      reader_type *reader = new reader_type(output_pos_filename);
       while (!reader->empty())
         v_computed.push_back(reader->read());
       delete reader;
     }
 
-    // Delete output file.
-    utils::file_delete(output_filename);
+    std::vector<chr_t> v2_computed;
+    {
+      typedef async_stream_reader<chr_t> reader_type;
+      reader_type *reader = new reader_type(output_symbols_filename);
+      while (!reader->empty())
+        v2_computed.push_back(reader->read());
+      delete reader;
+    }
+
+    // Delete output files.
+    utils::file_delete(output_pos_filename);
+    utils::file_delete(output_symbols_filename);
 
     // Compare answer.
     bool ok = true;
-    if (v.size() != v_computed.size()) ok = false;
-    else if (!std::equal(v.begin(), v.end(), v_computed.begin())) ok = false;
+    if (v.size() != v_computed.size() || v2.size() != v2_computed.size()) ok = false;
+    else if (!std::equal(v.begin(), v.end(), v_computed.begin()) || !std::equal(v2.begin(), v2.end(), v2_computed.begin())) ok = false;
     if (!ok) {
       fprintf(stderr, "Error:\n");
       fprintf(stderr, "  text: ");

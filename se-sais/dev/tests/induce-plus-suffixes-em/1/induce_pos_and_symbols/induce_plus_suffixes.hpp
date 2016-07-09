@@ -18,7 +18,9 @@
 template<typename chr_t, typename saidx_t, typename blockidx_t = std::uint16_t>
 void induce_plus_suffixes(std::uint64_t text_length,
     std::string minus_sufs_filename,
-    std::string output_filename, std::uint64_t &total_io_volume,
+    std::string output_pos_filename,
+    std::string output_symbols_filename,
+    std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize, std::uint64_t radix_log,
     std::uint64_t max_block_size,
     chr_t max_char, std::string minus_count_filename,
@@ -55,8 +57,10 @@ void induce_plus_suffixes(std::uint64_t text_length,
   minus_reader_type *minus_reader = new minus_reader_type(minus_sufs_filename);
 
   // Initialize writer of sorted plus-suffixes.
-  typedef async_stream_writer<saidx_t> output_writer_type;
-  output_writer_type *output_writer = new output_writer_type(output_filename);
+  typedef async_stream_writer<saidx_t> output_pos_writer_type;
+  typedef async_stream_writer<chr_t> output_symbols_writer_type;
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
+  output_symbols_writer_type *output_symbols_writer = new output_symbols_writer_type(output_symbols_filename);
 
   // Induce plus suffixes.
   chr_t cur_char = max_char;
@@ -66,15 +70,25 @@ void induce_plus_suffixes(std::uint64_t text_length,
       std::pair<chr_t, blockidx_t> p = radix_heap->extract_min();
       std::uint64_t block_id = p.second;
       saidx_t pos = plus_pos_reader->read_from_ith_file(block_id);
-      output_writer->write(pos);
+      output_pos_writer->write(pos);
       std::uint64_t pos_uint64 = pos;
       std::uint8_t is_star = plus_type_reader->read_from_ith_file(block_id);
+#if 0
       if (pos_uint64 > 0 && !is_star) {
         chr_t prev_ch = plus_symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos_uint64) ?
           block_id - 1 : block_id;
         radix_heap->push(std::numeric_limits<chr_t>::max() - prev_ch, prev_pos_block_id);
       }
+#else
+      if (pos_uint64 > 0) {
+        chr_t prev_ch = plus_symbols_reader->read_from_ith_file(block_id);
+        if (!is_star) {
+          std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos_uint64) ? block_id - 1 : block_id;
+          radix_heap->push(std::numeric_limits<chr_t>::max() - prev_ch, prev_pos_block_id);
+        } else  output_symbols_writer->write(prev_ch);
+      }
+#endif
     }
 
     // Process minus suffixes.
@@ -92,16 +106,17 @@ void induce_plus_suffixes(std::uint64_t text_length,
 
   // Update I/O volume.
   std::uint64_t io_volume = minus_reader->bytes_read() +
-    output_writer->bytes_written() + radix_heap->io_volume() +
-    minus_count_reader->bytes_read() + minus_symbols_reader->bytes_read() +
-    plus_symbols_reader->bytes_read() + plus_type_reader->bytes_read() +
-    plus_pos_reader->bytes_read();
+    output_pos_writer->bytes_written() + output_symbols_writer->bytes_written() +
+    radix_heap->io_volume() + minus_count_reader->bytes_read() +
+    minus_symbols_reader->bytes_read() + plus_symbols_reader->bytes_read() +
+    plus_type_reader->bytes_read() + plus_pos_reader->bytes_read();
   total_io_volume += io_volume;
 
   // Clean up.
   delete radix_heap;
   delete minus_reader;
-  delete output_writer;
+  delete output_pos_writer;
+  delete output_symbols_writer;
   delete minus_count_reader;
   delete minus_symbols_reader;
   delete plus_symbols_reader;
