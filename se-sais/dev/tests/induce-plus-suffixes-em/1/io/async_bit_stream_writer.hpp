@@ -81,6 +81,7 @@ class async_bit_stream_writer {
 
     ~async_bit_stream_writer() {
       // Write the partially filled active buffer to disk.
+      std::uint64_t m_bit_pos_backup = m_bit_pos;
       if (m_bit_pos != 0) ++m_active_buf_filled;
       if (m_active_buf_filled > 0L)
         send_active_buf_to_write();
@@ -93,6 +94,9 @@ class async_bit_stream_writer {
 
       // Wait for the thread to finish.
       m_thread->join();
+
+      // Append the number of bits in the last 64-bit word to file.
+      utils::write_to_file(&m_bit_pos_backup, 1, m_file);
 
       // Clean up.
       delete m_thread;

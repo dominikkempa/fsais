@@ -2,153 +2,247 @@
 #define __ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
+#include <cstdint>
 #include <thread>
+#include <queue>
 #include <mutex>
 #include <condition_variable>
+#include <string>
 #include <algorithm>
 
 #include "../utils.hpp"
 
 
 template<typename value_type>
-struct async_backward_stream_reader {
-  template<typename T>
-  static void io_thread_code(async_backward_stream_reader<T> *reader) {
-    while (true) {
-      // Wait until the passive buffer is available.
-      std::unique_lock<std::mutex> lk(reader->m_mutex);
-      while (!(reader->m_avail) && !(reader->m_finished))
-        reader->m_cv.wait(lk);
+class async_backward_stream_reader {
+  private:
+    template<typename T>
+    struct buffer {
+      buffer(std::uint64_t size) {
+        m_size = size;
+        m_content = (T *)malloc(m_size * sizeof(T));
+        m_filled = 0;
+      }
 
-      if (!(reader->m_avail) && (reader->m_finished)) {
-        // We're done, terminate the thread.
+      void read_from_file(std::FILE *f, std::uint64_t n_items) {
+        m_filled = std::fread(m_content, sizeof(T), m_size, f);
+      }
+
+      std::uint64_t size_in_bytes() const {
+        return sizeof(T) * m_filled;
+      }
+
+      inline void set_empty() {
+        m_filled = 0;
+      }
+
+      ~buffer() {
+        free(m_content);
+      }
+
+      T *m_content;
+      std::uint64_t m_size;
+      std::uint64_t m_filled;
+    };
+
+    template<typename buffer_type>
+    struct buffer_queue {
+      buffer_queue(std::uint64_t n_buffers = 0, std::uint64_t items_per_buf = 0) {
+        m_signal_stop = false;
+        for (std::uint64_t i = 0; i < n_buffers; ++i)
+          m_queue.push(new buffer_type(items_per_buf));
+      }
+
+      ~buffer_queue() {
+        while (!m_queue.empty()) {
+          buffer_type *buf = m_queue.front();
+          m_queue.pop();
+          delete buf;
+        }
+      }
+
+      buffer_type *pop() {
+        buffer_type *ret = m_queue.front();
+        m_queue.pop();
+        return ret;
+      }
+
+      void push(buffer_type *buf) {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        m_queue.push(buf);
+      }
+
+      void send_stop_signal() {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        m_signal_stop = true;
+      }
+
+      inline bool empty() const { return m_queue.empty(); }
+
+      std::queue<buffer_type*> m_queue;
+      std::condition_variable m_cv;
+      std::mutex m_mutex;
+      bool m_signal_stop;
+    };
+
+  private:
+    typedef buffer<value_type> buffer_type;
+    typedef buffer_queue<buffer_type> buffer_queue_type;
+
+    buffer_queue_type *m_empty_buffers;
+    buffer_queue_type *m_full_buffers;
+
+  private:
+    template<typename T>
+    static void io_thread_code(async_backward_stream_reader<T> *caller) {
+      typedef buffer<T> buffer_type;
+      while (true) {
+        // Wait for an empty buffer (or a stop signal).
+        std::unique_lock<std::mutex> lk(caller->m_empty_buffers->m_mutex);
+        while (caller->m_empty_buffers->empty() &&
+            !(caller->m_empty_buffers->m_signal_stop))
+          caller->m_empty_buffers->m_cv.wait(lk);
+
+        if (caller->m_empty_buffers->empty()) {
+          // We received the stop signal -- exit.
+          lk.unlock();
+          break;
+        }
+
+        // Extract the buffer from the queue.
+        buffer_type *buffer = caller->m_empty_buffers->pop();
         lk.unlock();
-        return;
-      }
-      lk.unlock();
 
-      // Safely read the data from disk.
-      long filepos = std::ftell(reader->m_file) / sizeof(T);
-      long toread = std::min(reader->m_buf_size, filepos - reader->m_active_buf_filled);
-      if (toread > 0) {
-        std::fseek(reader->m_file, -((reader->m_active_buf_filled + toread) * sizeof(T)), SEEK_CUR);
-        reader->m_passive_buf_filled = std::fread(reader->m_passive_buf, sizeof(T), toread, reader->m_file);
-      }
-      reader->m_bytes_read += toread * sizeof(T);
+        // Safely read the data from disk.
+        bool beg_of_file = false;
+        std::uint64_t toread = std::min(buffer->m_size, std::ftell(caller->m_file) / sizeof(T));
+        if (toread == 0) beg_of_file = true;
+        else {
+          std::fseek(caller->m_file, -1UL * toread * sizeof(T), SEEK_CUR);
+          buffer->m_filled = toread;
+          utils::read_from_file(buffer->m_content, toread, caller->m_file);
+          std::fseek(caller->m_file, -1UL * toread * sizeof(T), SEEK_CUR);
+        }
 
-      // Let the caller know that the I/O thread finished reading.
-      lk.lock();
-      reader->m_avail = false;
-      lk.unlock();
-      reader->m_cv.notify_one();
+        caller->m_bytes_read += buffer->size_in_bytes();
+        if (beg_of_file == true) {
+          // If we reached the end of file,
+          // reinsert the buffer into the queue
+          // of empty buffers and exit.
+          caller->m_empty_buffers->push(buffer);
+          caller->m_full_buffers->send_stop_signal();
+          caller->m_full_buffers->m_cv.notify_one();
+          break;
+        } else {
+          // Add the buffer to the queue of filled buffers.
+          caller->m_full_buffers->push(buffer);
+          caller->m_full_buffers->m_cv.notify_one();
+        }
+      }
     }
-  }
 
-  async_backward_stream_reader(std::string filename, long bufsize = (4 << 20)) {
-    m_file = utils::file_open(filename.c_str(), "r");
-    std::fseek(m_file, 0, SEEK_END);
-    m_items_in_file = utils::file_size(filename) / sizeof(value_type);
-    m_read_items = 0;
-    m_bytes_read = 0;
+  public:
+    void receive_new_buffer() {
+      // Push the current buffer back to the poll of empty buffer.
+      if (m_cur_buffer != NULL) {
+        m_cur_buffer->set_empty();
+        m_empty_buffers->push(m_cur_buffer);
+        m_empty_buffers->m_cv.notify_one();
+        m_cur_buffer = NULL;
+      }
 
-    // Initialize buffers.
-    long elems = std::max(2UL, (bufsize + sizeof(value_type) - 1) / sizeof(value_type));
-    m_buf_size = elems / 2;
+      // Extract a filled buffer.
+      std::unique_lock<std::mutex> lk(m_full_buffers->m_mutex);
+      while (m_full_buffers->empty() && !(m_full_buffers->m_signal_stop))
+        m_full_buffers->m_cv.wait(lk);
+      if (m_full_buffers->empty()) {
+        lk.unlock();
+        m_cur_buffer_filled = 0;
+      } else {
+        m_cur_buffer = m_full_buffers->pop();
+        lk.unlock();
+        m_cur_buffer_filled = m_cur_buffer->m_filled;
+      }
+      m_cur_buffer_pos = m_cur_buffer_filled;
+    }
 
-    m_active_buf_filled = 0L;
-    m_passive_buf_filled = 0L;
-    m_active_buf_pos = -1L;
-    m_active_buf = (value_type *)malloc(m_buf_size * sizeof(value_type));
-    m_passive_buf = (value_type *)malloc(m_buf_size * sizeof(value_type));
+  private:
+    std::FILE *m_file;
+    std::uint64_t m_bytes_read;
+    std::uint64_t m_cur_buffer_pos;
+    std::uint64_t m_cur_buffer_filled;
+    buffer_type *m_cur_buffer;
+    std::thread *m_io_thread;
 
-    m_finished = false;
-    
-    // Start the I/O thread and immediately start reading.
-    m_avail = true;
-    m_thread = new std::thread(io_thread_code<value_type>, this);
-  }
-  
-  ~async_backward_stream_reader() {
-    // Let the I/O thread know that we're done.
-    std::unique_lock<std::mutex> lk(m_mutex);
-    m_finished = true;
-    lk.unlock();
-    m_cv.notify_one();
+  public:
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes = (8UL << 20),
+        std::uint64_t n_buffers = 4UL,
+        std::uint64_t n_skip_bytes = 0UL) {
+      m_file = utils::file_open(filename.c_str(), "r");
+      std::fseek(m_file, 0, SEEK_END);
+      if (n_skip_bytes > 0)
+        std::fseek(m_file, -1UL * n_skip_bytes, SEEK_CUR);
 
-    // Wait for the thread to finish.
-    m_thread->join();
-    
-    // Clean up.
-    delete m_thread;
-    free(m_active_buf);
-    free(m_passive_buf);
-    std::fclose(m_file);
-  }
+      // Initialize counters.
+      m_bytes_read = 0;
+      m_cur_buffer_pos = 0;
+      m_cur_buffer_filled = 0;
+      m_cur_buffer = NULL;
 
-  // This function checks if the reading thread has already
-  // prefetched the next buffer (the request should have been
-  // issued before), and waits in case the prefetching was not
-  // completed yet.
-  void receive_new_buffer() {
-    // Wait until the I/O thread finishes reading the previous
-    // buffer. In most cases this step is instantaneous.
-    std::unique_lock<std::mutex> lk(m_mutex);
-    while (m_avail == true)
-      m_cv.wait(lk);
+      // Allocate buffers.
+      std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
+      std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
+      m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf);
+      m_full_buffers = new buffer_queue_type();
 
-    // Set the new active buffer.
-    std::swap(m_active_buf, m_passive_buf);
-    m_active_buf_filled = m_passive_buf_filled;
-    m_active_buf_pos = m_active_buf_filled - 1L;
+      // Start the I/O thread.
+      m_io_thread = new std::thread(io_thread_code<value_type>, this);
+    }
 
-    // Let the I/O thread know that it can now prefetch
-    // another buffer.
-    m_avail = true;
-    lk.unlock();
-    m_cv.notify_one();
-  }
+    ~async_backward_stream_reader() {
+      // Let the I/O thread know that we're done.
+      m_empty_buffers->send_stop_signal();
+      m_empty_buffers->m_cv.notify_one();
 
-  inline value_type read() {
-    ++m_read_items;
-    if (m_active_buf_pos < 0)
-      receive_new_buffer();
-    return m_active_buf[m_active_buf_pos--];
-  }
+      // Wait for the thread to finish.
+      m_io_thread->join();
 
-  inline value_type peek() {
-    if (m_active_buf_pos < 0)
-      receive_new_buffer();
-    return m_active_buf[m_active_buf_pos];
-  }
+      // Clean up.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      delete m_io_thread;
+      if (m_file != stdin)
+        std::fclose(m_file);
 
-  inline bool empty() const {
-    return m_read_items == m_items_in_file;
-  }
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
+    }
 
-  inline long bytes_read() const {
-    return m_bytes_read;
-  }
+    inline value_type read() {
+      if (m_cur_buffer_pos == 0)
+        receive_new_buffer();
 
-private:
-  value_type *m_active_buf;
-  value_type *m_passive_buf;
+      return m_cur_buffer->m_content[--m_cur_buffer_pos];
+    }
 
-  long m_buf_size;
-  long m_active_buf_pos;
-  long m_active_buf_filled;
-  long m_passive_buf_filled;
-  long m_items_in_file;
-  long m_read_items;
-  long m_bytes_read;
+    inline value_type peek() {
+      if (m_cur_buffer_pos == 0)
+        receive_new_buffer();
 
-  // Used for synchronization with the I/O thread.
-  std::mutex m_mutex;
-  std::condition_variable m_cv;
-  bool m_avail;
-  bool m_finished;
+      return m_cur_buffer->m_content[m_cur_buffer_pos - 1];
+    }
 
-  std::FILE *m_file;
-  std::thread *m_thread;
+    inline bool empty() {
+      if (m_cur_buffer_pos == 0)
+        receive_new_buffer();
+
+      return (m_cur_buffer_pos == 0);
+    }
+
+    inline std::uint64_t bytes_read() const {
+      return m_bytes_read;
+    }
 };
 
 #endif  // __ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED

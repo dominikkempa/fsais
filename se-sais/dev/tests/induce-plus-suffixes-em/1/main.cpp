@@ -57,8 +57,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     std::string minus_count_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<std::uint8_t> writer_type;
+      typedef async_stream_writer<saidx_tt> writer_type;
       writer_type *writer = new writer_type(minus_count_filename);
+#if 0
       std::uint64_t end = text_length;
       for (std::uint64_t ch = 256; ch > 0; --ch) {
         std::uint64_t minus_count = 0;
@@ -67,9 +68,23 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (suf_type[sa[beg - 1]] == 0 && sa[beg - 1] > 0 && suf_type[sa[beg - 1] - 1] == 1) ++minus_count;
           --beg;
         }
-        encode_vbyte_to_stream<std::uint64_t, writer_type>(minus_count, writer);
+        writer->write(minus_count);
         end = beg;
       }
+#else
+      std::uint64_t beg = 0;
+      for (std::uint64_t ch = 0; ch < 256; ++ch) {
+        std::uint64_t minus_count = 0;
+        std::uint64_t end = beg;
+        while (end < text_length && text[sa[end]] == ch) {
+          if (suf_type[sa[end]] == 0 && sa[end] > 0 && suf_type[sa[end] - 1] == 1)
+            ++minus_count;
+          ++end;
+        }
+        writer->write(minus_count);
+        beg = end;
+      }
+#endif
       delete writer;
     }
     
@@ -77,8 +92,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     {
       typedef async_stream_writer<chr_t> writer_type;
       writer_type *writer = new writer_type(minus_symbols_filename);
-      for (std::uint64_t j = text_length; j > 0; --j) {
-        std::uint64_t s = sa[j - 1];
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
         if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
           writer->write(text[s - 1]);
       }
@@ -95,8 +110,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(plus_symbols_filenames[j]);
-      for (std::uint64_t j = text_length; j > 0; --j) {
-        std::uint64_t s = sa[j - 1];
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
         if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 1) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write(text[s - 1]);
@@ -117,8 +132,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(plus_type_filenames[j]);
-      for (std::uint64_t j = text_length; j > 0; --j) {
-        std::uint64_t s = sa[j - 1];
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
         if (suf_type[s] == 1) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write((s > 0) && (suf_type[s - 1] == 0));
@@ -139,8 +154,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(plus_pos_filenames[j]);
-      for (std::uint64_t j = text_length; j > 0; --j) {
-        std::uint64_t s = sa[j - 1];
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
         if (suf_type[s] == 1) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write((saidx_tt)s);
@@ -157,8 +172,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     {
       typedef async_stream_writer<saidx_tt> writer_type;
       writer_type *writer = new writer_type(minus_sufs_filename);
-      for (std::uint64_t i = text_length; i > 0; --i) {
-        std::uint64_t s = sa[i - 1];
+      for (std::uint64_t i = 0; i < text_length; ++i) {
+        std::uint64_t s = sa[i];
         if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)
           writer->write((saidx_tt)s);
       }

@@ -9,11 +9,10 @@
 
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
-#include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
-#include "io/async_vbyte_stream_reader.hpp"
-#include "io/async_multi_stream_reader.hpp"
-#include "io/async_multi_bit_stream_reader.hpp"
+#include "io/async_backward_stream_reader.hpp"
+#include "io/async_backward_multi_stream_reader.hpp"
+#include "io/async_backward_multi_bit_stream_reader.hpp"
 
 
 template<typename chr_t, typename saidx_t, typename blockidx_t = std::uint16_t>
@@ -33,15 +32,15 @@ void induce_plus_suffixes(std::uint64_t text_length,
   radix_heap_type *radix_heap = new radix_heap_type(radix_log,
       radix_heap_bufsize, minus_sufs_filename);
 
-  typedef async_vbyte_stream_reader<std::uint64_t> minus_count_reader_type;
-  typedef async_stream_reader<chr_t> minus_symbols_reader_type;
+  typedef async_backward_stream_reader<saidx_t> minus_count_reader_type;
+  typedef async_backward_stream_reader<chr_t> minus_symbols_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename);
   minus_symbols_reader_type *minus_symbols_reader = new minus_symbols_reader_type(minus_symbols_filename);
 
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  typedef async_multi_stream_reader<chr_t> plus_symbols_reader_type;
-  typedef async_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_multi_stream_reader<saidx_t> plus_pos_reader_type;
+  typedef async_backward_multi_stream_reader<chr_t> plus_symbols_reader_type;
+  typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
+  typedef async_backward_multi_stream_reader<saidx_t> plus_pos_reader_type;
   plus_symbols_reader_type *plus_symbols_reader = new plus_symbols_reader_type(n_blocks);
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(n_blocks);
@@ -52,7 +51,7 @@ void induce_plus_suffixes(std::uint64_t text_length,
   }
 
   // Initialize reading of sorted minus-suffixes.
-  typedef async_stream_reader<saidx_t> minus_reader_type;
+  typedef async_backward_stream_reader<saidx_t> minus_reader_type;
   minus_reader_type *minus_reader = new minus_reader_type(minus_sufs_filename);
 
   // Initialize writer of sorted plus-suffixes.
