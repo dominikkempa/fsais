@@ -127,7 +127,7 @@ class radix_heap {
 
     // Return true iff x <= key, where x is the
     // smallest element currently stored in the heap.
-    inline bool min_compare(value_type key) {
+    inline bool min_compare(key_type key) {
       if (empty()) return false;
       if (!m_queues[m_min_compare_ptr]->empty())
         return (m_queue_min[m_min_compare_ptr] <= (std::uint64_t)key);

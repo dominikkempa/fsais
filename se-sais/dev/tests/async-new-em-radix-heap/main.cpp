@@ -451,7 +451,7 @@ void run_tests(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t m
 
 void run_tests_with_given_radix_log(std::uint64_t radix_log, std::uint64_t bufsize, std::uint64_t em_ram_queues) {
 //  run_tests(radix_log, 5000, 10,  bufsize, em_ram_queues);
-  run_tests(radix_log, 5000, 100, bufsize, em_ram_queues);
+  run_tests(radix_log, 500, 100, bufsize, em_ram_queues);
 }
 
 int main() {
