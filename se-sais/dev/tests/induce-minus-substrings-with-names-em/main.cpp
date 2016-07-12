@@ -304,15 +304,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
-    // Create a vector with all minus-substring
-    // sorter, i.e., the correct answer.
+    // Create a vector with all minus star
+    // substrings sorted, i.e., the correct answer.
     std::vector<saidx_tt> v_correct;
     std::vector<saidx_tt> v_correct_names;
     std::vector<substring> substrings;
     {
       // Create a list of minus-substrings.
       for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 0) {
+        if (j > 0 && suf_type[j] == 0 && suf_type[j - 1] == 1) {
           std::string s;
           s = text[j];
           std::uint64_t end = j + 1;
