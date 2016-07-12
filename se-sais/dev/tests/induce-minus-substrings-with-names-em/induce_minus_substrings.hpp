@@ -42,6 +42,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_symbols_filenames,
     std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::uint64_t> &minus_substr_per_block_count_target,
     std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
@@ -91,13 +92,13 @@ void induce_minus_substrings(std::uint64_t text_length,
   std::uint64_t cur_symbol = 0;
   std::uint64_t diff_str_snapshot = 0;
   std::uint64_t diff_items_written = 0;
+  std::vector<std::uint64_t> minus_substr_per_block_count(n_blocks, 0UL);
+
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Process minus substrings.
     if (cur_symbol == (std::uint64_t)last_text_symbol) {
       chr_t head_char = cur_symbol;
       std::uint64_t block_id = (text_length - 1) / max_block_size;
-      saidx_t head_pos = minus_pos_reader->read_from_ith_file(block_id);
-      std::uint64_t head_pos_uint64 = head_pos;
       saidx_t tail_name = 0;
       bool is_tail_minus = true;
 
@@ -109,12 +110,15 @@ void induce_minus_substrings(std::uint64_t text_length,
       } else ++diff_str;
       was_extract_min = true;
 
+      ++minus_substr_per_block_count[block_id];
+      std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] == minus_substr_per_block_count_target[block_id]);
+
       // Watch for the order of minus-substrings with the same name!!!
       std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
-      if (head_pos_uint64 > 0) {
+      if (block_id > 0 || head_pos_at_block_beg == false) {
         if (!is_star) {
           chr_t prev_char = minus_symbols_reader->read_from_ith_file(block_id);
-          std::uint64_t prev_pos_block_id = (block_id * max_block_size == head_pos_uint64) ? block_id - 1 : block_id;
+          std::uint64_t prev_pos_block_id = block_id - head_pos_at_block_beg;
           radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, (saidx_t)(diff_str - 1), 3));
         } else {
           if (!empty_output) {
@@ -122,6 +126,7 @@ void induce_minus_substrings(std::uint64_t text_length,
               ++diff_items_written;
           } else ++diff_items_written;
           empty_output = false;
+          saidx_t head_pos = minus_pos_reader->read_from_ith_file(block_id);
           output_writer->write(head_pos);
           output_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -148,15 +153,15 @@ void induce_minus_substrings(std::uint64_t text_length,
       } else ++diff_str;
       was_extract_min = true;
 
-      saidx_t head_pos = minus_pos_reader->read_from_ith_file(block_id);
-      std::uint64_t head_pos_uint64 = head_pos;
+      ++minus_substr_per_block_count[block_id];
+      std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] == minus_substr_per_block_count_target[block_id]);
 
       // Watch for the order of minus-substrings with the same name!!!
       std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
-      if (head_pos_uint64 > 0) {
+      if (block_id > 0 || head_pos_at_block_beg == false) {
         if (!is_star) {
           chr_t prev_char = minus_symbols_reader->read_from_ith_file(block_id);
-          std::uint64_t prev_pos_block_id = (block_id * max_block_size == head_pos_uint64) ? block_id - 1 : block_id;
+          std::uint64_t prev_pos_block_id = block_id - head_pos_at_block_beg;
           radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, (saidx_t)(diff_str - 1), 1));
         } else {
           if (!empty_output) {
@@ -164,6 +169,7 @@ void induce_minus_substrings(std::uint64_t text_length,
               ++diff_items_written;
           } else ++diff_items_written;
           empty_output = false;
+          saidx_t head_pos = minus_pos_reader->read_from_ith_file(block_id);
           output_writer->write(head_pos);
           output_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -179,7 +185,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     // Process plus substrings.
     std::uint64_t plus_substr_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_substr_count; ++i) {
-      std::uint64_t head_pos = plus_reader->read();
+      std::uint64_t head_pos = plus_reader->read();  // XXX do we need that?
       chr_t prev_char = plus_symbols_reader->read();
       std::uint64_t prev_pos_block_id = (head_pos - 1) / max_block_size;
       saidx_t name = plus_reader->read();
