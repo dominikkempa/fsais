@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 
+#include "packed_pair.hpp"
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_stream_reader.hpp"
@@ -74,7 +75,8 @@ void induce_minus_substrings(std::uint64_t text_length,
   }
 
   // Initialize reading of sorted plus-substrings.
-  typedef async_stream_reader<saidx_t> plus_reader_type;
+  typedef packed_pair<blockidx_t, saidx_t> pair_type;
+  typedef async_stream_reader<pair_type> plus_reader_type;
   plus_reader_type *plus_reader = new plus_reader_type(plus_substrings_filename);
 
   // Initialize the output writer.
@@ -185,10 +187,10 @@ void induce_minus_substrings(std::uint64_t text_length,
     // Process plus substrings.
     std::uint64_t plus_substr_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_substr_count; ++i) {
-      std::uint64_t head_pos = plus_reader->read();  // XXX do we need that?
+      pair_type pp = plus_reader->read();
+      std::uint64_t prev_pos_block_id = pp.first;
+      saidx_t name = pp.second;
       chr_t prev_char = plus_symbols_reader->read();
-      std::uint64_t prev_pos_block_id = (head_pos - 1) / max_block_size;
-      saidx_t name = plus_reader->read();
       radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, name, 0));
     }
 

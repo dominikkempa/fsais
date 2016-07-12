@@ -16,6 +16,7 @@
 #include "uint40.hpp"
 #include "uint48.hpp"
 #include "divsufsort.h"
+#include "packed_pair.hpp"
 
 
 struct substring {
@@ -34,7 +35,6 @@ struct substring_cmp {
     return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
   }
 };
-
 
 void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
@@ -319,6 +319,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
+    typedef std::uint16_t blockidx_t;
+    typedef packed_pair<blockidx_t, saidx_tt> pair_type;
+
     std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
     {
       // Create a list of plus-substrings.
@@ -345,15 +348,16 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
       // Write the list to file.
       {
-        typedef async_stream_writer<saidx_tt> writer_type;
+        typedef async_stream_writer<pair_type> writer_type;
         writer_type *writer = new writer_type(plus_substrings_filename);
         std::uint64_t diff_items_counter = 0;
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
             ++diff_items_counter;
 
-          writer->write((saidx_tt)substrings[j].m_beg);
-          writer->write((saidx_tt)(diff_items_counter - 1));
+          writer->write(pair_type((blockidx_t)((substrings[j].m_beg - 1) / max_block_size), (saidx_tt)(diff_items_counter - 1)));
+//          writer->write((saidx_tt)substrings[j].m_beg);
+//          writer->write((saidx_tt)(diff_items_counter - 1));
         }
         delete writer;
       }
@@ -399,7 +403,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string minus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    induce_minus_substrings<chr_t, saidx_tt>(text_length,
+    induce_minus_substrings<chr_t, saidx_tt, blockidx_t>(text_length,
         plus_substrings_filename, minus_substrings_filename,
         plus_count_filename,
         plus_symbols_filename,
