@@ -14,6 +14,7 @@
 #include "io/async_stream_writer.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
+#include "io/async_bit_stream_reader.hpp"
 
 
 template<typename S, typename T>
@@ -40,6 +41,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     std::string output_filename,
     std::string plus_count_filename,
     std::string plus_symbols_filename,
+    std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_symbols_filenames,
     std::vector<std::string> &minus_pos_filenames,
@@ -58,8 +60,10 @@ void induce_minus_substrings(std::uint64_t text_length,
 
   typedef async_backward_stream_reader<saidx_t> plus_count_reader_type;
   typedef async_backward_stream_reader<chr_t> plus_symbols_reader_type;
+  typedef async_bit_stream_reader plus_diff_reader_type;
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
   plus_symbols_reader_type *plus_symbols_reader = new plus_symbols_reader_type(plus_symbols_filename);
+  plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename);
 
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_multi_bit_stream_reader minus_type_reader_type;
@@ -75,8 +79,7 @@ void induce_minus_substrings(std::uint64_t text_length,
   }
 
   // Initialize reading of sorted plus-substrings.
-  typedef packed_pair<blockidx_t, saidx_t> pair_type;
-  typedef async_stream_reader<pair_type> plus_reader_type;
+  typedef async_stream_reader<blockidx_t> plus_reader_type;
   plus_reader_type *plus_reader = new plus_reader_type(plus_substrings_filename);
 
   // Initialize the output writer.
@@ -95,6 +98,9 @@ void induce_minus_substrings(std::uint64_t text_length,
   std::uint64_t diff_str_snapshot = 0;
   std::uint64_t diff_items_written = 0;
   std::vector<std::uint64_t> minus_substr_per_block_count(n_blocks, 0UL);
+
+  bool was_prev_plus_name = false;
+  std::uint64_t cur_plus_name = 0;
 
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Process minus substrings.
@@ -187,11 +193,13 @@ void induce_minus_substrings(std::uint64_t text_length,
     // Process plus substrings.
     std::uint64_t plus_substr_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_substr_count; ++i) {
-      pair_type pp = plus_reader->read();
-      std::uint64_t prev_pos_block_id = pp.first;
-      saidx_t name = pp.second;
+      blockidx_t prev_pos_block_id = plus_reader->read();
+      std::uint8_t is_different = plus_diff_reader->read();
+      if (was_prev_plus_name && is_different)
+        ++cur_plus_name;
+      was_prev_plus_name = true;
       chr_t prev_char = plus_symbols_reader->read();
-      radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, name, 0));
+      radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, cur_plus_name, 0));
     }
 
     // Update current char.
@@ -203,7 +211,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     output_writer->bytes_written() + radix_heap->io_volume() +
     plus_count_reader->bytes_read() + minus_type_reader->bytes_read() +
     minus_symbols_reader->bytes_read() + plus_symbols_reader->bytes_read() +
-    minus_pos_reader->bytes_read();
+    minus_pos_reader->bytes_read() + plus_diff_reader->bytes_read();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -215,6 +223,7 @@ void induce_minus_substrings(std::uint64_t text_length,
   delete plus_symbols_reader;
   delete minus_pos_reader;
   delete output_writer;
+  delete plus_diff_reader;
 }
 
 #endif  // __INDUCE_MINUS_SUBSTRINGS_HPP_INCLUDED

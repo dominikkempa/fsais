@@ -320,9 +320,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     typedef std::uint16_t blockidx_t;
-    typedef packed_pair<blockidx_t, saidx_tt> pair_type;
-
     std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
+    std::string plus_diff_filename = "tmp." + utils::random_string_hash();
     {
       // Create a list of plus-substrings.
       std::vector<substring> substrings;
@@ -348,18 +347,20 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
       // Write the list to file.
       {
-        typedef async_stream_writer<pair_type> writer_type;
-        writer_type *writer = new writer_type(plus_substrings_filename);
-        std::uint64_t diff_items_counter = 0;
-        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
-            ++diff_items_counter;
+        typedef async_stream_writer<blockidx_t> writer_1_type;
+        typedef async_bit_stream_writer writer_2_type;
+        writer_1_type *writer_1 = new writer_1_type(plus_substrings_filename);
+        writer_2_type *writer_2 = new writer_2_type(plus_diff_filename);
 
-          writer->write(pair_type((blockidx_t)((substrings[j].m_beg - 1) / max_block_size), (saidx_tt)(diff_items_counter - 1)));
-//          writer->write((saidx_tt)substrings[j].m_beg);
-//          writer->write((saidx_tt)(diff_items_counter - 1));
+        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          std::uint8_t is_diff = 0;
+          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
+            is_diff = 1;
+          writer_1->write((blockidx_t)((substrings[j].m_beg - 1) / max_block_size));
+          writer_2->write(is_diff);
         }
-        delete writer;
+        delete writer_1;
+        delete writer_2;
       }
     }
 
@@ -407,6 +408,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         plus_substrings_filename, minus_substrings_filename,
         plus_count_filename,
         plus_symbols_filename,
+        plus_diff_filename,
         minus_type_filenames,
         minus_symbols_filenames,
         minus_pos_filenames,
@@ -418,6 +420,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     utils::file_delete(plus_substrings_filename);
     utils::file_delete(plus_count_filename);
     utils::file_delete(plus_symbols_filename);
+    utils::file_delete(plus_diff_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
       if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
