@@ -120,9 +120,6 @@ void induce_plus_substrings(std::uint64_t text_length,
     bool is_head_plus = (p.second.m_type & 0x01);
     bool is_tail_plus = (p.second.m_type & 0x02);
 
-    saidx_t head_pos = pos_reader->read_from_ith_file(block_id);
-    std::uint64_t head_pos_uint64 = head_pos;
-
     ++block_count[block_id];
     std::uint8_t head_pos_at_block_beg = (block_count[block_id] ==
         block_count_target[block_id]);
@@ -145,15 +142,19 @@ void induce_plus_substrings(std::uint64_t text_length,
       // plus-substring that begins with the maximal symbol in the alphabet.
       bool is_star = plus_type_reader->read_from_ith_file(block_id);
       if (is_star == true) {
+        bool next_output_bit = false;
         if (empty_output == false) {
           if (diff_items != diff_items_snapshot)
-            ++diff_written_items;
-        } else ++diff_written_items;
+            next_output_bit = true;
+        } else next_output_bit = true;
+        diff_written_items += next_output_bit;
+
+        saidx_t head_pos = pos_reader->read_from_ith_file(block_id);
         output_writer->write(head_pos);
         output_writer->write(diff_written_items - 1);
         empty_output = false;
         diff_items_snapshot = diff_items;
-      } else if (head_pos_uint64 > 0) {
+      } else if (block_id > 0 || head_pos_at_block_beg == false) {
         chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
         radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
@@ -161,7 +162,7 @@ void induce_plus_substrings(std::uint64_t text_length,
       }
     } else {
       chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
-      std::uint64_t prev_pos_block_idx = (head_pos_uint64 - 1) / max_block_size;
+      std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
       radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
           heap_item_type(prev_pos_block_idx, head_char, 1));
     }
