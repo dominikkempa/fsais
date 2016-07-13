@@ -11,6 +11,7 @@
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
+#include "io/async_bit_stream_writer.hpp"
 #include "utils.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -34,6 +35,11 @@ struct substring_cmp {
   }
 };
 
+struct substring_cmp_2 {
+  inline bool operator() (const substring &a, const substring &b) const {
+    return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
+  }
+};
 
 void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
@@ -53,6 +59,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       text[j] = utils::random_int64(0L, 255L);
       // text[j] = 'a' + utils::random_int64(0L, 25L);
     divsufsort(text, (std::int32_t *)sa, text_length);
+
+    std::uint64_t max_block_size = 0;
+    std::uint64_t n_blocks = 0;
+    do {
+      max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
+      n_blocks = (text_length + max_block_size - 1) / max_block_size;
+    } while (n_blocks > 256);
+
+/*    fprintf(stderr, "text = ");
+    for (std::uint64_t j = 0; j < text_length; ++j)
+      fprintf(stderr, "%lu ", (std::uint64_t)text[j]);
+    fprintf(stderr, "\n");
+    fprintf(stderr, "max_block_size = %lu, n_blocks = %lu\n", max_block_size, n_blocks);*/
 
     for (std::uint64_t i = text_length; i > 0; --i) {
       if (i == text_length) suf_type[i - 1] = 0;              // minus
@@ -83,6 +102,54 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           writer->write(text[i]);
       delete writer;
     }
+
+    std::vector<std::string> plus_type_filenames;
+    {
+      for (std::uint64_t j = 0; j < n_blocks; ++j) {
+        std::string filename = "tmp." + utils::random_string_hash();
+        plus_type_filenames.push_back(filename);
+      }
+      typedef async_bit_stream_writer writer_type;
+      writer_type **writers = new writer_type*[n_blocks];
+      for (std::uint64_t j = 0; j < n_blocks; ++j)
+        writers[j] = new writer_type(plus_type_filenames[j]);
+
+      // Create a list of minus substrings.
+      std::vector<substring> substrings;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        if (suf_type[j] == 1) {
+          std::string s;
+          s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 1)
+            s += text[end++];
+          if (end < text_length) 
+            s += text[end++];
+          substrings.push_back(substring(j, s));
+        }
+      }
+
+      // Sort the list.
+      {
+        substring_cmp_2 cmp;
+        std::sort(substrings.begin(), substrings.end(), cmp);
+      }
+
+      // Write the list to files.
+//      for (std::uint64_t j = substrings.size(); j > 0; --j) {
+      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+        std::uint64_t s = substrings[j].m_beg;
+        std::uint64_t block_id = s / max_block_size;
+        std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);
+        writers[block_id]->write(is_star);
+      }
+
+      // Clean up.
+      for (std::uint64_t j = 0; j < n_blocks; ++j)
+        delete writers[j];
+      delete[] writers;
+    }
+
 
 #if 0
     std::vector<std::string> plus_symbols_filenames;
@@ -170,11 +237,16 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     induce_plus_substrings<chr_t, saidx_tt>(text, text_length,
         minus_star_positions_filename, minus_symbols_filename,
         plus_substrings_filename,
-        total_io_volume, radix_heap_bufsize, radix_log);
+        plus_type_filenames,
+        total_io_volume, radix_heap_bufsize, radix_log,
+        max_block_size);
 
     // Delete input files.
     utils::file_delete(minus_star_positions_filename);
     utils::file_delete(minus_symbols_filename);
+    for (std::uint64_t j = 0; j < n_blocks; ++j) {
+      if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
+    }
     
     // Read the computed output into vector.
     std::vector<saidx_tt> v_computed;

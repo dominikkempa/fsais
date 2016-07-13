@@ -13,6 +13,8 @@
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_multi_stream_reader.hpp"
+#include "io/async_multi_bit_stream_reader.hpp"
+#include "io/async_backward_multi_bit_stream_reader.hpp"
 
 
 template<typename T>
@@ -37,8 +39,11 @@ template<typename chr_t, typename saidx_t>
 void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
     std::string minus_star_positions_filename,
     std::string minus_symbols_filename,
-    std::string plus_substrings_filename, std::uint64_t &total_io_volume,
-    std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
+    std::string plus_substrings_filename,
+    std::vector<std::string> &plus_type_filenames,
+    std::uint64_t &total_io_volume,
+    std::uint64_t radix_heap_bufsize, std::uint64_t radix_log,
+    std::uint64_t max_block_size) {
   std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
@@ -46,6 +51,13 @@ void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
   typedef em_radix_heap<chr_t, heap_item_type> radix_heap_type;
   radix_heap_type *radix_heap = new radix_heap_type(radix_log,
       radix_heap_bufsize, plus_substrings_filename);
+
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
+  plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
+  for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
+    plus_type_reader->add_file(plus_type_filenames[block_id]);
+  }
 
 #if 0
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -102,7 +114,7 @@ void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
     saidx_t head_pos = p.second.m_pos;
     saidx_t tail_name = p.second.m_name;
     std::uint64_t head_pos_uint64 = head_pos;
-//    std::uint64_t block_id = (head_pos_uint64 + max_block_size - 1) / max_block_size;
+    std::uint64_t block_id = head_pos_uint64 / max_block_size;
     bool is_head_plus = (p.second.m_type & 0x01);
     bool is_tail_plus = (p.second.m_type & 0x02);
     chr_t prev_char = 0;
@@ -121,18 +133,18 @@ void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
 
       plus_writer->write(head_pos);
       plus_writer->write(diff_written_items - 1);
+      bool is_star = plus_type_reader->read_from_ith_file(block_id);
 
       // Note the +1 below. This is because we want the item in bucket c from the input to be processed.
       // after the items that were inserted in the line below. One way to do this is to insert items from
       // the input with a key decreased by one. Since we might not be able to always decrease, instead
       // we increase the key of the item inserted below. We can always do that, because there is no
       // plus-substring that begins with the maximal symbol in the alphabet.
-      if (head_pos_uint64 > 0 && prev_char <= head_char)
+      if (head_pos_uint64 > 0 && !is_star)
         radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
             heap_item_type((saidx_t)(head_pos_uint64 - 1), (saidx_t)(diff_written_items - 1), 3));
-    } else if (head_pos_uint64 > 0 && prev_char <= head_char)
-      radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
-          heap_item_type((saidx_t)(head_pos_uint64 - 1), head_char, 1));
+  } else radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
+      heap_item_type((saidx_t)(head_pos_uint64 - 1), head_char, 1));
 
     is_prev_head_plus = is_head_plus;
     is_prev_tail_plus = is_tail_plus;
@@ -141,7 +153,8 @@ void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
   }
 
   // Update I/O volume.
-  io_volume += plus_writer->bytes_written() + radix_heap->io_volume();
+  io_volume += plus_writer->bytes_written() + radix_heap->io_volume() +
+    plus_type_reader->bytes_read();
 #if 0
     plus_symbols_reader->bytes_read();
 #endif
@@ -149,6 +162,7 @@ void induce_plus_substrings(const chr_t *text, std::uint64_t text_length,
 
   // Clean up.
   delete plus_writer;
+  delete plus_type_reader;
 #if 0
   delete plus_symbols_reader;
 #endif
