@@ -311,7 +311,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     typedef std::uint8_t blockidx_t;
     typedef std::uint16_t ext_blockidx_t;
-    std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
+    std::string plus_pos_filename = "tmp." + utils::random_string_hash();
     std::string plus_diff_filename = "tmp." + utils::random_string_hash();
     {
       // Create a list of plus-substrings.
@@ -340,7 +340,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       {
         typedef async_stream_writer<blockidx_t> writer_1_type;
         typedef async_bit_stream_writer writer_2_type;
-        writer_1_type *writer_1 = new writer_1_type(plus_substrings_filename);
+        writer_1_type *writer_1 = new writer_1_type(plus_pos_filename);
         writer_2_type *writer_2 = new writer_2_type(plus_diff_filename);
 
 #if 0
@@ -420,34 +420,33 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Run the tested algorithm.
-    std::string minus_substrings_filename = "tmp." + utils::random_string_hash();
+    std::string output_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     em_induce_minus_star_substrings<chr_t, saidx_tt, blockidx_t, ext_blockidx_t>(
         text_length,
-        plus_substrings_filename,
-        minus_substrings_filename,
-        plus_count_filename,
-        plus_diff_filename,
-        minus_type_filenames,
-        symbols_filenames,
-        minus_pos_filenames,
-        block_beg_target,
-        total_io_volume,
         radix_heap_bufsize,
         radix_log,
         max_block_size,
         255,
-        text[text_length - 1]);
+        text[text_length - 1],
+        block_beg_target,
+        output_filename,
+        plus_pos_filename,
+        plus_count_filename,
+        plus_diff_filename,
+        minus_type_filenames,
+        minus_pos_filenames,
+        symbols_filenames,
+        total_io_volume);
 
     // Delete input files.
-    utils::file_delete(plus_substrings_filename);
+    utils::file_delete(plus_pos_filename);
     utils::file_delete(plus_count_filename);
     utils::file_delete(plus_diff_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
       if (utils::file_exists(symbols_filenames[j])) utils::file_delete(symbols_filenames[j]);
       if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
-      // if (utils::file_exists(block_beg_filenames[j])) utils::file_delete(block_beg_filenames[j]);
     }
     
     // Read the computed output into vector.
@@ -455,7 +454,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::vector<saidx_tt> v_computed_names;
     {
       typedef async_stream_reader<saidx_tt> reader_type;
-      reader_type *reader = new reader_type(minus_substrings_filename);
+      reader_type *reader = new reader_type(output_filename);
       while (!reader->empty()) {
         v_computed.push_back(reader->read());
         v_computed_names.push_back(reader->read());
@@ -464,7 +463,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Delete output file.
-    utils::file_delete(minus_substrings_filename);
+    utils::file_delete(output_filename);
 
     // Compare answer.
     bool ok = true;
