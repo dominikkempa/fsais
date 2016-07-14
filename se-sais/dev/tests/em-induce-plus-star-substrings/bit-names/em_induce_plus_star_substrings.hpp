@@ -146,7 +146,7 @@ void em_induce_plus_star_substrings(
         saidx_t head_pos = pos_reader->read_from_ith_file(block_id);
         output_writer->write(head_pos);
         if (empty_output == false)
-          output_writer->write(next_output_bit);
+          output_diff_writer->write(next_output_bit);
         empty_output = false;
         diff_items_snapshot = diff_items;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {

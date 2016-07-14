@@ -343,6 +343,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         writer_1_type *writer_1 = new writer_1_type(plus_substrings_filename);
         writer_2_type *writer_2 = new writer_2_type(plus_diff_filename);
 
+#if 0
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint8_t is_diff = 0;
           if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
@@ -351,6 +352,31 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (j > 0)
             writer_2->write(is_diff);
         }
+#else
+#if 0
+        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          std::uint8_t is_diff = 0;
+          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
+            is_diff = 1;
+          if (j > 0)
+            writer_2->write(is_diff);
+        }
+#else
+        std::vector<std::uint8_t> v_aux;
+        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          std::uint8_t is_diff = 0;
+          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
+            is_diff = 1;
+          if (j > 0)
+            v_aux.push_back(is_diff);
+        }
+        for (std::uint64_t j = v_aux.size(); j > 0; --j)
+          writer_2->write(v_aux[j - 1]);
+#endif
+        for (std::uint64_t j = substrings.size(); j > 0; --j)
+          writer_1->write((blockidx_t)(substrings[j - 1].m_beg / max_block_size));
+#endif
+
         delete writer_1;
         delete writer_2;
       }

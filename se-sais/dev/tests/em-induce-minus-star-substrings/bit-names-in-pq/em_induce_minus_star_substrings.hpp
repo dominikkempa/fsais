@@ -12,9 +12,10 @@
 #include "em_radix_heap.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
-#include "io/async_backward_stream_reader.hpp"
-#include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_bit_stream_reader.hpp"
+#include "io/async_backward_stream_reader.hpp"
+#include "io/async_backward_bit_stream_reader.hpp"
+#include "io/async_multi_bit_stream_reader.hpp"
 
 
 // Note: ext_blockidx_t needs to hold block is and one extra bit.
@@ -44,9 +45,9 @@ void em_induce_minus_star_substrings(
       radix_heap_bufsize, output_filename);
 
   // Initialize the readers of data associated with plus suffixes.
-  typedef async_stream_reader<blockidx_t> plus_reader_type;
+  typedef async_backward_stream_reader<blockidx_t> plus_reader_type;
   typedef async_backward_stream_reader<saidx_t> plus_count_reader_type;
-  typedef async_bit_stream_reader plus_diff_reader_type;
+  typedef async_backward_bit_stream_reader plus_diff_reader_type;
   plus_reader_type *plus_reader = new plus_reader_type(plus_substrings_filename);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
   plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename);
@@ -248,9 +249,9 @@ void em_induce_minus_star_substrings(
       radix_heap_bufsize, output_filename);
 
   // Initialize the readers of data associated with plus suffixes.
-  typedef async_stream_reader<blockidx_t> plus_reader_type;
+  typedef async_backward_stream_reader<blockidx_t> plus_reader_type;
   typedef async_backward_stream_reader<saidx_t> plus_count_reader_type;
-  typedef async_bit_stream_reader plus_diff_reader_type;
+  typedef async_backward_bit_stream_reader plus_diff_reader_type;
   plus_reader_type *plus_reader = new plus_reader_type(plus_substrings_filename);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
   plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename);
