@@ -7,7 +7,7 @@
 #include <ctime>
 #include <unistd.h>
 
-#include "induce_plus_suffixes.hpp"
+#include "em_induce_plus_suffixes.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
@@ -43,8 +43,13 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, 255L);
     divsufsort(text, (std::int32_t *)sa, text_length);
-    std::uint64_t max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
-    std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+    typedef std::uint8_t blockidx_t;
+    std::uint64_t max_block_size = 0;
+    std::uint64_t n_blocks = 0;
+    do {
+      max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
+      n_blocks = (text_length + max_block_size - 1) / max_block_size;
+    } while (n_blocks > 256);
 
     for (std::uint64_t i = text_length; i > 0; --i) {
       if (i == text_length) suf_type[i - 1] = 0;              // minus
@@ -88,31 +93,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete writer;
     }
     
-    std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
-    {
-      typedef async_stream_writer<chr_t> writer_type;
-      writer_type *writer = new writer_type(minus_symbols_filename);
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        std::uint64_t s = sa[j];
-        if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
-          writer->write(text[s - 1]);
-      }
-      delete writer;
-    }
-    
-    std::vector<std::string> plus_symbols_filenames;
+    std::vector<std::string> symbols_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
         std::string filename = "tmp." + utils::random_string_hash();
-        plus_symbols_filenames.push_back(filename);
+        symbols_filenames.push_back(filename);
       }
       typedef async_stream_writer<chr_t> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(plus_symbols_filenames[j]);
+        writers[j] = new writer_type(symbols_filenames[j]);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 1) {
+        if (s > 0 && suf_type[s - 1] == 1) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write(text[s - 1]);
         }
@@ -191,19 +184,25 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string output_pos_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    induce_plus_suffixes<chr_t, saidx_tt>(text_length,
-        minus_sufs_filename, output_pos_filename,
-        total_io_volume, radix_heap_bufsize, radix_log,
-        max_block_size, 255, minus_count_filename,
-        minus_symbols_filename, plus_symbols_filenames,
-        plus_type_filenames, plus_pos_filenames);
+    em_induce_plus_suffixes<chr_t, saidx_tt, blockidx_t>(
+        text_length,
+        radix_heap_bufsize,
+        radix_log,
+        max_block_size,
+        255,
+        output_pos_filename,
+        minus_sufs_filename,
+        minus_count_filename,
+        plus_type_filenames,
+        plus_pos_filenames,
+        symbols_filenames,
+        total_io_volume);
 
     // Delete input files.
     utils::file_delete(minus_sufs_filename);
     utils::file_delete(minus_count_filename);
-    utils::file_delete(minus_symbols_filename);
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
-      if (utils::file_exists(plus_symbols_filenames[i])) utils::file_delete(plus_symbols_filenames[i]);
+      if (utils::file_exists(symbols_filenames[i])) utils::file_delete(symbols_filenames[i]);
       if (utils::file_exists(plus_type_filenames[i])) utils::file_delete(plus_type_filenames[i]);
       if (utils::file_exists(plus_pos_filenames[i])) utils::file_delete(plus_pos_filenames[i]);
     }
@@ -255,10 +254,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 int main() {
   srand(time(0) + getpid());
 
-  for (std::uint64_t max_length = 1; max_length <= (1L << 15); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= (1L << 10); buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= 5; ++radix_log)
-        test(100, max_length, buffer_size, radix_log);
+  for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
+    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
+      for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
+        test(/*100*/1000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

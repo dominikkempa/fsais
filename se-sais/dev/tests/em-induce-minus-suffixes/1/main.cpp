@@ -274,9 +274,9 @@ int main() {
   srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= (1L << 10); buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= 5; ++radix_log)
-        test(50, max_length, buffer_size, radix_log);
+    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
+      for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
+        test(/*50*/1000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

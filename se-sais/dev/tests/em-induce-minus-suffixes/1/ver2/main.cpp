@@ -7,7 +7,7 @@
 #include <ctime>
 #include <unistd.h>
 
-#include "induce_minus_suffixes.hpp"
+#include "em_induce_minus_suffixes.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
@@ -42,8 +42,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, 255L);
     divsufsort(text, (std::int32_t *)sa, text_length);
-    std::uint64_t max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
-    std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+    std::uint64_t max_block_size = 0;
+    std::uint64_t n_blocks = 0;
+    do {
+      max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
+      n_blocks = (text_length + max_block_size - 1) / max_block_size;
+    } while (n_blocks > 256);
 
     for (std::uint64_t i = text_length; i > 0; --i) {
       if (i == text_length) suf_type[i - 1] = 0;              // minus
@@ -201,10 +205,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Run the tested algorithm.
+    typedef std::uint8_t blockidx_t;
     std::string output_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     chr_t last_text_symbol = text[text_length - 1];
-    induce_minus_suffixes<chr_t, saidx_tt>(text_length,
+    em_induce_minus_suffixes<chr_t, saidx_tt, blockidx_t>(text_length,
         plus_pos_filename, output_filename, total_io_volume,
         radix_heap_bufsize, radix_log, last_text_symbol, max_block_size,
         plus_type_filename, plus_count_filename, plus_symbols_filename,
@@ -271,7 +276,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= (1L << 10); buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= 5; ++radix_log)
-        test(200, max_length, buffer_size, radix_log);
+        test(50, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

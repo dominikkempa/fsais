@@ -1,5 +1,5 @@
-#ifndef __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
-#define __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#ifndef __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#define __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,8 +19,8 @@
 #include "io/async_backward_bit_stream_reader.hpp"
 
 
-template<typename chr_t, typename saidx_t, typename blockidx_t = std::uint16_t>
-void induce_minus_suffixes(std::uint64_t text_length,
+template<typename chr_t, typename saidx_t, typename blockidx_t>
+void em_induce_minus_suffixes(std::uint64_t text_length,
     std::string plus_pos_filename,
     std::string output_filename,
     std::uint64_t &total_io_volume,
@@ -52,11 +52,9 @@ void induce_minus_suffixes(std::uint64_t text_length,
 
   // Initialize readers and writers for minus suffixes.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  typedef async_stream_writer<saidx_t> output_writer_type;
   typedef async_multi_stream_reader<saidx_t> minus_pos_reader_type;
   typedef async_multi_bit_stream_reader minus_type_reader_type;
   typedef async_multi_stream_reader<chr_t> minus_symbols_reader_type;
-  output_writer_type *output_writer = new output_writer_type(output_filename);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
   minus_symbols_reader_type *minus_symbols_reader = new minus_symbols_reader_type(n_blocks);
@@ -65,6 +63,10 @@ void induce_minus_suffixes(std::uint64_t text_length,
     minus_type_reader->add_file(minus_type_filenames[block_id]);
     minus_symbols_reader->add_file(minus_symbols_filenames[block_id]);
   }
+
+  // Initialize output writer.
+  typedef async_stream_writer<saidx_t> output_writer_type;
+  output_writer_type *output_writer = new output_writer_type(output_filename);
 
   // Induce minus suffixes.
   radix_heap->push(last_text_symbol, (blockidx_t)((text_length - 1) / max_block_size));
@@ -124,4 +126,4 @@ void induce_minus_suffixes(std::uint64_t text_length,
   delete output_writer;
 }
 
-#endif  // __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#endif  // __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
