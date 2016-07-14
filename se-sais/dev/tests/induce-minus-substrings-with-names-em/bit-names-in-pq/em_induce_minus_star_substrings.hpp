@@ -1,5 +1,5 @@
-#ifndef __INDUCE_MINUS_SUBSTRINGS_HPP_INCLUDED
-#define __INDUCE_MINUS_SUBSTRINGS_HPP_INCLUDED
+#ifndef __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#define __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,8 +7,8 @@
 #include <string>
 #include <algorithm>
 
-#include "packed_pair.hpp"
 #include "utils.hpp"
+#include "packed_pair.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
@@ -17,26 +17,10 @@
 #include "io/async_bit_stream_reader.hpp"
 
 
-template<typename S, typename T>
-struct radix_heap_item {
-  S m_pos;
-  T m_name;
-  std::uint8_t m_type;
-
-  radix_heap_item() {}
-  radix_heap_item(S pos, std::uint8_t type) {
-    m_pos = pos;
-    m_type = type;
-  }
-  radix_heap_item(S pos, T name, std::uint8_t type) {
-    m_pos = pos;
-    m_name = name;
-    m_type = type;
-  }
-} __attribute__ ((packed));
-
-template<typename chr_t, typename saidx_t, typename blockidx_t>
-void induce_minus_substrings(std::uint64_t text_length,
+// Note: ext_blockidx_t needs to hold block is and one extra bit.
+template<typename chr_t, typename saidx_t, typename blockidx_t, typename ext_blockidx_t>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
     std::string plus_substrings_filename,
     std::string output_filename,
     std::string plus_count_filename,
@@ -45,16 +29,18 @@ void induce_minus_substrings(std::uint64_t text_length,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_symbols_filenames,
     std::vector<std::string> &minus_pos_filenames,
-    std::vector<std::uint64_t> &minus_substr_per_block_count_target,
+    std::vector<std::uint64_t> &block_count_target,
     std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
     chr_t last_text_symbol) {
+  std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_blockidx_t>::max() + 1) / 2;
+  std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
-  typedef radix_heap_item<blockidx_t, saidx_t> heap_item_type;
-  typedef em_radix_heap<chr_t, heap_item_type> radix_heap_type;
+  typedef packed_pair<ext_blockidx_t, saidx_t> ext_pair_type;
+  typedef em_radix_heap<chr_t, ext_pair_type> radix_heap_type;
   radix_heap_type *radix_heap = new radix_heap_type(radix_log,
       radix_heap_bufsize, output_filename);
 
@@ -99,7 +85,7 @@ void induce_minus_substrings(std::uint64_t text_length,
   std::uint64_t diff_str_snapshot = 0;
   std::uint64_t diff_items_written = 0;
   std::uint64_t cur_plus_name = 0;
-  std::vector<std::uint64_t> minus_substr_per_block_count(n_blocks, 0UL);
+  std::vector<std::uint64_t> block_count(n_blocks, 0UL);
 
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Process minus substrings.
@@ -117,9 +103,8 @@ void induce_minus_substrings(std::uint64_t text_length,
       } else ++diff_str;
       was_extract_min = true;
 
-      ++minus_substr_per_block_count[block_id];
-      std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] ==
-          minus_substr_per_block_count_target[block_id]);
+      ++block_count[block_id];
+      std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
       // Watch for the order of minus-substrings with the same name!!!
       std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
@@ -127,7 +112,7 @@ void induce_minus_substrings(std::uint64_t text_length,
         if (!is_star) {
           chr_t prev_char = minus_symbols_reader->read_from_ith_file(block_id);
           std::uint64_t prev_pos_block_id = block_id - head_pos_at_block_beg;
-          radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, (saidx_t)(diff_str - 1), 3));
+          radix_heap->push(prev_char, ext_pair_type(prev_pos_block_id | is_tail_minus_bit, diff_str - 1));
         } else {
           if (!empty_output) {
             if (diff_str_snapshot != diff_str)
@@ -147,11 +132,17 @@ void induce_minus_substrings(std::uint64_t text_length,
       is_prev_tail_name_defined = false;
     }
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
-      std::pair<chr_t, heap_item_type> p = radix_heap->extract_min();
+      std::pair<chr_t, ext_pair_type> p = radix_heap->extract_min();
       chr_t head_char = cur_symbol;
-      std::uint64_t block_id = p.second.m_pos;
-      saidx_t tail_name = p.second.m_name;
-      bool is_tail_minus = (p.second.m_type & 0x01);
+      std::uint64_t block_id = p.second.first;
+      saidx_t tail_name = p.second.second;
+
+      // Unpack the flag from block_id.
+      bool is_tail_minus = false;
+      if (block_id & is_tail_minus_bit) {
+        block_id -= is_tail_minus_bit;
+        is_tail_minus = true;
+      }
 
       // Update diff_str.
       if (was_extract_min == true) {
@@ -161,9 +152,8 @@ void induce_minus_substrings(std::uint64_t text_length,
       } else ++diff_str;
       was_extract_min = true;
 
-      ++minus_substr_per_block_count[block_id];
-      std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] ==
-          minus_substr_per_block_count_target[block_id]);
+      ++block_count[block_id];
+      std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
       // Watch for the order of minus-substrings with the same name!!!
       std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
@@ -171,12 +161,14 @@ void induce_minus_substrings(std::uint64_t text_length,
         if (!is_star) {
           chr_t prev_char = minus_symbols_reader->read_from_ith_file(block_id);
           std::uint64_t prev_pos_block_id = block_id - head_pos_at_block_beg;
-          radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, (saidx_t)(diff_str - 1), 1));
+          radix_heap->push(prev_char, ext_pair_type(prev_pos_block_id | is_tail_minus_bit, diff_str - 1));
         } else {
+          bool is_next_diff = false;
           if (!empty_output) {
             if (diff_str_snapshot != diff_str)
-              ++diff_items_written;
-          } else ++diff_items_written;
+              is_next_diff = true;
+          } else is_next_diff = true;
+          diff_items_written += is_next_diff;
           empty_output = false;
           saidx_t head_pos = minus_pos_reader->read_from_ith_file(block_id);
           output_writer->write(head_pos);
@@ -200,7 +192,7 @@ void induce_minus_substrings(std::uint64_t text_length,
         ++cur_plus_name;
       was_prev_plus_name = true;
       chr_t prev_char = plus_symbols_reader->read();
-      radix_heap->push(prev_char, heap_item_type(prev_pos_block_id, cur_plus_name, 0));
+      radix_heap->push(prev_char, ext_pair_type(prev_pos_block_id, cur_plus_name));
     }
 
     // Update current char.
@@ -208,30 +200,29 @@ void induce_minus_substrings(std::uint64_t text_length,
   }
 
   // Update I/O volume.
-  std::uint64_t io_volume = plus_reader->bytes_read() +
-    output_writer->bytes_written() + radix_heap->io_volume() +
-    plus_count_reader->bytes_read() + minus_type_reader->bytes_read() +
-    minus_symbols_reader->bytes_read() + plus_symbols_reader->bytes_read() +
-    minus_pos_reader->bytes_read() + plus_diff_reader->bytes_read();
+  io_volume += radix_heap->io_volume() +
+    plus_reader->bytes_read() +  plus_count_reader->bytes_read() +
+    plus_symbols_reader->bytes_read() + plus_diff_reader->bytes_read() +
+    minus_type_reader->bytes_read() + minus_symbols_reader->bytes_read() +
+    minus_pos_reader->bytes_read() + output_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
-  delete plus_reader;
   delete radix_heap;
+  delete plus_reader;
   delete plus_count_reader;
+  delete plus_symbols_reader;
+  delete plus_diff_reader;
   delete minus_type_reader;
   delete minus_symbols_reader;
-  delete plus_symbols_reader;
   delete minus_pos_reader;
   delete output_writer;
-  delete plus_diff_reader;
 }
 
-// Note: ext_blockidx_t (extended blockidx_t) has to
-// be able to hold block id and have one extra bit.
-template<typename chr_t, typename saidx_t,
-  typename blockidx_t, typename ext_blockidx_t>
-void induce_minus_substrings(std::uint64_t text_length,
+// Note: ext_blockidx_t has to be able to hold block id and have one extra bit.
+template<typename chr_t, typename saidx_t, typename blockidx_t, typename ext_blockidx_t>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
     std::string plus_substrings_filename,
     std::string output_filename,
     std::string plus_count_filename,
@@ -240,7 +231,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_symbols_filenames,
     std::vector<std::string> &minus_pos_filenames,
-    std::vector<std::uint64_t> &minus_substr_per_block_count_target,
+    std::vector<std::uint64_t> &block_count_target,
     std::uint64_t &total_io_volume,
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
@@ -248,6 +239,7 @@ void induce_minus_substrings(std::uint64_t text_length,
     std::uint64_t max_text_symbol,
     chr_t last_text_symbol) {
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_blockidx_t>::max() + 1) / 2;
+  std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
   typedef em_radix_heap<chr_t, ext_blockidx_t> radix_heap_type;
@@ -290,7 +282,7 @@ void induce_minus_substrings(std::uint64_t text_length,
   std::uint64_t diff_items_written = 0;
   std::uint64_t current_timestamp = 0;
   std::uint64_t cur_substring_name = 0;
-  std::vector<std::uint64_t> minus_substr_per_block_count(n_blocks, 0UL);
+  std::vector<std::uint64_t> block_count(n_blocks, 0UL);
   std::vector<saidx_t> symbol_timestamps(max_text_symbol + 1, (saidx_t)0);
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Extract all minus substrings starting
@@ -302,9 +294,8 @@ void induce_minus_substrings(std::uint64_t text_length,
         cur_substring_name += was_extract_min;
         ++current_timestamp;
         was_extract_min = true;
-        ++minus_substr_per_block_count[block_id];
-        std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] ==
-            minus_substr_per_block_count_target[block_id]);
+        ++block_count[block_id];
+        std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
         // Watch for the order of minus-substrings with the same name!!!
         std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
@@ -349,9 +340,8 @@ void induce_minus_substrings(std::uint64_t text_length,
         if (is_substr_different_from_prev_extracted_from_heap == true)
           ++current_timestamp;
         was_extract_min = true;
-        ++minus_substr_per_block_count[block_id];
-        std::uint8_t head_pos_at_block_beg = (minus_substr_per_block_count[block_id] ==
-            minus_substr_per_block_count_target[block_id]);
+        ++block_count[block_id];
+        std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
         // Watch for the order of minus-substrings with the same name!!!
         std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
@@ -407,23 +397,23 @@ void induce_minus_substrings(std::uint64_t text_length,
   }
 
   // Update I/O volume.
-  std::uint64_t io_volume = plus_reader->bytes_read() +
-    output_writer->bytes_written() + radix_heap->io_volume() +
-    plus_count_reader->bytes_read() + minus_type_reader->bytes_read() +
-    minus_symbols_reader->bytes_read() + plus_symbols_reader->bytes_read() +
-    minus_pos_reader->bytes_read() + plus_diff_reader->bytes_read();
+  io_volume += radix_heap->io_volume() +
+    plus_reader->bytes_read() + plus_count_reader->bytes_read() +
+    plus_symbols_reader->bytes_read() + plus_diff_reader->bytes_read() +
+    minus_type_reader->bytes_read() + minus_symbols_reader->bytes_read() +
+    minus_pos_reader->bytes_read() + output_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
-  delete plus_reader;
   delete radix_heap;
+  delete plus_reader;
   delete plus_count_reader;
+  delete plus_symbols_reader;
+  delete plus_diff_reader;
   delete minus_type_reader;
   delete minus_symbols_reader;
-  delete plus_symbols_reader;
   delete minus_pos_reader;
   delete output_writer;
-  delete plus_diff_reader;
 }
 
-#endif  // __INDUCE_MINUS_SUBSTRINGS_HPP_INCLUDED
+#endif  // __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED

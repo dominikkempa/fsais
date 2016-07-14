@@ -1,7 +1,7 @@
 SHELL = /bin/sh
 CC = $(CXX)
-#CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=native -std=c++11 -pthread
-CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -O3 -std=c++11 -pthread
+CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=native -std=c++11 -pthread
+#CFLAGS = -Wall -Wextra -pedantic -Wshadow -g2 -O3 -std=c++11 -pthread
 
 all: test
 

@@ -7,7 +7,7 @@
 #include <ctime>
 #include <unistd.h>
 
-#include "induce_minus_substrings.hpp"
+#include "em_induce_minus_star_substrings.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
@@ -409,8 +409,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string minus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    induce_minus_substrings<chr_t, saidx_tt, blockidx_t, ext_blockidx_t>(text_length,
-        plus_substrings_filename, minus_substrings_filename,
+    em_induce_minus_star_substrings<chr_t, saidx_tt, blockidx_t, ext_blockidx_t>(
+        text_length,
+        plus_substrings_filename,
+        minus_substrings_filename,
         plus_count_filename,
         plus_symbols_filename,
         plus_diff_filename,
@@ -418,8 +420,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         minus_symbols_filenames,
         minus_pos_filenames,
         block_beg_target,
-        total_io_volume, radix_heap_bufsize, radix_log,
-        max_block_size, 255, text[text_length - 1]);
+        total_io_volume,
+        radix_heap_bufsize,
+        radix_log,
+        max_block_size,
+        255,
+        text[text_length - 1]);
 
     // Delete input files.
     utils::file_delete(plus_substrings_filename);
