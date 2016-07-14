@@ -1,5 +1,5 @@
-#ifndef __INDUCE_PLUS_SUBSTRINGS_HPP_INCLUDED
-#define __INDUCE_PLUS_SUBSTRINGS_HPP_INCLUDED
+#ifndef __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#define __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -7,8 +7,8 @@
 #include <string>
 #include <algorithm>
 
-#include "packed_pair.hpp"
 #include "utils.hpp"
+#include "packed_pair.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
@@ -18,26 +18,10 @@
 #include "io/async_backward_multi_bit_stream_reader.hpp"
 
 
-template<typename S, typename T>
-struct radix_heap_item {
-  S m_block_idx;
-  T m_name;
-  std::uint8_t m_type;
-
-  radix_heap_item() {}
-  radix_heap_item(S block_idx, std::uint8_t type) {
-    m_block_idx = block_idx;
-    m_type = type;
-  }
-  radix_heap_item(S block_idx, T name, std::uint8_t type) {
-    m_block_idx = block_idx;
-    m_name = name;
-    m_type = type;
-  }
-} __attribute__ ((packed));
-
-template<typename chr_t, typename saidx_t, typename blockidx_t>
-void induce_plus_substrings(std::uint64_t text_length,
+// Note: extext_blockidx_t type needs to store block id and two extra bits.
+template<typename chr_t, typename saidx_t, typename blockidx_t, typename extext_blockidx_t>
+void em_induce_plus_star_substrings(
+    std::uint64_t text_length,
     std::string minus_data_filename,
     std::string output_filename,
     std::vector<std::string> &plus_type_filenames,
@@ -45,16 +29,19 @@ void induce_plus_substrings(std::uint64_t text_length,
     std::vector<std::string> &pos_filenames,
     std::vector<std::uint64_t> &block_count_target,
     std::uint64_t &total_io_volume,
-    std::uint64_t radix_heap_bufsize, std::uint64_t radix_log,
+    std::uint64_t radix_heap_bufsize,
+    std::uint64_t radix_log,
     std::uint64_t max_block_size) {
+  std::uint64_t is_head_plus_bit = ((std::uint64_t)std::numeric_limits<extext_blockidx_t>::max() + 1) / 2;
+  std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
-  typedef radix_heap_item<blockidx_t, saidx_t> heap_item_type;
-  typedef em_radix_heap<chr_t, heap_item_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
-      radix_heap_bufsize, output_filename);
+  typedef packed_pair<extext_blockidx_t, saidx_t> ext_pair_type;
+  typedef em_radix_heap<chr_t, ext_pair_type> heap_type;
+  heap_type *radix_heap = new heap_type(radix_log, radix_heap_bufsize, output_filename);
 
+  // Initialize the readers.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
   typedef async_backward_multi_stream_reader<chr_t> symbols_reader_type;
@@ -85,7 +72,7 @@ void induce_plus_substrings(std::uint64_t text_length,
 
       // We invert the rank of a symbol, since
       // radix_heap implements only extract_min().
-      radix_heap->push(std::numeric_limits<chr_t>::max() - ch, heap_item_type(block_id, 0));
+      radix_heap->push(std::numeric_limits<chr_t>::max() - ch, ext_pair_type(block_id, 0));
     }
 
     // Update I/O volume.
@@ -97,23 +84,34 @@ void induce_plus_substrings(std::uint64_t text_length,
 
   bool empty_output = true;
   bool was_extract_min = false;
+  bool is_prev_head_plus = false;
+  bool is_prev_tail_plus = false;
   std::uint64_t diff_items = 0;
   std::uint64_t diff_items_snapshot = 0;
   std::uint64_t diff_written_items = 0;
-  bool is_prev_head_plus = false;
-  bool is_prev_tail_plus = false;
+  std::uint64_t prev_tail_name = 0;
   chr_t prev_head_char = 0;
-  saidx_t prev_tail_name = 0;
 
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
   while (!radix_heap->empty()) {
-    std::pair<chr_t, heap_item_type> p = radix_heap->extract_min();
+    std::pair<chr_t, ext_pair_type> p = radix_heap->extract_min();
     chr_t head_char = std::numeric_limits<chr_t>::max() - p.first;
-    std::uint64_t block_id = p.second.m_block_idx;
-    saidx_t tail_name = p.second.m_name;
-    bool is_head_plus = (p.second.m_type & 0x01);
-    bool is_tail_plus = (p.second.m_type & 0x02);
+    std::uint64_t block_id = p.second.first;
+    std::uint64_t tail_name = p.second.second;
 
+    // Unpack flags from block id.
+    bool is_head_plus = false;
+    bool is_tail_plus = false;
+    if (block_id & is_head_plus_bit) {
+      block_id -= is_head_plus_bit;
+      is_head_plus = true;
+    }
+    if (block_id & is_tail_plus_bit) {
+      block_id -= is_tail_plus_bit;
+      is_tail_plus = true;
+    }
+
+    // Update block count.
     ++block_count[block_id];
     std::uint8_t head_pos_at_block_beg = (block_count[block_id] ==
         block_count_target[block_id]);
@@ -151,14 +149,14 @@ void induce_plus_substrings(std::uint64_t text_length,
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
         chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
-        radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
-            heap_item_type(prev_pos_block_idx, (saidx_t)(diff_items - 1), 3));
+        std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit | is_tail_plus_bit);
+        radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), ext_pair_type(new_block_id, diff_items - 1));
       }
     } else {
       chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
       std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
-      radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1),
-          heap_item_type(prev_pos_block_idx, head_char, 1));
+      std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
+      radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), ext_pair_type(new_block_id, head_char));
     }
 
     is_prev_head_plus = is_head_plus;
@@ -181,4 +179,4 @@ void induce_plus_substrings(std::uint64_t text_length,
   delete radix_heap;
 }
 
-#endif  // __INDUCE_PLUS_SUBSTRINGS_HPP_INCLUDED
+#endif  // __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED

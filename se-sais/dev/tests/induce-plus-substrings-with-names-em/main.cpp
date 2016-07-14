@@ -7,7 +7,7 @@
 #include <ctime>
 #include <unistd.h>
 
-#include "induce_plus_substrings.hpp"
+#include "em_induce_plus_star_substrings.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
@@ -57,8 +57,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
-      //text[j] = utils::random_int64(0L, 255L);
-      text[j] = 'a' + utils::random_int64(0L, 5L);
+      text[j] = utils::random_int64(0L, 255L);
+      //text[j] = 'a' + utils::random_int64(0L, 5L);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
     std::uint64_t max_block_size = 0;
@@ -84,6 +84,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     typedef std::uint8_t blockidx_t;
+    typedef std::uint16_t extext_blockidx_t;
     std::string minus_data_filename = "tmp." + utils::random_string_hash();
     {
       typedef packed_pair<blockidx_t, chr_t> pair_type;
@@ -392,7 +393,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    induce_plus_substrings<chr_t, saidx_tt, blockidx_t>(
+    em_induce_plus_star_substrings<chr_t, saidx_tt, blockidx_t, extext_blockidx_t>(
         text_length,
         minus_data_filename,
         plus_substrings_filename,
