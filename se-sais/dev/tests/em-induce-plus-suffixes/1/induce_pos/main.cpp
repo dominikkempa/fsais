@@ -159,16 +159,32 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete[] writers;
     }
 
+    std::vector<std::uint64_t> block_count(n_blocks, 0UL);
+    std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
+    {
+      for (std::uint64_t j = text_length; j > 0; --j) {
+        std::uint64_t s = sa[j - 1];
+        std::uint64_t block_id = s / max_block_size;
+        bool is_at_block_beg = (block_id * max_block_size == s);
+        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
+          ++block_count[block_id];
+          if (is_at_block_beg == true)
+            block_count_target[block_id] = block_count[block_id];
+        }
+      }
+    }
 
     // Write all lex-sorted star suffixes to file.
-    std::string minus_sufs_filename = "tmp." + utils::random_string_hash();
+    std::string minus_pos_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<saidx_tt> writer_type;
-      writer_type *writer = new writer_type(minus_sufs_filename);
+      typedef async_stream_writer<blockidx_t> writer_type;
+      writer_type *writer = new writer_type(minus_pos_filename);
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
-        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)
-          writer->write((saidx_tt)s);
+        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
+          std::uint64_t block_id = s / max_block_size;
+          writer->write(block_id);
+        }
       }
       delete writer;
     }
@@ -190,8 +206,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_log,
         max_block_size,
         255,
+        block_count_target,
         output_pos_filename,
-        minus_sufs_filename,
+        minus_pos_filename,
         minus_count_filename,
         plus_type_filenames,
         plus_pos_filenames,
@@ -199,7 +216,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         total_io_volume);
 
     // Delete input files.
-    utils::file_delete(minus_sufs_filename);
+    utils::file_delete(minus_pos_filename);
     utils::file_delete(minus_count_filename);
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
       if (utils::file_exists(symbols_filenames[i])) utils::file_delete(symbols_filenames[i]);

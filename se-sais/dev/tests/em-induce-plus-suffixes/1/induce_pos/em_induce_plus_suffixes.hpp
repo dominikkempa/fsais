@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <vector>
 #include <string>
 #include <algorithm>
 
@@ -22,6 +23,7 @@ void em_induce_plus_suffixes(
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
     chr_t max_char,
+    std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
     std::string minus_pos_filename,
     std::string minus_count_filename,
@@ -37,7 +39,7 @@ void em_induce_plus_suffixes(
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_backward_stream_reader<saidx_t> minus_count_reader_type;
-  typedef async_backward_stream_reader<saidx_t> minus_pos_reader_type;
+  typedef async_backward_stream_reader<blockidx_t> minus_pos_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_pos_filename);
 
@@ -86,15 +88,10 @@ void em_induce_plus_suffixes(
     // Process minus suffixes.
     std::uint64_t minus_sufs_count = minus_count_reader->read();
     for (std::uint64_t i = 0; i < minus_sufs_count; ++i) {
-      /*
       std::uint64_t head_pos_block_id = minus_pos_reader->read();
-      ++block_count[block_id];
-      bool pos_starts_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
+      ++block_count[head_pos_block_id];
+      bool pos_starts_at_block_beg = (block_count[head_pos_block_id] == block_count_target[head_pos_block_id]);
       std::uint64_t prev_pos_block_id = head_pos_block_id - pos_starts_at_block_beg;
-      */
-      std::uint64_t pos_uint64 = minus_pos_reader->read();
-      std::uint64_t head_pos_block_id = pos_uint64 / max_block_size;
-      std::uint64_t prev_pos_block_id = (pos_uint64 - 1) / max_block_size;
       chr_t prev_char = symbols_reader->read_from_ith_file(head_pos_block_id);
       radix_heap->push(std::numeric_limits<chr_t>::max() - prev_char, prev_pos_block_id);
     }
