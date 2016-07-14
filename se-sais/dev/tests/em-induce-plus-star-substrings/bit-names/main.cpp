@@ -9,9 +9,11 @@
 
 #include "em_induce_plus_star_substrings.hpp"
 #include "io/async_backward_stream_reader.hpp"
+#include "io/async_backward_bit_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
+#include "io/async_bit_stream_reader.hpp"
 #include "packed_pair.hpp"
 #include "utils.hpp"
 #include "uint40.hpp"
@@ -393,10 +395,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
+    std::string output_diff_filename = "tmp." + utils::random_string_hash();
     em_induce_plus_star_substrings<chr_t, saidx_tt, blockidx_t, extext_blockidx_t>(
         text_length,
         minus_data_filename,
         plus_substrings_filename,
+        output_diff_filename,
         plus_type_filenames,
         symbols_filenames,
         pos_filenames,
@@ -422,22 +426,37 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       typedef async_backward_stream_reader<saidx_tt> reader_type;
       reader_type *reader = new reader_type(plus_substrings_filename);
       while (!reader->empty()) {
-        v_computed_names.push_back(reader->read());
+//        v_computed_names.push_back(reader->read());
         v_computed.push_back(reader->read());
+      }
+      delete reader;
+    }
+
+    {
+      typedef async_backward_bit_stream_reader reader_type;
+      reader_type *reader = new reader_type(output_diff_filename);
+      std::uint64_t diff_names = 1;
+      v_computed_names.push_back(0);
+      for (std::uint64_t j = 0; j + 1 < v_computed.size(); ++j) {
+        std::uint8_t bit = reader->read();
+        if (bit) ++diff_names;
+        v_computed_names.push_back(diff_names - 1);
       }
       delete reader;
     }
 
     // At this point the names of susbtrings are inverted (since we
     // induced from the largest), so now we invert them back.
-    if (!v_computed_names.empty()) {
-      std::uint64_t max_name = (std::uint64_t)v_computed_names.front();
+/*    if (!v_computed_names.empty()) {
+      std::uint64_t max_name = (std::uint64_t)v_computed_names.back();
       for (std::uint64_t j = 0; j < v_computed_names.size(); ++j)
         v_computed_names[j] = (saidx_t)(max_name - (std::uint64_t)v_computed_names[j]);
     }
+    std::reverse(v_computed_names.begin(), v_computed_names.end());*/
 
     // Delete output file.
     utils::file_delete(plus_substrings_filename);
+    utils::file_delete(output_diff_filename);
 
     // Compare answer.
     bool ok = true;

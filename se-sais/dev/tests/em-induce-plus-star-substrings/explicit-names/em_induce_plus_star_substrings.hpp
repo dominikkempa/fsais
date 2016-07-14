@@ -13,6 +13,7 @@
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
+#include "io/async_bit_stream_writer.hpp"
 #include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_backward_multi_bit_stream_reader.hpp"
@@ -24,6 +25,7 @@ void em_induce_plus_star_substrings(
     std::uint64_t text_length,
     std::string minus_data_filename,
     std::string output_filename,
+    std::string output_diff_filename,
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
     std::vector<std::string> &pos_filenames,
@@ -57,7 +59,9 @@ void em_induce_plus_star_substrings(
 
   // Initialize the output writer.
   typedef async_stream_writer<saidx_t> output_writer_type;
+  typedef async_bit_stream_writer output_diff_writer_type;
   output_writer_type *output_writer = new output_writer_type(output_filename);
+  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename);
 
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
@@ -88,7 +92,6 @@ void em_induce_plus_star_substrings(
   bool is_prev_tail_plus = false;
   std::uint64_t diff_items = 0;
   std::uint64_t diff_items_snapshot = 0;
-  std::uint64_t diff_written_items = 0;
   std::uint64_t prev_tail_name = 0;
   chr_t prev_head_char = 0;
 
@@ -139,11 +142,11 @@ void em_induce_plus_star_substrings(
           if (diff_items != diff_items_snapshot)
             next_output_bit = true;
         } else next_output_bit = true;
-        diff_written_items += next_output_bit;
 
         saidx_t head_pos = pos_reader->read_from_ith_file(block_id);
         output_writer->write(head_pos);
-        output_writer->write(diff_written_items - 1);
+        if (empty_output == false)
+          output_diff_writer->write(next_output_bit);
         empty_output = false;
         diff_items_snapshot = diff_items;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
@@ -168,7 +171,8 @@ void em_induce_plus_star_substrings(
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_type_reader->bytes_read() + symbols_reader->bytes_read() +
-    pos_reader->bytes_read() + output_writer->bytes_written();
+    pos_reader->bytes_read() + output_writer->bytes_written() +
+    output_diff_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -177,6 +181,7 @@ void em_induce_plus_star_substrings(
   delete symbols_reader;
   delete pos_reader;
   delete output_writer;
+  delete output_diff_writer;
 }
 
 // Note: extext_blockidx_t type needs to store block id and two extra bits.
@@ -185,6 +190,7 @@ void em_induce_plus_star_substrings(
     std::uint64_t text_length,
     std::string minus_data_filename,
     std::string output_filename,
+    std::string output_diff_filename,
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
     std::vector<std::string> &pos_filenames,
@@ -216,9 +222,11 @@ void em_induce_plus_star_substrings(
     pos_reader->add_file(pos_filenames[block_id]);
   }
 
-  // Initialize the output writer.
+  // Initialize the output writers.
   typedef async_stream_writer<saidx_t> output_writer_type;
+  typedef async_bit_stream_writer output_diff_writer_type;
   output_writer_type *output_writer = new output_writer_type(output_filename);
+  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename);
 
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
@@ -248,7 +256,6 @@ void em_induce_plus_star_substrings(
   bool was_extract_min = false;
   bool was_prev_head_minus = false;
   std::uint64_t cur_substring_name_snapshot = 0;
-  std::uint64_t diff_items_written = 0;
   std::uint64_t current_timestamp = 0;
   std::uint64_t cur_substring_name = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
@@ -305,11 +312,11 @@ void em_induce_plus_star_substrings(
           if (cur_substring_name_snapshot != cur_substring_name)
             next_output_bit = true;
         } else next_output_bit = true;
-        diff_items_written += next_output_bit;
 
         saidx_t head_pos = pos_reader->read_from_ith_file(block_id);
         output_writer->write(head_pos);
-        output_writer->write(diff_items_written - 1);
+        if (empty_output == false)
+          output_diff_writer->write(next_output_bit);
         empty_output = false;
         cur_substring_name_snapshot = cur_substring_name;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
@@ -337,7 +344,8 @@ void em_induce_plus_star_substrings(
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_type_reader->bytes_read() + symbols_reader->bytes_read() +
-    pos_reader->bytes_read() + output_writer->bytes_written();
+    pos_reader->bytes_read() + output_writer->bytes_written() +
+    output_diff_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -346,6 +354,7 @@ void em_induce_plus_star_substrings(
   delete symbols_reader;
   delete pos_reader;
   delete output_writer;
+  delete output_diff_writer;
 }
 
 #endif  // __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
