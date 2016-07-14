@@ -140,16 +140,16 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete[] writers;
     }
 
-    std::vector<std::string> minus_symbols_filenames;
+    std::vector<std::string> symbols_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
         std::string filename = "tmp." + utils::random_string_hash();
-        minus_symbols_filenames.push_back(filename);
+        symbols_filenames.push_back(filename);
       }
       typedef async_stream_writer<chr_t> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(minus_symbols_filenames[j]);
+        writers[j] = new writer_type(symbols_filenames[j]);
 
       // Create a list of minus substrings.
       std::vector<substring> substrings;
@@ -165,6 +165,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (end < text_length) 
             s += text[end++];
           substrings.push_back(substring(j, s));
+        } else if (j > 0 && suf_type[j - 1] == 0) {
+          std::string s;
+          s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 1)
+            s += text[end++];
+          if (end < text_length)
+            s += text[end++];
+          substrings.push_back(substring(j, s));
         }
       }
 
@@ -178,8 +187,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       for (std::uint64_t j = 0; j < substrings.size(); ++j) {
         std::uint64_t s = substrings[j].m_beg;
         std::uint64_t block_id = s / max_block_size;
-        std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 1);
-        if (s > 0 && !is_star)
+        std::uint8_t is_minus_star = (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1);
+        std::uint8_t is_plus_star  = (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0);
+        if (s > 0 && (!is_minus_star || is_plus_star))
           writers[block_id]->write(text[s - 1]);
       }
 
@@ -264,6 +274,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (end < text_length) 
             s += text[end++];
           substrings.push_back(substring(j, s));
+        } else if (j > 0 && suf_type[j - 1] == 0) {
+          std::string s;
+          s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 1)
+            s += text[end++];
+          if (end < text_length) 
+            s += text[end++];
+          substrings.push_back(substring(j, s));
         }
       }
 
@@ -288,39 +307,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       /*for (std::uint64_t j = 0; j < n_blocks; ++j)
         delete writers[j];
       delete[] writers;*/
-    }
-
-
-    std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
-    {
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (j > 0 && suf_type[j] == 1 && is_leftmost_suffix[j]) {
-          std::string s;
-          s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 1)
-            s += text[end++];
-          if (end < text_length) 
-            s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-
-      // Sort the list.
-      {
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-      }
-
-      // Write the list to file.
-      {
-        typedef async_stream_writer<chr_t> writer_type;
-        writer_type *writer = new writer_type(plus_symbols_filename);
-        for (std::uint64_t j = substrings.size(); j > 0; --j)
-          writer->write(text[substrings[j - 1].m_beg - 1]);
-        delete writer;
-      }
     }
 
     typedef std::uint8_t blockidx_t;
@@ -361,7 +347,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           std::uint8_t is_diff = 0;
           if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
             is_diff = 1;
-          writer_1->write((blockidx_t)((substrings[j].m_beg - 1) / max_block_size));
+          writer_1->write((blockidx_t)(substrings[j].m_beg / max_block_size));
           writer_2->write(is_diff);
         }
         delete writer_1;
@@ -414,10 +400,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         plus_substrings_filename,
         minus_substrings_filename,
         plus_count_filename,
-        plus_symbols_filename,
         plus_diff_filename,
         minus_type_filenames,
-        minus_symbols_filenames,
+        symbols_filenames,
         minus_pos_filenames,
         block_beg_target,
         total_io_volume,
@@ -430,11 +415,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Delete input files.
     utils::file_delete(plus_substrings_filename);
     utils::file_delete(plus_count_filename);
-    utils::file_delete(plus_symbols_filename);
     utils::file_delete(plus_diff_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
-      if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
+      if (utils::file_exists(symbols_filenames[j])) utils::file_delete(symbols_filenames[j]);
       if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
       // if (utils::file_exists(block_beg_filenames[j])) utils::file_delete(block_beg_filenames[j]);
     }
