@@ -12,6 +12,7 @@
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
+#include "packed_pair.hpp"
 #include "utils.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -56,8 +57,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
-      text[j] = utils::random_int64(0L, 255L);
-      // text[j] = 'a' + utils::random_int64(0L, 25L);
+      //text[j] = utils::random_int64(0L, 255L);
+      text[j] = 'a' + utils::random_int64(0L, 5L);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
     std::uint64_t max_block_size = 0;
@@ -82,24 +83,20 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
-    // Write starting positions of all minus-star-substrings to file.
-    std::string minus_star_positions_filename = "tmp." + utils::random_string_hash();
+    typedef std::uint8_t blockidx_t;
+    std::string minus_data_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<saidx_tt> writer_type;
-      writer_type *writer = new writer_type(minus_star_positions_filename);
-      for (std::uint64_t i = 0; i < text_length; ++i)
-        if (i > 0 && suf_type[i] == 0 && suf_type[i - 1] == 1)
-          writer->write((saidx_tt)i);
-      delete writer;
-    }
-
-    std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
-    {
-      typedef async_stream_writer<chr_t> writer_type;
-      writer_type *writer = new writer_type(minus_symbols_filename);
-      for (std::uint64_t i = 0; i < text_length; ++i)
-        if (i > 0 && suf_type[i] == 0 && suf_type[i - 1] == 1)
-          writer->write(text[i]);
+      typedef packed_pair<blockidx_t, chr_t> pair_type;
+      typedef async_stream_writer<pair_type> writer_type;
+      writer_type *writer = new writer_type(minus_data_filename);
+      for (std::uint64_t i = text_length; i > 0; --i) {
+        std::uint64_t s = i - 1;
+        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
+          std::uint64_t block_id = s / max_block_size;
+          pair_type p((blockidx_t)block_id, text[s]);
+          writer->write(p);
+        }
+      }
       delete writer;
     }
 
@@ -393,13 +390,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Run the tested algorithm.
-    typedef std::uint8_t blockidx_t;
     std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     induce_plus_substrings<chr_t, saidx_tt, blockidx_t>(
         text_length,
-        minus_star_positions_filename,
-        minus_symbols_filename,
+        minus_data_filename,
         plus_substrings_filename,
         plus_type_filenames,
         symbols_filenames,
@@ -411,8 +406,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         max_block_size);
 
     // Delete input files.
-    utils::file_delete(minus_star_positions_filename);
-    utils::file_delete(minus_symbols_filename);
+    utils::file_delete(minus_data_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
       if (utils::file_exists(symbols_filenames[j])) utils::file_delete(symbols_filenames[j]);
@@ -500,7 +494,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 }
 
 int main() {
-//  srand(time(0) + getpid());
+  srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1L << 15); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= (1L << 10); buffer_size *= 2)

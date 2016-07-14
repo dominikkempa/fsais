@@ -7,6 +7,7 @@
 #include <string>
 #include <algorithm>
 
+#include "packed_pair.hpp"
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_backward_stream_reader.hpp"
@@ -37,8 +38,7 @@ struct radix_heap_item {
 
 template<typename chr_t, typename saidx_t, typename blockidx_t>
 void induce_plus_substrings(std::uint64_t text_length,
-    std::string minus_star_positions_filename,
-    std::string minus_symbols_filename,
+    std::string minus_data_filename,
     std::string output_filename,
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
@@ -72,21 +72,16 @@ void induce_plus_substrings(std::uint64_t text_length,
   typedef async_stream_writer<saidx_t> output_writer_type;
   output_writer_type *output_writer = new output_writer_type(output_filename);
 
-  // Inducing of plus-substrings follows. First, sort start positions of all
-  // minus-star-substrings by the first symbol by adding them to the heap.
+  // Sort start positions of all minus star substrings by
+  // the first symbol by adding them to the heap.
   {
-    // Initialize reading of lexicographically unsorted (but
-    // sorted by position) minus-substrings (in reverse order).
-    typedef async_backward_stream_reader<saidx_t> minus_pos_reader_type;
-    typedef async_backward_stream_reader<chr_t> minus_symbols_reader_type;
-    minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_star_positions_filename);
-    minus_symbols_reader_type *minus_symbols_reader = new minus_symbols_reader_type(minus_symbols_filename);
-
-    while (!minus_pos_reader->empty()) {
-      saidx_t pos = minus_pos_reader->read();
-      std::uint64_t pos_uint64 = pos;
-      std::uint64_t block_id = pos_uint64 / max_block_size;
-      chr_t ch = minus_symbols_reader->read();
+    typedef packed_pair<blockidx_t, chr_t> pair_type;
+    typedef async_stream_reader<pair_type> reader_type;
+    reader_type *reader = new reader_type(minus_data_filename);
+    while (!reader->empty()) {
+      pair_type p = reader->read();
+      std::uint64_t block_id = p.first;
+      chr_t ch = p.second;
 
       // We invert the rank of a symbol, since
       // radix_heap implements only extract_min().
@@ -94,11 +89,10 @@ void induce_plus_substrings(std::uint64_t text_length,
     }
 
     // Update I/O volume.
-    io_volume += minus_pos_reader->bytes_read() + minus_symbols_reader->bytes_read();
+    io_volume += reader->bytes_read();
 
     // Clean up.
-    delete minus_pos_reader;
-    delete minus_symbols_reader;
+    delete reader;
   }
 
   bool empty_output = true;
