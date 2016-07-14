@@ -348,7 +348,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
             is_diff = 1;
           writer_1->write((blockidx_t)(substrings[j].m_beg / max_block_size));
-          writer_2->write(is_diff);
+          if (j > 0)
+            writer_2->write(is_diff);
         }
         delete writer_1;
         delete writer_2;
@@ -482,9 +483,9 @@ int main() {
   srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= (1L << 10); buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= 5; ++radix_log)
-        test(50, max_length, buffer_size, radix_log);
+    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
+      for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
+        test(/*50*/1000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

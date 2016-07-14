@@ -190,11 +190,9 @@ void em_induce_minus_star_substrings(
         (block_count[pos_block_id] == block_count_target[pos_block_id]);
       std::uint64_t prev_pos_block_id = pos_block_id - head_pos_at_block_beg;
 
-      // Update timestamp and compute prev_char.
-      std::uint8_t is_different = plus_diff_reader->read();
-      if (was_prev_plus_name && is_different)
-        ++cur_plus_name;
-
+      // Update current name, compute prev_char, and add item to the heap.
+      if (was_prev_plus_name)
+        cur_plus_name += plus_diff_reader->read();
       chr_t prev_char = symbols_reader->read_from_ith_file(pos_block_id);
       was_prev_plus_name = true;
       radix_heap->push(prev_char, ext_pair_type(prev_pos_block_id, cur_plus_name));
@@ -278,6 +276,7 @@ void em_induce_minus_star_substrings(
   // Induce minus substrings.
   bool empty_output = true;
   bool was_extract_min = false;
+  bool was_plus_subtr = false;
   std::uint64_t cur_symbol = 0;
   std::uint64_t cur_substring_name_snapshot = 0;
   std::uint64_t diff_items_written = 0;
@@ -387,9 +386,9 @@ void em_induce_minus_star_substrings(
       std::uint64_t heap_value = prev_pos_block_id;
 
       // Update timestamp and compute prev_char.
-      std::uint8_t is_different = plus_diff_reader->read();
-      if (i == 0 || is_different)
+      if (was_plus_subtr == false || plus_diff_reader->read())
         ++current_timestamp;
+      was_plus_subtr = true;
       chr_t prev_char = symbols_reader->read_from_ith_file(pos_block_id);
 
       // Set the most significant of heap_value if necessary.
