@@ -102,31 +102,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete writer;
     }
 
-    std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
-    {
-      typedef async_stream_writer<chr_t> writer_type;
-      writer_type *writer = new writer_type(plus_symbols_filename);
-      for (std::uint64_t j = text_length; j > 0; --j) {
-        std::uint64_t s = sa[j - 1];
-        if (suf_type[s] == 1 && s > 0 && suf_type[s - 1] == 0)
-          writer->write(text[s - 1]);
-      }
-      delete writer;
-    }
-
-    std::vector<std::string> minus_symbols_filenames;
+    std::vector<std::string> symbols_filenames;
     {
       for (std::uint64_t j = 0; j < n_blocks; ++j) {
         std::string filename = "tmp." + utils::random_string_hash();
-        minus_symbols_filenames.push_back(filename);
+        symbols_filenames.push_back(filename);
       }
       typedef async_stream_writer<chr_t> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(minus_symbols_filenames[j]);
+        writers[j] = new writer_type(symbols_filenames[j]);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 0) {
+        if (s > 0 && suf_type[s - 1] == 0) {
           std::uint64_t block_id = s / max_block_size;
           writers[block_id]->write(text[s - 1]);
         }
@@ -209,19 +197,27 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     chr_t last_text_symbol = text[text_length - 1];
-    em_induce_minus_suffixes<chr_t, saidx_tt, blockidx_t>(text_length,
-        plus_pos_filename, output_filename, total_io_volume,
-        radix_heap_bufsize, radix_log, last_text_symbol, max_block_size,
-        plus_type_filename, plus_count_filename, plus_symbols_filename,
-        minus_symbols_filenames, minus_type_filenames, minus_pos_filenames);
+    em_induce_minus_suffixes<chr_t, saidx_tt, blockidx_t>(
+        text_length,
+        radix_heap_bufsize,
+        radix_log,
+        max_block_size,
+        last_text_symbol,
+        output_filename,
+        plus_pos_filename,
+        plus_type_filename,
+        plus_count_filename,
+        minus_type_filenames,
+        minus_pos_filenames,
+        symbols_filenames,
+        total_io_volume);
 
     // Delete input files.
     utils::file_delete(plus_pos_filename);
     utils::file_delete(plus_type_filename);
     utils::file_delete(plus_count_filename);
-    utils::file_delete(plus_symbols_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
-      if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
+      if (utils::file_exists(symbols_filenames[j])) utils::file_delete(symbols_filenames[j]);
       if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
       if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
     }

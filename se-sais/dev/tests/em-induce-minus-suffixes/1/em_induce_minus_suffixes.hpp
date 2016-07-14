@@ -20,20 +20,20 @@
 
 
 template<typename chr_t, typename saidx_t, typename blockidx_t>
-void em_induce_minus_suffixes(std::uint64_t text_length,
-    std::string plus_pos_filename,
-    std::string output_filename,
-    std::uint64_t &total_io_volume,
+void em_induce_minus_suffixes(
+    std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
-    chr_t last_text_symbol,
     std::uint64_t max_block_size,
-    std::string plus_type_filename,     // type (1 = star, 0 = not star)
-    std::string plus_count_filename,    // number of plus sufs starting with each letter
-    std::string plus_symbols_filename,  // preceding symbols for plus suffixes
-    std::vector<std::string> &minus_symbols_filenames,  // one file per block
-    std::vector<std::string> &minus_type_filenames,     // one file per block
-    std::vector<std::string> &minus_pos_filenames) {    // one file per block
+    chr_t last_text_symbol,
+    std::string output_filename,
+    std::string plus_pos_filename,
+    std::string plus_type_filename,
+    std::string plus_count_filename,
+    std::vector<std::string> &minus_type_filenames,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &symbols_filenames,
+    std::uint64_t &total_io_volume) {
 
   // Initialize radix heap.
   typedef em_radix_heap<chr_t, blockidx_t> radix_heap_type;
@@ -44,25 +44,26 @@ void em_induce_minus_suffixes(std::uint64_t text_length,
   typedef async_backward_stream_reader<saidx_t> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<saidx_t> plus_count_reader_type;
-  typedef async_backward_stream_reader<chr_t> plus_symbols_reader_type;
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename);
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
-  plus_symbols_reader_type *plus_symbols_reader = new plus_symbols_reader_type(plus_symbols_filename);
 
   // Initialize readers and writers for minus suffixes.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_multi_stream_reader<saidx_t> minus_pos_reader_type;
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<chr_t> minus_symbols_reader_type;
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
-  minus_symbols_reader_type *minus_symbols_reader = new minus_symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     minus_pos_reader->add_file(minus_pos_filenames[block_id]);
     minus_type_reader->add_file(minus_type_filenames[block_id]);
-    minus_symbols_reader->add_file(minus_symbols_filenames[block_id]);
   }
+
+  // Initialize the readers of data associated with both types of suffixes.
+  typedef async_multi_stream_reader<chr_t> symbols_reader_type;
+  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
+  for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
+    symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writer.
   typedef async_stream_writer<saidx_t> output_writer_type;
@@ -82,7 +83,7 @@ void em_induce_minus_suffixes(std::uint64_t text_length,
       output_writer->write(pos);
 
       if (pos_uint64 > 0 && !is_star) {
-        chr_t prev_ch = minus_symbols_reader->read_from_ith_file(block_id);
+        chr_t prev_ch = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos_uint64) ?
           block_id - 1 : block_id;
         radix_heap->push(prev_ch, (blockidx_t)prev_pos_block_id);
@@ -92,12 +93,12 @@ void em_induce_minus_suffixes(std::uint64_t text_length,
     // Process plus suffixes.
     std::uint64_t plus_suf_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_suf_count; ++i) {
-      saidx_t pos = plus_pos_reader->read();
-      std::uint64_t pos_uint64 = pos;
-      std::uint8_t is_star = plus_type_reader->read();
-      if (is_star) {
-        chr_t prev_ch = plus_symbols_reader->read();
-        std::uint64_t prev_pos_block_id = (pos_uint64 - 1) / max_block_size;
+      std::uint64_t head_pos = plus_pos_reader->read();
+      if (plus_type_reader->read()) {
+        std::uint64_t head_pos_block_id = head_pos / max_block_size;
+        bool head_pos_at_block_boundary = (head_pos_block_id * max_block_size == head_pos);
+        std::uint64_t prev_pos_block_id = head_pos_block_id - head_pos_at_block_boundary;
+        chr_t prev_ch = symbols_reader->read_from_ith_file(head_pos_block_id);
         radix_heap->push(prev_ch, prev_pos_block_id);
       }
     }
@@ -107,10 +108,10 @@ void em_induce_minus_suffixes(std::uint64_t text_length,
   }
 
   // Update I/O volume.
-  std::uint64_t io_volume = radix_heap->io_volume() + plus_pos_reader->bytes_read() +
-    plus_type_reader->bytes_read() + plus_count_reader->bytes_read() +
-    plus_symbols_reader->bytes_read() + minus_pos_reader->bytes_read() +
-    minus_symbols_reader->bytes_read() + minus_type_reader->bytes_read() +
+  std::uint64_t io_volume = radix_heap->io_volume() +
+    plus_pos_reader->bytes_read() + plus_type_reader->bytes_read() +
+    plus_count_reader->bytes_read() + minus_pos_reader->bytes_read() +
+    minus_type_reader->bytes_read() + symbols_reader->bytes_read() +
     output_writer->bytes_written();
   total_io_volume += io_volume;
 
@@ -119,10 +120,9 @@ void em_induce_minus_suffixes(std::uint64_t text_length,
   delete plus_pos_reader;
   delete plus_type_reader;
   delete plus_count_reader;
-  delete plus_symbols_reader;
   delete minus_pos_reader;
-  delete minus_symbols_reader;
   delete minus_type_reader;
+  delete symbols_reader;
   delete output_writer;
 }
 
