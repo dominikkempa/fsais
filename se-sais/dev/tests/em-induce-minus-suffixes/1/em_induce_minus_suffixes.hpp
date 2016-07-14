@@ -1,5 +1,5 @@
-#ifndef __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
-#define __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#ifndef __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#define __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,8 +19,8 @@
 #include "io/async_backward_bit_stream_reader.hpp"
 
 
-template<typename chr_t, typename saidx_t, typename blockidx_t = std::uint16_t>
-void induce_minus_suffixes(std::uint64_t text_length,
+template<typename chr_t, typename saidx_t, typename blockidx_t>
+void em_induce_minus_suffixes(std::uint64_t text_length,
     std::string plus_pos_filename,
     std::string output_filename,
     std::uint64_t &total_io_volume,
@@ -124,4 +124,4 @@ void induce_minus_suffixes(std::uint64_t text_length,
   delete output_writer;
 }
 
-#endif  // __INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
+#endif  // __EM_INDUCE_MINUS_SUFFIXES_HPP_INCLUDED
