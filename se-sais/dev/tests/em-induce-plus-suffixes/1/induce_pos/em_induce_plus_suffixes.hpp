@@ -27,6 +27,7 @@ void em_induce_plus_suffixes(
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
     std::string output_type_filename,
+    std::string output_count_filename,
     std::string minus_pos_filename,
     std::string minus_count_filename,
     std::vector<std::string> &plus_type_filenames,
@@ -65,10 +66,15 @@ void em_induce_plus_suffixes(
   // Initialize output writers.
   typedef async_stream_writer<saidx_t> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
+  typedef async_stream_writer<saidx_t> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename);
+  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
+  bool empty_output = true;
   chr_t cur_char = max_char;
+  std::uint64_t prev_written_head_char = 0;
+  std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
 
   // Induce plus suffixes.
@@ -83,6 +89,21 @@ void em_induce_plus_suffixes(
       std::uint8_t is_star = plus_type_reader->read_from_ith_file(block_id);
       output_type_writer->write(is_star);
 
+      if (empty_output == false) {
+        if (cur_char == prev_written_head_char) ++cur_bucket_size;
+        else {
+          output_count_writer->write(cur_bucket_size);
+          for (std::uint64_t ch = (std::uint64_t)prev_written_head_char; ch > (std::uint64_t)cur_char + 1; --ch)
+            output_count_writer->write(0);
+          cur_bucket_size = 1;
+          prev_written_head_char = cur_char;
+        }
+      } else {
+        cur_bucket_size = 1;
+        prev_written_head_char = cur_char;
+      }
+
+      empty_output = false;
       if (pos_uint64 > 0 && !is_star) {
         chr_t prev_ch = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos_uint64) ?
@@ -106,12 +127,18 @@ void em_induce_plus_suffixes(
     --cur_char;
   }
 
+  if (empty_output == false) {
+    output_count_writer->write(cur_bucket_size);
+    for (std::uint64_t ch = (std::uint64_t)prev_written_head_char; ch > 0; --ch)
+      output_count_writer->write(0);
+  }
+
   // Update I/O volume.
   std::uint64_t io_volume = radix_heap->io_volume() +
     minus_pos_reader->bytes_read() + minus_count_reader->bytes_read() +
     plus_type_reader->bytes_read() + plus_pos_reader->bytes_read() +
     symbols_reader->bytes_read() + output_pos_writer->bytes_written() +
-    output_type_writer->bytes_written();
+    output_type_writer->bytes_written() + output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -123,6 +150,7 @@ void em_induce_plus_suffixes(
   delete symbols_reader;
   delete output_pos_writer;
   delete output_type_writer;
+  delete output_count_writer;
 }
 
 #endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
