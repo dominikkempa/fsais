@@ -23,7 +23,6 @@ void em_induce_plus_suffixes(
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
-    chr_t max_char,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
     std::string output_type_filename,
@@ -72,7 +71,12 @@ void em_induce_plus_suffixes(
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   bool empty_output = true;
-  chr_t cur_char = max_char;
+  chr_t cur_char = 0;
+  {
+    std::uint64_t size = utils::file_size(minus_count_filename);
+    if (size > 0)
+      cur_char = size / sizeof(saidx_t) - 1;
+  }
   std::uint64_t prev_written_head_char = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);

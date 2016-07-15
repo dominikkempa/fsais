@@ -209,7 +209,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_heap_bufsize,
         radix_log,
         max_block_size,
-        255,
         block_count_target,
         output_pos_filename,
         output_type_filename,
