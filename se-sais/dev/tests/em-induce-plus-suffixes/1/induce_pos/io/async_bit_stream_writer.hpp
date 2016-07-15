@@ -106,6 +106,7 @@ class async_bit_stream_writer {
     }
 
     inline void write(std::uint8_t bit) {
+      ++m_bits_written;
       m_active_buf[m_active_buf_filled] |= ((std::uint64_t)bit << m_bit_pos);
       ++m_bit_pos;
       if (m_bit_pos == 64) {
@@ -123,6 +124,10 @@ class async_bit_stream_writer {
       }
     }
 
+    std::uint64_t bytes_written() const {
+      return (m_bits_written + 7) / 8;
+    }
+
   private:
     std::uint64_t *m_active_buf;
     std::uint64_t *m_passive_buf;
@@ -131,6 +136,7 @@ class async_bit_stream_writer {
     std::uint64_t m_bit_pos;
     std::uint64_t m_active_buf_filled;
     std::uint64_t m_passive_buf_filled;
+    std::uint64_t m_bits_written;
 
     // Used for synchronization with the I/O thread.
     bool m_avail;

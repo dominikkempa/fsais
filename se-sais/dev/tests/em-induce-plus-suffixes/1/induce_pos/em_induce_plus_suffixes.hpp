@@ -14,6 +14,7 @@
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_backward_multi_stream_reader.hpp"
 #include "io/async_backward_multi_bit_stream_reader.hpp"
+#include "io/async_bit_stream_writer.hpp"
 
 
 template<typename chr_t, typename saidx_t, typename blockidx_t>
@@ -25,6 +26,7 @@ void em_induce_plus_suffixes(
     chr_t max_char,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
+    std::string output_type_filename,
     std::string minus_pos_filename,
     std::string minus_count_filename,
     std::vector<std::string> &plus_type_filenames,
@@ -60,13 +62,16 @@ void em_induce_plus_suffixes(
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
-  // Initialize output writer.
+  // Initialize output writers.
   typedef async_stream_writer<saidx_t> output_pos_writer_type;
+  typedef async_bit_stream_writer output_type_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
+  output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename);
 
-  // Induce plus suffixes.
   chr_t cur_char = max_char;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
+
+  // Induce plus suffixes.
   while (!radix_heap->empty() || !minus_count_reader->empty()) {
     // Process plus suffixes.
     while (!radix_heap->empty() && radix_heap->min_compare(std::numeric_limits<chr_t>::max() - cur_char)) {
@@ -76,6 +81,7 @@ void em_induce_plus_suffixes(
       output_pos_writer->write(pos);
       std::uint64_t pos_uint64 = pos;
       std::uint8_t is_star = plus_type_reader->read_from_ith_file(block_id);
+      output_type_writer->write(is_star);
 
       if (pos_uint64 > 0 && !is_star) {
         chr_t prev_ch = symbols_reader->read_from_ith_file(block_id);
@@ -104,7 +110,8 @@ void em_induce_plus_suffixes(
   std::uint64_t io_volume = radix_heap->io_volume() +
     minus_pos_reader->bytes_read() + minus_count_reader->bytes_read() +
     plus_type_reader->bytes_read() + plus_pos_reader->bytes_read() +
-    symbols_reader->bytes_read() + output_pos_writer->bytes_written();
+    symbols_reader->bytes_read() + output_pos_writer->bytes_written() +
+    output_type_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -115,6 +122,7 @@ void em_induce_plus_suffixes(
   delete plus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
+  delete output_type_writer;
 }
 
 #endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

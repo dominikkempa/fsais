@@ -12,6 +12,7 @@
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
+#include "io/async_backward_bit_stream_reader.hpp"
 #include "utils.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -199,6 +200,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Run the tested algorithm.
     std::string output_pos_filename = "tmp." + utils::random_string_hash();
+    std::string output_type_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     em_induce_plus_suffixes<chr_t, saidx_tt, blockidx_t>(
         text_length,
@@ -208,6 +210,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         255,
         block_count_target,
         output_pos_filename,
+        output_type_filename,
         minus_pos_filename,
         minus_count_filename,
         plus_type_filenames,
@@ -234,8 +237,37 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete reader;
     }
 
-    // Delete output file.
+    std::vector<std::uint64_t> v_type_correct;
+    {
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
+        if (suf_type[s] == 1) {
+          std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);
+          v_type_correct.push_back(is_star);
+        }
+      }
+    }
+
+    std::vector<std::uint8_t> v_type_computed;
+    {
+      typedef async_backward_bit_stream_reader reader_type;
+      reader_type *reader = new reader_type(output_type_filename);
+      for (std::uint64_t j = 0; j < v_type_correct.size(); ++j) {
+        std::uint8_t bit = reader->read();
+        v_type_computed.push_back(bit);
+      }
+      delete reader;
+    }
+
+    if (v_type_correct.size() != v_type_computed.size() ||
+        std::equal(v_type_correct.begin(), v_type_correct.end(), v_type_computed.begin()) == false) {
+      fprintf(stderr, "Error: types don't match!\n");
+      std::exit(EXIT_FAILURE);
+    }
+
+    // Delete output files.
     utils::file_delete(output_pos_filename);
+    utils::file_delete(output_type_filename);
 
     // Compare answer.
     bool ok = true;
