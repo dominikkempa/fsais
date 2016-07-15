@@ -5,6 +5,7 @@
 #include <string>
 #include <algorithm>
 #include <ctime>
+#include <map>
 #include <unistd.h>
 
 #include "em_induce_minus_star_substrings.hpp"
@@ -421,6 +422,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
+    std::string output_count_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     em_induce_minus_star_substrings<chr_t, saidx_tt, blockidx_t, ext_blockidx_t>(
         text_length,
@@ -431,6 +433,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         text[text_length - 1],
         block_beg_target,
         output_filename,
+        output_count_filename,
         plus_pos_filename,
         plus_count_filename,
         plus_diff_filename,
@@ -462,8 +465,49 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete reader;
     }
 
-    // Delete output file.
+    std::vector<std::pair<chr_t, std::uint64_t> > v_computed_count;
+    {
+      typedef async_stream_reader<saidx_t> reader_type;
+      reader_type *reader = new reader_type(output_count_filename);
+      chr_t cur_sym = 0;
+      while (reader->empty() == false) {
+        std::uint64_t count = reader->read();
+        if (count > 0)
+          v_computed_count.push_back(std::make_pair(cur_sym, count));
+        ++cur_sym;
+      }
+      delete reader;
+    }
+
+    std::vector<std::pair<chr_t, std::uint64_t> > v_correct_count;
+    {
+      std::map<chr_t, std::uint64_t> m;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
+        if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
+          m[text[s]] += 1;
+      }
+      for (std::map<chr_t, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
+        v_correct_count.push_back(std::make_pair(it->first, it->second));
+    }
+
+    if (v_computed_count.size() != v_correct_count.size() ||
+        std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
+      fprintf(stderr, "Error: counts do not match!\n");
+      fprintf(stderr, "  v_computed_count: ");
+      for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
+        fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  v_correct_count: ");
+      for (std::uint64_t j = 0; j < v_correct_count.size(); ++j)
+        fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_correct_count[j].first, (std::uint64_t)v_correct_count[j].second);
+      fprintf(stderr, "\n");
+      std::exit(EXIT_FAILURE);
+    }
+
+    // Delete output files.
     utils::file_delete(output_filename);
+    utils::file_delete(output_count_filename);
 
     // Compare answer.
     bool ok = true;
