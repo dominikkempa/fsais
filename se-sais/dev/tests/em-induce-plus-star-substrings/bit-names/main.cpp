@@ -394,25 +394,25 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Run the tested algorithm.
-    std::string plus_substrings_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
+    std::string output_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_diff_filename = "tmp." + utils::random_string_hash();
     std::string output_count_filename = "tmp." + utils::random_string_hash();
     em_induce_plus_star_substrings<chr_t, saidx_tt, blockidx_t, extext_blockidx_t>(
         text_length,
+        radix_heap_bufsize,
+        radix_log,
+        max_block_size,
+        255,
+        block_count_target,
         minus_data_filename,
-        plus_substrings_filename,
+        output_pos_filename,
         output_diff_filename,
         output_count_filename,
         plus_type_filenames,
         symbols_filenames,
         pos_filenames,
-        block_count_target,
-        total_io_volume,
-        radix_heap_bufsize,
-        radix_log,
-        max_block_size,
-        255);
+        total_io_volume);
 
     // Delete input files.
     utils::file_delete(minus_data_filename);
@@ -427,7 +427,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::vector<saidx_tt> v_computed_names;
     {
       typedef async_backward_stream_reader<saidx_tt> reader_type;
-      reader_type *reader = new reader_type(plus_substrings_filename);
+      reader_type *reader = new reader_type(output_pos_filename);
       while (!reader->empty()) {
 //        v_computed_names.push_back(reader->read());
         v_computed.push_back(reader->read());
@@ -490,7 +490,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::reverse(v_computed_names.begin(), v_computed_names.end());*/
 
     // Delete output file.
-    utils::file_delete(plus_substrings_filename);
+    utils::file_delete(output_pos_filename);
     utils::file_delete(output_diff_filename);
     utils::file_delete(output_count_filename);
 
@@ -556,7 +556,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(1000, max_length, buffer_size, radix_log);
+        test(2000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

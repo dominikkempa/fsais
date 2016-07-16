@@ -23,18 +23,17 @@
 template<typename chr_t, typename saidx_t, typename blockidx_t, typename extext_blockidx_t>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
+    std::uint64_t radix_heap_bufsize,
+    std::uint64_t radix_log,
+    std::uint64_t max_block_size,
+    std::vector<std::uint64_t> &block_count_target,
     std::string minus_data_filename,
     std::string output_pos_filename,
     std::string output_diff_filename,
     std::string output_count_filename,
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
-    std::vector<std::string> &pos_filenames,
-    std::vector<std::uint64_t> &block_count_target,
-    std::uint64_t &total_io_volume,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
-    std::uint64_t max_block_size) {
+    std::uint64_t &total_io_volume) {
   std::uint64_t is_head_plus_bit = ((std::uint64_t)std::numeric_limits<extext_blockidx_t>::max() + 1) / 2;
   std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
@@ -210,18 +209,18 @@ void em_induce_plus_star_substrings(
 template<typename chr_t, typename saidx_t, typename blockidx_t, typename extext_blockidx_t>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
+    std::uint64_t radix_heap_bufsize,
+    std::uint64_t radix_log,
+    std::uint64_t max_block_size,
+    std::uint64_t max_text_symbol,
+    std::vector<std::uint64_t> &block_count_target,
     std::string minus_data_filename,
     std::string output_pos_filename,
     std::string output_diff_filename,
     std::string output_count_filename,
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
-    std::vector<std::uint64_t> &block_count_target,
-    std::uint64_t &total_io_volume,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
-    std::uint64_t max_block_size,
-    std::uint64_t max_text_symbol) {
+    std::uint64_t &total_io_volume) {
   std::uint64_t is_diff_bit = ((std::uint64_t)std::numeric_limits<extext_blockidx_t>::max() + 1) / 2;
   std::uint64_t is_head_plus_bit = is_diff_bit / 2;
   std::uint64_t io_volume = 0;

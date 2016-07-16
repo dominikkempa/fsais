@@ -278,21 +278,17 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       typedef std::uint16_t extext_blockidx_t;
       em_induce_plus_star_substrings<chr_t, saidx_tt, blockidx_t, extext_blockidx_t>(
           text_length,
-          minus_data_filename,
-
-          plus_pos_filename,
-          plus_diff_filename,
-          plus_count_filename,
-
-          plus_type_filenames,
-          symbols_filenames,
-
-          block_count_target,
-          total_io_volume,
           radix_heap_bufsize,
           radix_log,
           max_block_size,
-          255);
+          block_count_target,
+          minus_data_filename,
+          plus_pos_filename,
+          plus_diff_filename,
+          plus_count_filename,
+          plus_type_filenames,
+          symbols_filenames,
+          total_io_volume);
 
       // Delete input files.
       utils::file_delete(minus_data_filename);
