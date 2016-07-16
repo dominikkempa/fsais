@@ -218,16 +218,14 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             writers[j] = new writer_type(symbols_filenames[j]);
           std::vector<substring> substrings;
           for (std::uint64_t j = 0; j < text_length; ++j) {
-            if (j > 0) {
+            if (j > 0 && suf_type[j - 1]) {
               if (suf_type[j] == 1) {
-                if (suf_type[j - 1] == 1) {
-                  std::string s; s = text[j];
-                  std::uint64_t end = j + 1;
-                  while (end < text_length && suf_type[end] == 1) s += text[end++];
-                  if (end < text_length) s += text[end++];
-                  substrings.push_back(substring(j, s));
-                }
-              } else if (suf_type[j - 1] == 1) {
+                std::string s; s = text[j];
+                std::uint64_t end = j + 1;
+                while (end < text_length && suf_type[end] == 1) s += text[end++];
+                if (end < text_length) s += text[end++];
+                substrings.push_back(substring(j, s));
+              } else {
                 std::string s; s = text[j];
                 substrings.push_back(substring(j, s));
               }
