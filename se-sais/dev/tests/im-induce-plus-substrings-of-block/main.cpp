@@ -67,6 +67,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
+    typedef std::uint32_t blockidx_t;
+
     std::uint64_t max_block_size = 0;
     std::uint64_t n_blocks = 0;
     do {
@@ -154,7 +156,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     chr_t *block = new chr_t[block_size];
     std::copy(text + block_beg, text + block_end, block);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
-    im_induce_plus_star_substrings<chr_t, saidx_tt>(block, text_alphabet_size,
+    im_induce_plus_star_substrings<chr_t, saidx_tt, blockidx_t>(block, text_alphabet_size,
         text_length, max_block_size, block_beg, extract_count_target,
         is_last_suf_minus, output_filename);
     delete[] block;

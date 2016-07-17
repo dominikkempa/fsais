@@ -15,28 +15,31 @@
 #include "io/async_stream_writer.hpp"
 
 
+//=============================================================================
 // Assumptions:
-// - chr_t has to be able to hold any symbol from the text.
-// - saidx_t can encode integer in range [0..text_length),
+// - char_type has to be able to hold any symbol from the text.
+// - text_offset_type can encode integer in range [0..text_length),
 //   not necessarily integer text_length and larger.
-// - blockidx_t can encode integer in range [0..max_block_size),
+// - block_offset_type can encode integer in range [0..max_block_size),
 //   not necessarily integer max_block_size and larger.
 // All types are assumed to be unsigned.
+//
 // This version of the function uses
 //   block_size / 8                           // for type bitvector
-// + block_size * sizeof(chr_t)               // for the text
-// + block_size * sizeof(blockidx_t)          // for the items in queues
-// + text_alphabet_size * sizeof(blockidx_t)  // for the bucket pointers
+// + block_size * sizeof(char_type)           // for the text
+// + block_size * sizeof(blockoff_t)          // for the items in queues
+// + text_alphabet_size * sizeof(blockoff_t)  // for the bucket pointers
 // bytes of RAM.
-// NOTE: blockidx_t is now implemented right now, though we already
-// assign values in the ranfe [0..block_size) to values of type saidx_t.
-// NOTE2: rather than using a sepaarate bitvector, we could use the MSB
-// of integers, but that could be more problematic. In some cases (such
-// as inserting elements on the radix_heap) it is impossibly to use the
-// bitvector and in thsoe cases the MSB trick should be used.
-template<typename chr_t, typename saidx_t>
+//
+// NOTE: rather than using a sepaarate bitvector to store positions types,
+// we could use the MSB of position integers, but that could be problematic.
+// In some cases (such as inserting elements on the radix_heap) it is
+// impossible to use the bitvector and only then we use the MSB trick.
+//=============================================================================
+
+template<typename char_type, typename text_offset_type, typename block_offset_type>
 void im_induce_plus_star_substrings(
-    const chr_t *block,
+    const char_type *block,
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
@@ -50,32 +53,67 @@ void im_induce_plus_star_substrings(
 
 
 
-  typedef packed_pair<saidx_t, bool> pair_type;
-  typedef std::queue<pair_type> queue_type;
+  typedef std::queue<block_offset_type> queue_type;
   queue_type **queues = new queue_type*[text_alphabet_size];
   for (std::uint64_t queue_id = 0; queue_id < text_alphabet_size; ++queue_id)
     queues[queue_id] = new queue_type();
 
 
 
-  typedef async_stream_writer<saidx_t> plus_writer_type;
+
+  typedef async_stream_writer<text_offset_type> plus_writer_type;
   plus_writer_type *plus_writer = new plus_writer_type(plus_substrings_filename);
 
 
 
-  // XXX allocate type_bitvector here
 
-
-
-  bool is_next_minus = is_last_suf_minus;
-  for (std::uint64_t i = block_end - 1; i > block_beg; --i) {
-    bool is_minus = false;
-    if (block[i - 1 - block_beg] == block[i - block_beg]) is_minus = is_next_minus;
-    else is_minus = (block[i - 1 - block_beg] > block[i - block_beg]);
-    if (!is_minus && is_next_minus)
-      queues[block[i - block_beg]]->push(pair_type(i - block_beg, false));
-    is_next_minus = is_minus;
+  // Allocate type_bitvector that stores whether each of the
+  // position in the block is a minus position (1) or not (0).
+  std::uint64_t *type_bv;
+  {
+    std::uint64_t bv_size = (block_size + 63) / 64;
+    type_bv = new std::uint64_t[bv_size];
+    std::fill(type_bv, type_bv + bv_size, 0UL);
   }
+
+
+
+  // Compute type_bv.
+  {
+    // Store the type of position block_size - 1.
+    if (is_last_suf_minus) {
+      std::uint64_t idx = block_size - 1;
+      type_bv[idx >> 6] |= (1UL << (idx & 63));
+    }
+
+    // Compute the types for remaining positions.
+    bool is_next_minus = is_last_suf_minus;
+    for (std::uint64_t iplus = block_size - 1; iplus > 0; --iplus) {
+      std::uint64_t i = iplus - 1;
+
+      // Determine whether block[i] is a minus position.
+      bool is_minus = false;
+      if (block[i] == block[iplus]) is_minus = is_next_minus;
+      else is_minus = (block[i] > block[iplus]);
+
+      // Store the type of position i.
+      if (is_minus)
+        type_bv[i >> 6] |= (1UL << (i & 63));
+
+      // Check if text[iplus] is minus star position
+      // and is so, add the suffix to the queue.
+      if (!is_minus && is_next_minus) {
+        std::uint64_t head_char = block[iplus];
+        queues[head_char]->push(iplus);
+      }
+
+      // Update is_next_minus.
+      is_next_minus = is_minus;
+    }
+  }
+
+
+
 
 
 
@@ -84,36 +122,40 @@ void im_induce_plus_star_substrings(
     queue_type &cur_queue = *queues[queue_id - 1];
 
     while (!cur_queue.empty() || (!is_last_suf_minus && extract_count == extract_count_target)) {
-      chr_t head_char = 0;
+      std::uint64_t head_char = 0;
       std::uint64_t head_pos = 0;
       bool is_head_plus = false;
 
       if (!is_last_suf_minus && extract_count == extract_count_target) {
         head_char = block[block_size - 1] + 1;
-        head_pos = block_end - 1;
+        head_pos = block_size - 1;
         is_head_plus = true;
       } else {
-        pair_type p = cur_queue.front();
-        cur_queue.pop();
         head_char = queue_id - 1;
-        head_pos = (std::uint64_t)p.first + block_beg;
-        is_head_plus = p.second;
+        head_pos = (std::uint64_t)cur_queue.front();
+        cur_queue.pop();
+        is_head_plus = ((type_bv[head_pos >> 6] & (1UL << (head_pos & 63))) == 0);
       }
       ++extract_count;
 
       if (is_head_plus) {
-        plus_writer->write(head_pos);
+        plus_writer->write(block_beg + head_pos);
         --head_char;
       }
 
-      if (block_beg < head_pos && block[head_pos - 1 - block_beg] <= head_char)
-        queues[block[head_pos - 1 - block_beg] + 1]->push(pair_type(head_pos - 1 - block_beg, true));
+      if (head_pos > 0 && (std::uint64_t)block[head_pos - 1] <= head_char) {
+        std::uint64_t prev_pos_char = (std::uint64_t)block[head_pos - 1] + 1;
+        queues[prev_pos_char]->push(head_pos - 1);
+      }
     }
   }
 
 
 
 
+
+
+  delete[] type_bv;
   delete plus_writer;
   for (std::uint64_t queue_id = 0; queue_id < text_alphabet_size; ++queue_id)
     delete queues[queue_id];
