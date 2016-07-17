@@ -153,7 +153,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_filename = "tmp." + utils::random_string_hash();
     chr_t *block = new chr_t[block_size];
     std::copy(text + block_beg, text + block_end, block);
-    im_induce_plus_star_substrings<chr_t, saidx_tt>(block,
+    std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
+    im_induce_plus_star_substrings<chr_t, saidx_tt>(block, text_alphabet_size,
         text_length, max_block_size, block_beg, extract_count_target,
         is_last_suf_minus, output_filename);
     delete[] block;
@@ -225,7 +226,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(30000, max_length, buffer_size, radix_log);
+        test(10000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
