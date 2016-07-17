@@ -19,8 +19,8 @@
 #include "io/async_backward_multi_bit_stream_reader.hpp"
 
 
-// Note: extext_blockidx_t type needs to store block id and two extra bits.
-template<typename chr_t, typename saidx_t, typename blockidx_t, typename extext_blockidx_t>
+// Note: extext_block_id_type type needs to store block id and two extra bits.
+template<typename char_type, typename text_offset_type, typename block_id_type, typename extext_block_id_type>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
@@ -34,19 +34,19 @@ void em_induce_plus_star_substrings(
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
-  std::uint64_t is_head_plus_bit = ((std::uint64_t)std::numeric_limits<extext_blockidx_t>::max() + 1) / 2;
+  std::uint64_t is_head_plus_bit = ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() + 1) / 2;
   std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
-  typedef packed_pair<extext_blockidx_t, saidx_t> ext_pair_type;
-  typedef em_radix_heap<chr_t, ext_pair_type> heap_type;
+  typedef packed_pair<extext_block_id_type, text_offset_type> ext_pair_type;
+  typedef em_radix_heap<char_type, ext_pair_type> heap_type;
   heap_type *radix_heap = new heap_type(radix_log, radix_heap_bufsize, output_pos_filename);
 
   // Initialize the readers.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<chr_t> symbols_reader_type;
+  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -55,9 +55,9 @@ void em_induce_plus_star_substrings(
   }
 
   // Initialize the output writers.
-  typedef async_stream_writer<blockidx_t> output_pos_writer_type;
+  typedef async_stream_writer<block_id_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_diff_writer_type;
-  typedef async_stream_writer<saidx_t> output_count_writer_type;
+  typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
@@ -65,17 +65,17 @@ void em_induce_plus_star_substrings(
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
   {
-    typedef packed_pair<blockidx_t, chr_t> pair_type;
+    typedef packed_pair<block_id_type, char_type> pair_type;
     typedef async_stream_reader<pair_type> reader_type;
     reader_type *reader = new reader_type(minus_data_filename);
     while (!reader->empty()) {
       pair_type p = reader->read();
       std::uint64_t block_id = p.first;
-      chr_t ch = p.second;
+      char_type ch = p.second;
 
       // We invert the rank of a symbol, since
       // radix_heap implements only extract_min().
-      radix_heap->push(std::numeric_limits<chr_t>::max() - ch, ext_pair_type(block_id, 0));
+      radix_heap->push(std::numeric_limits<char_type>::max() - ch, ext_pair_type(block_id, 0));
     }
 
     // Update I/O volume.
@@ -93,13 +93,13 @@ void em_induce_plus_star_substrings(
   std::uint64_t diff_items_snapshot = 0;
   std::uint64_t prev_tail_name = 0;
   std::uint64_t cur_bucket_size = 0;
-  chr_t prev_head_char = 0;
-  chr_t prev_written_head_char = 0;
+  char_type prev_head_char = 0;
+  char_type prev_written_head_char = 0;
 
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
   while (!radix_heap->empty()) {
-    std::pair<chr_t, ext_pair_type> p = radix_heap->extract_min();
-    chr_t head_char = std::numeric_limits<chr_t>::max() - p.first;
+    std::pair<char_type, ext_pair_type> p = radix_heap->extract_min();
+    char_type head_char = std::numeric_limits<char_type>::max() - p.first;
     std::uint64_t block_id = p.second.first;
     std::uint64_t tail_name = p.second.second;
 
@@ -165,16 +165,16 @@ void em_induce_plus_star_substrings(
         empty_output = false;
         diff_items_snapshot = diff_items;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
-        chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
+        char_type prev_char = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
         std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit | is_tail_plus_bit);
-        radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), ext_pair_type(new_block_id, diff_items - 1));
+        radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), ext_pair_type(new_block_id, diff_items - 1));
       }
     } else {
-      chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
+      char_type prev_char = symbols_reader->read_from_ith_file(block_id);
       std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
       std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
-      radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), ext_pair_type(new_block_id, head_char));
+      radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), ext_pair_type(new_block_id, head_char));
     }
 
     is_prev_head_plus = is_head_plus;
@@ -205,8 +205,8 @@ void em_induce_plus_star_substrings(
   delete output_count_writer;
 }
 
-// Note: extext_blockidx_t type needs to store block id and two extra bits.
-template<typename chr_t, typename saidx_t, typename blockidx_t, typename extext_blockidx_t>
+// Note: extext_block_id_type type needs to store block id and two extra bits.
+template<typename char_type, typename text_offset_type, typename block_id_type, typename extext_block_id_type>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
@@ -221,18 +221,18 @@ void em_induce_plus_star_substrings(
     std::vector<std::string> &plus_type_filenames,
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
-  std::uint64_t is_diff_bit = ((std::uint64_t)std::numeric_limits<extext_blockidx_t>::max() + 1) / 2;
+  std::uint64_t is_diff_bit = ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() + 1) / 2;
   std::uint64_t is_head_plus_bit = is_diff_bit / 2;
   std::uint64_t io_volume = 0;
 
   // Initialize radix heap.
-  typedef em_radix_heap<chr_t, extext_blockidx_t> heap_type;
+  typedef em_radix_heap<char_type, extext_block_id_type> heap_type;
   heap_type *radix_heap = new heap_type(radix_log, radix_heap_bufsize, output_pos_filename);
 
   // Initialize the readers.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<chr_t> symbols_reader_type;
+  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -241,9 +241,9 @@ void em_induce_plus_star_substrings(
   }
 
   // Initialize the output writers.
-  typedef async_stream_writer<blockidx_t> output_pos_writer_type;
+  typedef async_stream_writer<block_id_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_diff_writer_type;
-  typedef async_stream_writer<saidx_t> output_count_writer_type;
+  typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
@@ -251,17 +251,17 @@ void em_induce_plus_star_substrings(
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
   {
-    typedef packed_pair<blockidx_t, chr_t> pair_type;
+    typedef packed_pair<block_id_type, char_type> pair_type;
     typedef async_stream_reader<pair_type> reader_type;
     reader_type *reader = new reader_type(minus_data_filename);
     while (!reader->empty()) {
       pair_type p = reader->read();
       std::uint64_t block_id = p.first;
-      chr_t ch = p.second;
+      char_type ch = p.second;
 
       // We invert the rank of a symbol, since
       // radix_heap implements only extract_min().
-      radix_heap->push(std::numeric_limits<chr_t>::max() - ch, block_id);
+      radix_heap->push(std::numeric_limits<char_type>::max() - ch, block_id);
     }
 
     // Update I/O volume.
@@ -271,8 +271,8 @@ void em_induce_plus_star_substrings(
     delete reader;
   }
 
-  chr_t prev_head_char = 0;
-  chr_t prev_written_head_char = 0;
+  char_type prev_head_char = 0;
+  char_type prev_written_head_char = 0;
   bool empty_output = true;
   bool was_extract_min = false;
   bool was_prev_head_minus = false;
@@ -281,11 +281,11 @@ void em_induce_plus_star_substrings(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  std::vector<saidx_t> symbol_timestamps(max_text_symbol + 1, (saidx_t)0);
+  std::vector<text_offset_type> symbol_timestamps(max_text_symbol + 1, (text_offset_type)0);
 
   while (!radix_heap->empty()) {
-    std::pair<chr_t, extext_blockidx_t> p = radix_heap->extract_min();
-    chr_t head_char = std::numeric_limits<chr_t>::max() - p.first;
+    std::pair<char_type, extext_block_id_type> p = radix_heap->extract_min();
+    char_type head_char = std::numeric_limits<char_type>::max() - p.first;
     std::uint64_t block_id = p.second;
 
     // Unpack flags from block id.
@@ -356,21 +356,21 @@ void em_induce_plus_star_substrings(
         empty_output = false;
         cur_substring_name_snapshot = cur_substring_name;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
-        chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
+        char_type prev_char = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
         std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
         if (symbol_timestamps[prev_char] != current_timestamp)
           new_block_id |= is_diff_bit;
-        radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), new_block_id);
+        radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), new_block_id);
         symbol_timestamps[prev_char] = current_timestamp;
       }
     } else {
-      chr_t prev_char = symbols_reader->read_from_ith_file(block_id);
+      char_type prev_char = symbols_reader->read_from_ith_file(block_id);
       std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
       std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
       if (symbol_timestamps[prev_char] != current_timestamp)
         new_block_id |= is_diff_bit;
-      radix_heap->push(std::numeric_limits<chr_t>::max() - (prev_char + 1), new_block_id);
+      radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), new_block_id);
       symbol_timestamps[prev_char] = current_timestamp;
     }
 
