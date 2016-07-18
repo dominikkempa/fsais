@@ -34,6 +34,12 @@ struct substring_cmp {
   }
 };
 
+struct substring_cmp_2 {
+  inline bool operator() (const substring &a, const substring &b) const {
+    return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
+  }
+};
+
 
 void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
@@ -87,6 +93,36 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::uint64_t next_block_end = block_end + next_block_size;
     bool is_next_block_last_pos_minus = (!suf_type[next_block_end - 1]);
 
+
+    std::vector<chr_t> symbols_correct;
+    {
+      std::vector<substring> substrings;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        if (j > 0 && suf_type[j - 1]) {
+          if (suf_type[j] == 1) {
+            std::string s; s = text[j];
+            std::uint64_t end = j + 1;
+            while (end < text_length && suf_type[end] == 1) s += text[end++];
+            if (end < text_length) s += text[end++];
+            substrings.push_back(substring(j, s));
+          } else {
+            std::string s; s = text[j];
+            substrings.push_back(substring(j, s));
+          }
+        }
+      }
+      substring_cmp_2 cmp;
+      std::sort(substrings.begin(), substrings.end(), cmp);
+      for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
+        std::uint64_t j = jplus - 1;
+        std::uint64_t s = substrings[j].m_beg;
+        if (block_beg <= s && s < block_end)
+          symbols_correct.push_back(text[s - 1]);
+      }
+    }
+
+
+
     // Create a vector with all minus-substring
     // sorter, i.e., the correct answer.
     std::vector<saidx_tt> v_correct;
@@ -120,8 +156,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         }
     }
 
+
     // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
+    std::string output_symbols_filename = "tmp." + utils::random_string_hash();
 
     chr_t *block = new chr_t[block_size];
     chr_t *nextblock = new chr_t[block_size];
@@ -137,7 +175,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         max_block_size,
         block_beg,
         is_next_block_last_pos_minus,
-        output_filename);
+        text_filename,
+        output_filename,
+        output_symbols_filename);
 
     delete[] block;
     delete[] nextblock;
@@ -156,6 +196,35 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Delete output file.
     utils::file_delete(output_filename);
+
+    std::vector<chr_t> symbols_computed;
+    {
+      typedef async_stream_reader<chr_t> reader_type;
+      reader_type *reader = new reader_type(output_symbols_filename);
+      while (!reader->empty())
+        symbols_computed.push_back(reader->read());
+      delete reader;
+    }
+    utils::file_delete(output_symbols_filename);
+
+    if (symbols_correct.size() != symbols_computed.size() ||
+        std::equal(symbols_correct.begin(), symbols_correct.end(), symbols_computed.begin()) == false) {
+      fprintf(stderr, "Error: symbols no equal!\n");
+      fprintf(stderr, "  text: ");
+      for (std::uint64_t i = 0; i < text_length; ++i)
+        fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
+      fprintf(stderr, "  correct: ");
+      for (std::uint64_t j = 0; j < symbols_correct.size(); ++j)
+        fprintf(stderr, "%lu ", (std::uint64_t)symbols_correct[j]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  computed: ");
+      for (std::uint64_t j = 0; j < symbols_computed.size(); ++j)
+        fprintf(stderr, "%lu ", (std::uint64_t)symbols_computed[j]);
+      fprintf(stderr, "\n");
+      std::exit(EXIT_FAILURE);
+    }
 
     // Compare answer.
     bool ok = true;
@@ -209,7 +278,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(10000, max_length, buffer_size, radix_log);
+        test(30000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

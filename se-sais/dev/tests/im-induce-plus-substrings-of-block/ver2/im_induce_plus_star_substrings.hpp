@@ -41,7 +41,9 @@ void im_induce_plus_star_substrings(
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
     bool is_next_block_last_pos_minus,
-    std::string plus_substrings_filename) {
+    std::string text_filename,
+    std::string output_pos_filename,
+    std::string output_symbols_filename) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
@@ -52,10 +54,11 @@ void im_induce_plus_star_substrings(
 
 
 
-
-
-  typedef async_stream_writer<text_offset_type> plus_writer_type;
-  plus_writer_type *plus_writer = new plus_writer_type(plus_substrings_filename);
+  // Initialize output writers.
+  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
+  typedef async_stream_writer<char_type> output_symbols_writer_type;
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
+  output_symbols_writer_type *output_symbols_writer = new output_symbols_writer_type(output_symbols_filename);
 
 
 
@@ -105,6 +108,9 @@ void im_induce_plus_star_substrings(
 
 
 
+
+
+
   // Compute queue pointers.
   ext_block_offset_type *queue_pointers = new ext_block_offset_type[text_alphabet_size];
   std::fill(queue_pointers, queue_pointers + text_alphabet_size, (ext_block_offset_type)0);
@@ -136,6 +142,15 @@ void im_induce_plus_star_substrings(
         std::uint64_t head_char = block[i];
         queue_pointers[head_char + 1] = (std::uint64_t)queue_pointers[head_char + 1] + 1;
       }
+    }
+  }
+  char_type block_prec_symbol = 0;
+  if (block_beg > 0) {
+    // Handle the case when text[block_beg] is of type star minus.
+    utils::read_at_offset(&block_prec_symbol, block_beg - 1, 1, text_filename);
+    if ((type_bv[0] & 1UL) > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) {
+      std::uint64_t head_char = block[0];
+      queue_pointers[head_char] = (std::uint64_t)queue_pointers[head_char] + 1;
     }
   }
   for (std::uint64_t j = 1; j < text_alphabet_size; ++j)
@@ -187,26 +202,11 @@ void im_induce_plus_star_substrings(
         combined_queues[(std::uint64_t)queue_pointers[head_char]] = i;
       }
     }
-  }
 
-
-
-
-
-
-
-  // Inducing.
-  for (std::uint64_t suf_ptr_plus = total_queue_size; suf_ptr_plus > 0; --suf_ptr_plus) {
-    std::uint64_t head_pos = combined_queues[suf_ptr_plus - 1];
-    if ((type_bv[head_pos >> 6] & (1UL << (head_pos & 63))) == 0 && head_pos < block_size)
-      plus_writer->write(block_beg + head_pos);
-    if (head_pos > 0) {
-      std::uint64_t prev_pos = head_pos - 1;
-      std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : nextblock[prev_pos - block_size];
-      if ((type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63))) == 0) {
-        queue_pointers[prev_pos_head_char + 1] = (std::uint64_t)queue_pointers[prev_pos_head_char + 1] - 1;
-        combined_queues[(std::uint64_t)queue_pointers[prev_pos_head_char + 1]] = head_pos - 1;
-      }
+    if (block_beg > 0 && (type_bv[0] & 1UL) > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) {
+      std::uint64_t head_char = block[0];
+      queue_pointers[head_char] = (std::uint64_t)queue_pointers[head_char] - 1;
+      combined_queues[(std::uint64_t)queue_pointers[head_char]] = 0;
     }
   }
 
@@ -216,7 +216,38 @@ void im_induce_plus_star_substrings(
 
 
 
-  delete plus_writer;
+
+
+  // Inducing.
+  for (std::uint64_t suf_ptr_plus = total_queue_size; suf_ptr_plus > 0; --suf_ptr_plus) {
+    std::uint64_t suf_ptr = suf_ptr_plus - 1;
+    std::uint64_t head_pos = combined_queues[suf_ptr];
+    if ((type_bv[head_pos >> 6] & (1UL << (head_pos & 63))) == 0 && head_pos < block_size)
+      output_pos_writer->write(block_beg + head_pos);
+    if (head_pos > 0) {
+      std::uint64_t prev_pos = head_pos - 1;
+      std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : nextblock[prev_pos - block_size];
+      if ((type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63))) == 0) {
+        queue_pointers[prev_pos_head_char + 1] = (std::uint64_t)queue_pointers[prev_pos_head_char + 1] - 1;
+        combined_queues[(std::uint64_t)queue_pointers[prev_pos_head_char + 1]] = head_pos - 1;
+        if (head_pos < block_size)
+          output_symbols_writer->write(prev_pos_head_char);
+      }
+    } else if (block_beg > 0 &&
+        (((type_bv[0] & 1UL) == 0 && (std::uint64_t)block_prec_symbol <= (std::uint64_t)block[0]) || 
+         (((type_bv[0] & 1UL) > 0) && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0])))
+      output_symbols_writer->write(block_prec_symbol);
+  }
+
+
+
+
+
+
+
+
+  delete output_pos_writer;
+  delete output_symbols_writer;
   delete[] type_bv;
   delete[] combined_queues;
   delete[] queue_pointers;
