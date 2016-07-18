@@ -11,6 +11,7 @@
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
+#include "io/async_bit_stream_reader.hpp"
 #include "utils.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -121,7 +122,29 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
-
+    std::vector<bool> bits_correct;
+    {
+      std::vector<substring> substrings;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        if (suf_type[j] == 1) {
+          std::string s; s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 1) s += text[end++];
+          if (end < text_length) s += text[end++];
+          substrings.push_back(substring(j, s));
+        }
+      }
+      substring_cmp_2 cmp;
+      std::sort(substrings.begin(), substrings.end(), cmp);
+      for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
+        std::uint64_t j = jplus - 1;
+        std::uint64_t s = substrings[j].m_beg;
+        if (block_beg <= s && s < block_end) {
+          std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);
+          bits_correct.push_back(is_star);
+        }
+      }
+    }
 
     // Create a vector with all minus-substring
     // sorter, i.e., the correct answer.
@@ -160,6 +183,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
     std::string output_symbols_filename = "tmp." + utils::random_string_hash();
+    std::string output_type_filename = "tmp." + utils::random_string_hash();
 
     chr_t *block = new chr_t[block_size];
     chr_t *nextblock = new chr_t[block_size];
@@ -177,7 +201,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         is_next_block_last_pos_minus,
         text_filename,
         output_filename,
-        output_symbols_filename);
+        output_symbols_filename,
+        output_type_filename);
 
     delete[] block;
     delete[] nextblock;
@@ -222,6 +247,36 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       fprintf(stderr, "  computed: ");
       for (std::uint64_t j = 0; j < symbols_computed.size(); ++j)
         fprintf(stderr, "%lu ", (std::uint64_t)symbols_computed[j]);
+      fprintf(stderr, "\n");
+      std::exit(EXIT_FAILURE);
+    }
+
+    std::vector<bool> bits_computed;
+    {
+      typedef async_bit_stream_reader reader_type;
+      reader_type *reader = new reader_type(output_type_filename);
+      for (std::uint64_t j = 0; j < v_computed.size(); ++j)
+        bits_computed.push_back(reader->read());
+      delete reader;
+    }
+
+    utils::file_delete(output_type_filename);
+
+    if (bits_correct.size() != bits_computed.size() ||
+        std::equal(bits_correct.begin(), bits_correct.end(), bits_computed.begin()) == false) {
+      fprintf(stderr, "Error: bits are not correct!\n");
+      fprintf(stderr, "  text: ");
+      for (std::uint64_t i = 0; i < text_length; ++i)
+        fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
+      fprintf(stderr, "  correct bits: ");
+      for (std::uint64_t j = 0; j < bits_correct.size(); ++j)
+        fprintf(stderr, "%lu ", (std::uint64_t)bits_correct[j]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  computed bits: ");
+      for (std::uint64_t j = 0; j < bits_computed.size(); ++j)
+        fprintf(stderr, "%lu ", (std::uint64_t)bits_computed[j]);
       fprintf(stderr, "\n");
       std::exit(EXIT_FAILURE);
     }
@@ -278,7 +333,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(30000, max_length, buffer_size, radix_log);
+        test(10000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
