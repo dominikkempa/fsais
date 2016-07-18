@@ -233,7 +233,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           }
           substring_cmp_2 cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
-          for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
+            std::uint64_t j = jplus - 1;
             std::uint64_t s = substrings[j].m_beg;
             std::uint64_t block_id = s / max_block_size;
             writers[block_id]->write(text[s - 1]);
@@ -260,7 +261,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           }
           substring_cmp_2 cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
-          for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
+            std::uint64_t j = jplus - 1;
             std::uint64_t s = substrings[j].m_beg;
             std::uint64_t block_id = s / max_block_size;
             std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);

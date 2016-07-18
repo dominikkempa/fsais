@@ -45,8 +45,8 @@ void em_induce_plus_star_substrings(
 
   // Initialize the readers.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
+  typedef async_multi_bit_stream_reader plus_type_reader_type;
+  typedef async_multi_stream_reader<char_type> symbols_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -231,8 +231,8 @@ void em_induce_plus_star_substrings(
 
   // Initialize the readers.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
+  typedef async_multi_bit_stream_reader plus_type_reader_type;
+  typedef async_multi_stream_reader<char_type> symbols_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
