@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string>
+#include <limits>
 #include <queue>
 #include <algorithm>
 
@@ -55,7 +56,9 @@ bool im_induce_substrings(
     std::string output_plus_type_filename,
     std::string output_minus_pos_filename,
     std::string output_minus_type_filename,
-    std::string output_minus_symbols_filename) {
+    std::string output_minus_symbols_filename,
+    std::uint64_t &plus_block_count_target,
+    std::uint64_t &minus_block_count_target) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
@@ -241,6 +244,8 @@ bool im_induce_substrings(
 
 
   // Induce plus suffixes.
+  plus_block_count_target = 0;
+  bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
@@ -259,10 +264,13 @@ bool im_induce_substrings(
     if (i == zero_item_pos)
       head_pos = 0;
 
-    bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    if (!seen_block_beg && head_pos < block_size)
+      ++plus_block_count_target;
+    if (head_pos == 0) seen_block_beg = true;
 
+    bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     if (is_head_minus) {
-      // Erase the item from bucket.
+      // Erase the item (minus substring) from bucket.
       buckets[i] = 0;
       if (i == zero_item_pos)
         zero_item_pos = total_bucket_size;
@@ -270,6 +278,12 @@ bool im_induce_substrings(
       bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) > 0) ||
           (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
       output_plus_type_writer->write(is_star);
+      if (!is_star) {
+        // Erase the item (non-star plus substring) from the bucket.
+        buckets[i] = 0;
+        if (i == zero_item_pos)
+          zero_item_pos = total_bucket_size;
+      }
     }
 
     if (head_pos > 0) {
@@ -295,6 +309,8 @@ bool im_induce_substrings(
         output_plus_symbols_writer->write(block_prec_symbol);
     }
   }
+  if (!seen_block_beg)
+    plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
 
@@ -323,6 +339,8 @@ bool im_induce_substrings(
 
 
   // Induce minus suffixes.
+  minus_block_count_target = 0;
+  seen_block_beg = false;
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
@@ -340,14 +358,36 @@ bool im_induce_substrings(
     if (i == zero_item_pos)
       head_pos = 0;
 
+    if (!seen_block_beg && head_pos < block_size)
+      ++minus_block_count_target;
+    if (head_pos == 0) seen_block_beg = true;
+
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
-    if (is_head_minus && head_pos < block_size) {
-      bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
-          (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
-      output_minus_type_writer->write(is_star);
-      if (is_star)
-        output_minus_pos_writer->write(head_pos);
+    if (head_pos < block_size) {
+      if (is_head_minus) {
+        bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
+            (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+        output_minus_type_writer->write(is_star);
+        if (is_star)
+          output_minus_pos_writer->write(head_pos);
+//        if (!seen_block_beg)
+//          ++minus_block_count_target;
+      } /*else if (!seen_block_beg) {
+        bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) > 0) ||
+            (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+        if (is_star) ++minus_block_count_target;
+      }*/
     }
+
+/*    if (head_pos == 0) {
+      if (is_head_minus)
+        seen_block_beg = true;
+      else {
+        bool is_star = (block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+        if (is_star)
+          seen_block_beg = true;
+      }
+    }*/
 
     if (head_pos > 0) {
       std::uint64_t prev_pos = head_pos - 1;
@@ -372,6 +412,9 @@ bool im_induce_substrings(
         output_minus_symbols_writer->write(block_prec_symbol);
     }
   }
+  if (!seen_block_beg)
+    minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+
 
 
 

@@ -81,6 +81,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
+
+
     for (std::uint64_t i = text_length; i > 0; --i) {
       if (i == text_length) suf_type[i - 1] = 0;
       else {
@@ -101,6 +103,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::vector<std::string> minus_symbols_filenames(n_blocks);
     std::vector<std::string> minus_type_filenames(n_blocks);
 
+    std::vector<std::uint64_t> plus_block_count_target(n_blocks, 0UL);
+    std::vector<std::uint64_t> minus_block_count_target(n_blocks, 0UL);
+
     bool is_last_minus = true;
     for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
       std::uint64_t block_id = block_id_plus - 1;
@@ -112,6 +117,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::string minus_type_filename = "tmp." + utils::random_string_hash();
       std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
 
+      std::uint64_t this_block_plus_count_target = 0;
+      std::uint64_t this_block_minus_count_target = 0;
       is_last_minus = im_induce_substrings<char_type,
                     text_offset_type,
                     block_offset_type,
@@ -126,14 +133,32 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                         plus_type_filename,
                         minus_pos_filename,
                         minus_type_filename,
-                        minus_symbols_filename);
+                        minus_symbols_filename,
+                        this_block_plus_count_target,
+                        this_block_minus_count_target);
 
       plus_symbols_filenames[block_id] = plus_symbols_filename;
       plus_type_filenames[block_id] = plus_type_filename;
       minus_pos_filenames[block_id] = minus_pos_filename;
       minus_type_filenames[block_id] = minus_type_filename;
       minus_symbols_filenames[block_id] = minus_symbols_filename;
+      plus_block_count_target[block_id] = this_block_plus_count_target;
+      minus_block_count_target[block_id] = this_block_minus_count_target;
     }
+
+
+
+    /*fprintf(stderr, "  computed plus block count target: ");
+    for (std::uint64_t t = 0; t < plus_block_count_target.size(); ++t)
+      fprintf(stderr, "%lu ", plus_block_count_target[t]);
+    fprintf(stderr, "\n");
+
+    fprintf(stderr, "  computed minus block count target: ");
+    for (std::uint64_t t = 0; t < minus_block_count_target.size(); ++t)
+      fprintf(stderr, "%lu ", minus_block_count_target[t]);
+    fprintf(stderr, "\n");*/
+
+
 
 
 
@@ -152,6 +177,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
     // Input.
+#if 0
     std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
     {
       {
@@ -181,6 +207,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         }
       }
     }
+#endif
+
+/*    fprintf(stderr, "  correct plus block count target: ");
+    for (std::uint64_t t = 0; t < block_count_target.size(); ++t)
+      fprintf(stderr, "%lu ", block_count_target[t]);
+    fprintf(stderr, "\n");*/
 
 
     // Run the tested algorithm.
@@ -194,7 +226,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_log,
         max_block_size,
         text_alphabet_size,
-        block_count_target,
+        plus_block_count_target,
         text_filename,
         plus_pos_filename,
         plus_diff_filename,
@@ -225,6 +257,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
+#if 0
     // Input from in-RAM processing.
     std::vector<std::uint64_t> block_beg_target(n_blocks, 0UL);
     {
@@ -253,11 +286,22 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           std::uint64_t s = substrings[j].m_beg;
           std::uint64_t block_id = s / max_block_size;
           std::uint8_t is_block_beg = (block_id * max_block_size == substrings[j].m_beg);
+          fprintf(stderr, "  s = %lu, block_id = %lu, is_block_beg = %lu\n", s, block_id, (std::uint64_t)is_block_beg);
           ++block_beg_counter[block_id];
-          if (is_block_beg) block_beg_target[block_id] = block_beg_counter[block_id];
+          if (is_block_beg) {
+            fprintf(stderr, "   .. and is_block_beg == true! block_beg_counter[%lu] = %lu\n", block_id, block_beg_counter[block_id]);
+            block_beg_target[block_id] = block_beg_counter[block_id];
+          }
         }
       }
     }
+#endif
+
+
+/*    fprintf(stderr, "  correct minus block count target: ");
+    for (std::uint64_t t = 0; t < block_beg_target.size(); ++t)
+      fprintf(stderr, "%lu ", block_beg_target[t]);
+    fprintf(stderr, "\n");*/
 
 
 
@@ -281,7 +325,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         max_block_size,
         text_alphabet_size,
         text[text_length - 1],
-        block_beg_target,
+        minus_block_count_target,
         output_filename,
         output_count_filename,
         plus_pos_filename,
@@ -381,6 +425,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       if (v_computed_count.size() != v_correct_count.size() ||
           std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
         fprintf(stderr, "Error: counts do not match!\n");
+        fprintf(stderr, "  text: ");
+        for (std::uint64_t i = 0; i < text_length; ++i)
+          fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
+        fprintf(stderr, "\n");
         fprintf(stderr, "  v_computed_count: ");
         for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
           fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
@@ -450,7 +498,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(1000, max_length, buffer_size, radix_log);
+        test(10000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
