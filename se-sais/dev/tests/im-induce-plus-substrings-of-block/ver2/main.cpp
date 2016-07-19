@@ -131,7 +131,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<bool> bits_correct;
+    std::vector<bool> plus_type_correct;
     {
       std::vector<substring> substrings;
       for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -150,10 +150,39 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::uint64_t s = substrings[j].m_beg;
         if (block_beg <= s && s < block_end) {
           std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);
-          bits_correct.push_back(is_star);
+          plus_type_correct.push_back(is_star);
         }
       }
     }
+
+
+
+
+
+    std::vector<bool> minus_type_correct;
+    {
+      std::vector<substring> substrings;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        if (suf_type[j] == 0) {
+          std::string s; s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 0) s += text[end++];
+          while (end < text_length && suf_type[end] == 1) s += text[end++];
+          if (end < text_length) s += text[end++];
+          substrings.push_back(substring(j, s));
+        }
+      }
+      substring_cmp_2 cmp;
+      std::sort(substrings.begin(), substrings.end(), cmp);
+      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+        std::uint64_t s = substrings[j].m_beg;
+        if (block_beg <= s && s < block_end) {
+          std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 1);
+          minus_type_correct.push_back(is_star);
+        }
+      }
+    }
+
 
 
 
@@ -215,8 +244,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string output_plus_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_symbols_filename = "tmp." + utils::random_string_hash();
-    std::string output_type_filename = "tmp." + utils::random_string_hash();
+    std::string output_plus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_pos_filename = "tmp." + utils::random_string_hash();
+    std::string output_minus_type_filename = "tmp." + utils::random_string_hash();
     char_type *block = new char_type[block_size];
     char_type *nextblock = new char_type[block_size];
     std::copy(text + block_beg, text + block_end, block);
@@ -233,8 +263,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         text_filename,
         output_plus_pos_filename,
         output_symbols_filename,
-        output_type_filename,
-        output_minus_pos_filename);
+        output_plus_type_filename,
+        output_minus_pos_filename,
+        output_minus_type_filename);
     delete[] block;
     delete[] nextblock;
     utils::file_delete(text_filename);
@@ -265,20 +296,38 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<bool> bits_computed;
+    std::vector<bool> plus_type_computed;
     {
       typedef async_bit_stream_reader reader_type;
-      reader_type *reader = new reader_type(output_type_filename);
-      for (std::uint64_t j = 0; j < plus_pos_correct.size(); ++j)
-        bits_computed.push_back(reader->read());
+      reader_type *reader = new reader_type(output_plus_type_filename);
+      for (std::uint64_t j = 0; j < plus_type_correct.size(); ++j)
+        plus_type_computed.push_back(reader->read());
       delete reader;
     }
-    utils::file_delete(output_type_filename);
-    if (bits_correct.size() != bits_computed.size() ||
-        std::equal(bits_correct.begin(), bits_correct.end(), bits_computed.begin()) == false) {
-      fprintf(stderr, "Error: bits are not correct!\n");
+    utils::file_delete(output_plus_type_filename);
+    if (plus_type_correct.size() != plus_type_computed.size() ||
+        std::equal(plus_type_correct.begin(), plus_type_correct.end(), plus_type_computed.begin()) == false) {
+      fprintf(stderr, "Error: plus bits are not correct!\n");
       std::exit(EXIT_FAILURE);
     }
+
+
+
+    std::vector<bool> minus_type_computed;
+    {
+      typedef async_bit_stream_reader reader_type;
+      reader_type *reader = new reader_type(output_minus_type_filename);
+      for (std::uint64_t j = 0; j < minus_type_correct.size(); ++j)
+        minus_type_computed.push_back(reader->read());
+      delete reader;
+    }
+    utils::file_delete(output_minus_type_filename);
+    if (minus_type_correct.size() != minus_type_computed.size() ||
+        std::equal(minus_type_correct.begin(), minus_type_correct.end(), minus_type_computed.begin()) == false) {
+      fprintf(stderr, "Error: minus bits are not correct!\n");
+      std::exit(EXIT_FAILURE);
+    }
+
 
 
 
