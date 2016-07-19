@@ -99,167 +99,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::vector<std::string> minus_pos_filenames(n_blocks);
     std::vector<std::string> minus_symbols_filenames(n_blocks);
     std::vector<std::string> minus_type_filenames(n_blocks);
-#if 0
-    {
-      {
-        for (std::uint64_t j = 0; j < n_blocks; ++j)
-          plus_symbols_filenames[j] = std::string("tmp.") + utils::random_string_hash();
-        typedef async_stream_writer<char_type> writer_type;
-        writer_type **writers = new writer_type*[n_blocks];
-        for (std::uint64_t j = 0; j < n_blocks; ++j)
-          writers[j] = new writer_type(plus_symbols_filenames[j]);
-        std::vector<substring> substrings;
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          if (j > 0 && suf_type[j - 1]) {
-            if (suf_type[j] == 1) {
-              std::string s; s = text[j];
-              std::uint64_t end = j + 1;
-              while (end < text_length && suf_type[end] == 1) s += text[end++];
-              if (end < text_length) s += text[end++];
-              substrings.push_back(substring(j, s));
-            } else {
-              std::string s; s = text[j];
-              substrings.push_back(substring(j, s));
-            }
-          }
-        }
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-        for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
-          std::uint64_t j = jplus - 1;
-          std::uint64_t s = substrings[j].m_beg;
-          std::uint64_t block_id = s / max_block_size;
-          writers[block_id]->write(text[s - 1]);
-        }
-        for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
-        delete[] writers;
-      }
-      {
-        for (std::uint64_t j = 0; j < n_blocks; ++j)
-          plus_type_filenames[j] = std::string("tmp.") + utils::random_string_hash();
-        typedef async_bit_stream_writer writer_type;
-        writer_type **writers = new writer_type*[n_blocks];
-        for (std::uint64_t j = 0; j < n_blocks; ++j)
-          writers[j] = new writer_type(plus_type_filenames[j]);
-        std::vector<substring> substrings;
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          if (suf_type[j] == 1) {
-            std::string s; s = text[j];
-            std::uint64_t end = j + 1;
-             while (end < text_length && suf_type[end] == 1) s += text[end++];
-            if (end < text_length) s += text[end++];
-            substrings.push_back(substring(j, s));
-          }
-        }
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-        for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
-          std::uint64_t j = jplus - 1;
-          std::uint64_t s = substrings[j].m_beg;
-          std::uint64_t block_id = s / max_block_size;
-          std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 0);
-          writers[block_id]->write(is_star);
-        }
-        for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
-        delete[] writers;
-      }
-    }
-    {
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        minus_pos_filenames[j] = std::string("tmp.") + utils::random_string_hash();
-      typedef async_stream_writer<block_offset_type> writer_type;
-      writer_type **writers = new writer_type*[n_blocks];
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(minus_pos_filenames[j]);
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 0 && j > 0 && suf_type[j - 1] == 1) {
-          std::string s; s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 0) s += text[end++];
-          while (end < text_length && suf_type[end] == 1) s += text[end++];
-          if (end < text_length)  s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-      substring_cmp cmp;
-      std::sort(substrings.begin(), substrings.end(), cmp);
-      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-        std::uint64_t s = substrings[j].m_beg;
-        std::uint64_t block_id = s / max_block_size;
-        std::uint64_t block_beg = block_id * max_block_size;
-        writers[block_id]->write(s - block_beg);
-      }
-      for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
-      delete[] writers;
-    }
-    {
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        minus_symbols_filenames[j] = std::string("tmp.") + utils::random_string_hash();
-      typedef async_stream_writer<char_type> writer_type;
-      writer_type **writers = new writer_type*[n_blocks];
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(minus_symbols_filenames[j]);
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 0) {
-          std::string s; s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 0) s += text[end++];
-          while (end < text_length && suf_type[end] == 1) s += text[end++];
-          if (end < text_length)  s += text[end++];
-          substrings.push_back(substring(j, s));
-        } else if (j > 0 && suf_type[j - 1] == 0) {
-          std::string s; s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 1) s += text[end++];
-          if (end < text_length) s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-      substring_cmp cmp;
-      std::sort(substrings.begin(), substrings.end(), cmp);
-      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-        std::uint64_t s = substrings[j].m_beg;
-        std::uint64_t block_id = s / max_block_size;
-        std::uint8_t is_minus_star = (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1);
-        std::uint8_t is_plus_star  = (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0);
-        if (s > 0 && (!is_minus_star || is_plus_star))
-          writers[block_id]->write(text[s - 1]);
-      }
-      for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
-      delete[] writers;
-    }
-    {
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        minus_type_filenames[j] = std::string("tmp.") + utils::random_string_hash();
-      typedef async_bit_stream_writer writer_type;
-      writer_type **writers = new writer_type*[n_blocks];
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(minus_type_filenames[j]);
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 0) {
-          std::string s; s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 0) s += text[end++];
-          while (end < text_length && suf_type[end] == 1) s += text[end++];
-          if (end < text_length)  s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-      substring_cmp cmp;
-      std::sort(substrings.begin(), substrings.end(), cmp);
-      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-        std::uint64_t s = substrings[j].m_beg;
-        std::uint64_t block_id = s / max_block_size;
-        std::uint8_t is_star = (s > 0 && suf_type[s - 1] == 1);
-        writers[block_id]->write(is_star);
-      }
-      for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
-      delete[] writers;
-    }
-#else
+
     bool is_last_minus = true;
     for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
       std::uint64_t block_id = block_id_plus - 1;
@@ -293,7 +133,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       minus_type_filenames[block_id] = minus_type_filename;
       minus_symbols_filenames[block_id] = minus_symbols_filename;
     }
-#endif
 
 
 
@@ -626,7 +465,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(1000, max_length, buffer_size, radix_log);
+        test(500, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
