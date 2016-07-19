@@ -95,7 +95,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::uint64_t block_id = block_id_plus - 1;
       std::uint64_t block_beg = block_id * max_block_size;
       std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
-      std::uint64_t block_size = block_end - block_beg;
 
 
 
@@ -260,14 +259,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_minus_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_symbols_filename = "tmp." + utils::random_string_hash();
-    char_type *block = new char_type[block_size];
-    std::copy(text + block_beg, text + block_end, block);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
     is_last_minus = im_induce_substrings<char_type,
                   text_offset_type,
                   block_offset_type,
                   ext_block_offset_type>(
-                      block,
                       text_alphabet_size,
                       text_length,
                       max_block_size,
@@ -279,7 +275,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                       output_minus_pos_filename,
                       output_minus_type_filename,
                       output_minus_symbols_filename);
-    delete[] block;
 
 
 

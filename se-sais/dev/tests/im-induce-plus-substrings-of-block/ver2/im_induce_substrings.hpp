@@ -45,7 +45,6 @@ template<typename char_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 bool im_induce_substrings(
-    const char_type *block,
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
@@ -63,6 +62,14 @@ bool im_induce_substrings(
   std::uint64_t total_block_size = block_size + next_block_size;
 
 
+
+
+
+
+
+  // Read block into RAM.
+  char_type *block = new char_type[block_size];
+  utils::read_at_offset(block, block_beg, block_size, text_filename);
 
 
 
@@ -392,6 +399,7 @@ bool im_induce_substrings(
   delete[] type_bv;
   delete[] buckets;
   delete[] bucket_ptr;
+  delete[] block;
 
   // Return result.
   return result;
