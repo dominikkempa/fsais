@@ -44,7 +44,7 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
-void im_induce_substrings(
+bool im_induce_substrings(
     const char_type *block,
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
@@ -377,6 +377,11 @@ void im_induce_substrings(
 
 
 
+  // Store result.
+  bool result = (type_bv[(block_size - 1) >> 6] & (1UL << ((block_size - 1) & 63)));
+
+
+
 
 
 
@@ -392,6 +397,9 @@ void im_induce_substrings(
   delete[] type_bv;
   delete[] buckets;
   delete[] bucket_ptr;
+
+  // Return result.
+  return result;
 }
 
 #endif  // __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED

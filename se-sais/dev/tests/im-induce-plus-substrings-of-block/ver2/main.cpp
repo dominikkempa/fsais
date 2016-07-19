@@ -88,15 +88,14 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       n_blocks = (text_length + max_block_size - 1) / max_block_size;
     } while (n_blocks > 256);
 
-    std::uint64_t block_beg = utils::random_int64((std::int64_t)0, (std::int64_t)text_length - 1);
-    std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
-    std::uint64_t block_size = block_end - block_beg;
-    std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
-    std::uint64_t next_block_end = block_end + next_block_size;
-    bool is_last_minus = (!suf_type[next_block_end - 1]);
+//    std::uint64_t block_beg = utils::random_int64((std::int64_t)0, (std::int64_t)text_length - 1);
 
-
-
+    bool is_last_minus = true;
+    for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
+      std::uint64_t block_id = block_id_plus - 1;
+      std::uint64_t block_beg = block_id * max_block_size;
+      std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
+      std::uint64_t block_size = block_end - block_beg;
 
 
 
@@ -284,25 +283,24 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     char_type *block = new char_type[block_size];
     std::copy(text + block_beg, text + block_end, block);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
-    im_induce_substrings<char_type,
-      text_offset_type,
-      block_offset_type,
-      ext_block_offset_type>(
-          block,
-          text_alphabet_size,
-          text_length,
-          max_block_size,
-          block_beg,
-          is_last_minus,
-          text_filename,
-          output_plus_pos_filename,
-          output_plus_symbols_filename,
-          output_plus_type_filename,
-          output_minus_pos_filename,
-          output_minus_type_filename,
-          output_minus_symbols_filename);
+    is_last_minus = im_induce_substrings<char_type,
+                  text_offset_type,
+                  block_offset_type,
+                  ext_block_offset_type>(
+                      block,
+                      text_alphabet_size,
+                      text_length,
+                      max_block_size,
+                      block_beg,
+                      is_last_minus,
+                      text_filename,
+                      output_plus_pos_filename,
+                      output_plus_symbols_filename,
+                      output_plus_type_filename,
+                      output_minus_pos_filename,
+                      output_minus_type_filename,
+                      output_minus_symbols_filename);
     delete[] block;
-    utils::file_delete(text_filename);
 
 
 
@@ -464,6 +462,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
       std::exit(EXIT_FAILURE);
     }
+
+    }
+
+    utils::file_delete(text_filename);
+
   }
 
   delete[] text;
