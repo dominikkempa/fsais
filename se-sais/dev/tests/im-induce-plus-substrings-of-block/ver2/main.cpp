@@ -220,25 +220,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<text_offset_type> plus_pos_correct;
-    {
-      std::vector<substring> substrings;
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 1) {
-          std::string s; s = text[j];
-          std::uint64_t end = j + 1;
-          while (end < text_length && suf_type[end] == 1) s += text[end++];
-          if (end < text_length) s += text[end++];
-          substrings.push_back(substring(j, s));
-        }
-      }
-      substring_cmp_2 cmp;
-      std::sort(substrings.begin(), substrings.end(), cmp);
-      for (std::uint64_t j = 0; j < substrings.size(); ++j)
-        if (block_beg <= substrings[j].m_beg && substrings[j].m_beg < block_end)
-          plus_pos_correct.push_back(substrings[j].m_beg - block_beg);
-      std::reverse(plus_pos_correct.begin(), plus_pos_correct.end());
-    }
 
 
 
@@ -274,7 +255,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
     // Run the tested algorithm.
-    std::string output_plus_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_plus_symbols_filename = "tmp." + utils::random_string_hash();
     std::string output_plus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_pos_filename = "tmp." + utils::random_string_hash();
@@ -294,7 +274,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                       block_beg,
                       is_last_minus,
                       text_filename,
-                      output_plus_pos_filename,
                       output_plus_symbols_filename,
                       output_plus_type_filename,
                       output_minus_pos_filename,
@@ -426,43 +405,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::exit(EXIT_FAILURE);
     }
 
-
-
-
-
-
-    std::vector<text_offset_type> plus_pos_computed;
-    {
-      typedef async_stream_reader<block_offset_type> reader_type;
-      reader_type *reader = new reader_type(output_plus_pos_filename);
-      while (!reader->empty())
-        plus_pos_computed.push_back(reader->read());
-      delete reader;
-    }
-    utils::file_delete(output_plus_pos_filename);
-    if (plus_pos_correct.size() != plus_pos_computed.size() ||
-        !std::equal(plus_pos_correct.begin(), plus_pos_correct.end(), plus_pos_computed.begin())) {
-      fprintf(stderr, "Error:\n");
-      fprintf(stderr, "  text: ");
-      for (std::uint64_t i = 0; i < text_length; ++i)
-        fprintf(stderr, "%c", text[i]);
-      fprintf(stderr, "\n");
-      fprintf(stderr, "  SA: ");
-      for (std::uint64_t i = 0; i < text_length; ++i)
-        fprintf(stderr, "%lu ", (std::uint64_t)sa[i]);
-      fprintf(stderr, "\n");
-      fprintf(stderr, "  computed result: ");
-      for (std::uint64_t i = 0; i < plus_pos_computed.size(); ++i)
-        fprintf(stderr, "%lu ", (std::uint64_t)plus_pos_computed[i]);
-      fprintf(stderr, "\n");
-      fprintf(stderr, "  correct result: ");
-      for (std::uint64_t i = 0; i < plus_pos_correct.size(); ++i)
-        fprintf(stderr, "%lu ", (std::uint64_t)plus_pos_correct[i]);
-      fprintf(stderr, "\n");
-      fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
-      std::exit(EXIT_FAILURE);
-    }
-
     }
 
     utils::file_delete(text_filename);
@@ -478,7 +420,7 @@ int main() {
   srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
+    for (std::uint64_t buffer_size = (1UL << 10); buffer_size <= (1UL << 10); buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
         test(5000, max_length, buffer_size, radix_log);
 
