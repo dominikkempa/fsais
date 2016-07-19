@@ -45,11 +45,11 @@ struct substring_cmp_2 {
 void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
 
-  typedef std::uint8_t chr_t;
-  typedef std::uint32_t saidx_tt;
+  typedef std::uint8_t char_type;
+  typedef std::uint32_t text_offset_type;
 
-  chr_t *text = new chr_t[max_length];
-  saidx_tt *sa = new saidx_tt[max_length];
+  char_type *text = new char_type[max_length];
+  text_offset_type *sa = new text_offset_type[max_length];
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
@@ -78,7 +78,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string text_filename = "tmp." + utils::random_string_hash();
     utils::write_to_file(text, text_length, text_filename);
 
-    typedef std::uint32_t blockidx_t;
+    typedef std::uint32_t ext_block_offset_type;
+    typedef std::uint32_t block_offset_type;
 
     std::uint64_t max_block_size = 0;
     std::uint64_t n_blocks = 0;
@@ -99,7 +100,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<chr_t> symbols_correct;
+    std::vector<char_type> symbols_correct;
     {
       std::vector<substring> substrings;
       for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -158,7 +159,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<saidx_tt> plus_pos_correct;
+    std::vector<text_offset_type> plus_pos_correct;
     {
       std::vector<substring> substrings;
       for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -174,7 +175,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::sort(substrings.begin(), substrings.end(), cmp);
       for (std::uint64_t j = 0; j < substrings.size(); ++j)
         if (block_beg <= substrings[j].m_beg && substrings[j].m_beg < block_end)
-          plus_pos_correct.push_back(substrings[j].m_beg);
+          plus_pos_correct.push_back(substrings[j].m_beg - block_beg);
       std::reverse(plus_pos_correct.begin(), plus_pos_correct.end());
     }
 
@@ -185,12 +186,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-
-    std::vector<saidx_tt> minus_pos_correct;
+    std::vector<text_offset_type> minus_pos_correct;
     {
       std::vector<substring> substrings;
       for (std::uint64_t j = 0; j < text_length; ++j) {
-        if (suf_type[j] == 0) {
+        if (j > 0 && suf_type[j] == 0 && suf_type[j - 1] == 1) {
           std::string s; s = text[j];
           std::uint64_t end = j + 1;
           while (end < text_length && suf_type[end] == 0) s += text[end++];
@@ -203,7 +203,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::sort(substrings.begin(), substrings.end(), cmp);
       for (std::uint64_t j = 0; j < substrings.size(); ++j)
         if (block_beg <= substrings[j].m_beg && substrings[j].m_beg < block_end)
-          minus_pos_correct.push_back(substrings[j].m_beg);
+          minus_pos_correct.push_back(substrings[j].m_beg - block_beg);
     }
 
 
@@ -217,12 +217,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_symbols_filename = "tmp." + utils::random_string_hash();
     std::string output_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_pos_filename = "tmp." + utils::random_string_hash();
-    chr_t *block = new chr_t[block_size];
-    chr_t *nextblock = new chr_t[block_size];
+    char_type *block = new char_type[block_size];
+    char_type *nextblock = new char_type[block_size];
     std::copy(text + block_beg, text + block_end, block);
     std::copy(text + block_end, text + next_block_end, nextblock);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
-    im_induce_substrings<chr_t, saidx_tt, blockidx_t>(
+    im_induce_substrings<char_type, text_offset_type, block_offset_type, ext_block_offset_type>(
         block,
         nextblock,
         text_alphabet_size,
@@ -245,9 +245,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<chr_t> symbols_computed;
+    std::vector<char_type> symbols_computed;
     {
-      typedef async_stream_reader<chr_t> reader_type;
+      typedef async_stream_reader<char_type> reader_type;
       reader_type *reader = new reader_type(output_symbols_filename);
       while (!reader->empty())
         symbols_computed.push_back(reader->read());
@@ -284,9 +284,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<saidx_tt> minus_pos_computed;
+    std::vector<text_offset_type> minus_pos_computed;
     {
-      typedef async_stream_reader<saidx_tt> reader_type;
+      typedef async_stream_reader<block_offset_type> reader_type;
       reader_type *reader = new reader_type(output_minus_pos_filename);
       while (!reader->empty())
         minus_pos_computed.push_back(reader->read());
@@ -317,9 +317,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<saidx_tt> plus_pos_computed;
+    std::vector<text_offset_type> plus_pos_computed;
     {
-      typedef async_stream_reader<saidx_tt> reader_type;
+      typedef async_stream_reader<block_offset_type> reader_type;
       reader_type *reader = new reader_type(output_plus_pos_filename);
       while (!reader->empty())
         plus_pos_computed.push_back(reader->read());

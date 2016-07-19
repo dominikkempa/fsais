@@ -21,6 +21,7 @@
 // - char_type has to be able to hold any symbol from the text.
 // - text_offset_type can encode integer in range [0..text_length)
 //   not necessarily integer text_length and larger.
+// - block_offset_type can encode integers in range [0..max_block_size).
 // - ext_block_offset_type can encode integer in range [0..2 * max_block_size],
 //   not necessarily largers integers. *** Note the bound is inclusive ***
 //
@@ -34,7 +35,10 @@
 // bytes of RAM.
 //=============================================================================
 
-template<typename char_type, typename text_offset_type, typename ext_block_offset_type>
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename ext_block_offset_type>
 void im_induce_substrings(
     const char_type *block,
     const char_type *nextblock,
@@ -63,10 +67,10 @@ void im_induce_substrings(
 
 
   // Initialize output writers.
-  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
+  typedef async_stream_writer<block_offset_type> output_pos_writer_type;
   typedef async_stream_writer<char_type> output_symbols_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
-  typedef async_stream_writer<text_offset_type> output_minus_pos_writer_type;
+  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_symbols_writer_type *output_symbols_writer = new output_symbols_writer_type(output_symbols_filename);
   output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename);
@@ -229,7 +233,7 @@ void im_induce_substrings(
       if (i == zero_item_pos)
         zero_item_pos = total_bucket_size;
     } else if (head_pos < block_size) {
-      output_pos_writer->write(block_beg + head_pos);
+      output_pos_writer->write(head_pos);
       bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) > 0) ||
           (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
       output_type_writer->write(is_star);
@@ -304,9 +308,12 @@ void im_induce_substrings(
       head_pos = 0;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
-
-    if (is_head_minus && head_pos < block_size)
-      output_minus_pos_writer->write(block_beg + head_pos);
+    if (is_head_minus && head_pos < block_size) {
+      bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
+          (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+      if (is_star)
+        output_minus_pos_writer->write(head_pos);
+    }
 
     if (head_pos > 0) {
       std::uint64_t prev_pos = head_pos - 1;
