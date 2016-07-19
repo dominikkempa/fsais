@@ -282,16 +282,13 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_minus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_symbols_filename = "tmp." + utils::random_string_hash();
     char_type *block = new char_type[block_size];
-    char_type *nextblock = new char_type[block_size];
     std::copy(text + block_beg, text + block_end, block);
-    std::copy(text + block_end, text + next_block_end, nextblock);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
     im_induce_substrings<char_type,
       text_offset_type,
       block_offset_type,
       ext_block_offset_type>(
           block,
-          nextblock,
           text_alphabet_size,
           text_length,
           max_block_size,
@@ -305,7 +302,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           output_minus_type_filename,
           output_minus_symbols_filename);
     delete[] block;
-    delete[] nextblock;
     utils::file_delete(text_filename);
 
 
@@ -481,7 +477,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(10000, max_length, buffer_size, radix_log);
+        test(5000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

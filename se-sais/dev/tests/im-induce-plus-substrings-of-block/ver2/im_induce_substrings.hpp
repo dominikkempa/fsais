@@ -14,6 +14,7 @@
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
+#include "io/simple_accessor.hpp"
 
 
 //=============================================================================
@@ -29,10 +30,14 @@
 //
 // This version of the function uses
 //   block_size / 4                                      // type bitvector
-// + 2 * block_size * sizeof(char_type)                  // text blocks
+// + block_size * sizeof(char_type)                      // text block
 // + 2 * block_size * sizeof(ext_block_offset_type)      // buckets
 // + text_alphabet_size * sizeof(ext_block_offset_type)  // bucket pointers
 // bytes of RAM.
+//=============================================================================
+// TODO:
+// - optimize random accessed using buffer
+// - reduce the RAM usage for integer array.
 //=============================================================================
 
 template<typename char_type,
@@ -41,7 +46,6 @@ template<typename char_type,
   typename ext_block_offset_type>
 void im_induce_substrings(
     const char_type *block,
-    const char_type *nextblock,
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
@@ -58,9 +62,29 @@ void im_induce_substrings(
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
   std::uint64_t total_block_size = block_size + next_block_size;
+
+
+
+
+
+
+
+
+  // Initialize text accessor.
+  typedef simple_accessor<char_type> accessor_type;
+  accessor_type *text_accessor = new accessor_type(text_filename);
+
+
+
+
+
+
+
+  // Read the symbol preceding block.
   char_type block_prec_symbol = 0;
   if (block_beg > 0)
-    utils::read_at_offset(&block_prec_symbol, block_beg - 1, 1, text_filename);
+    block_prec_symbol = text_accessor->access(block_beg - 1);
+
 
 
 
@@ -99,10 +123,10 @@ void im_induce_substrings(
       type_bv[i >> 6] |= (1UL << (i & 63));
     }
     bool is_next_minus = is_last_minus;
-    std::uint64_t next_char = (next_block_size == 0) ? block[block_size - 1] : nextblock[next_block_size - 1];
+    std::uint64_t next_char = (next_block_size == 0) ? block[block_size - 1] : text_accessor->access(block_end + next_block_size - 1);
     for (std::uint64_t iplus = total_block_size - 1; iplus > 0; --iplus) {
       std::uint64_t i = iplus - 1;
-      std::uint64_t head_char = (i < block_size) ? block[i] : nextblock[i - block_size];
+      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
       bool is_minus = (head_char == next_char) ? is_next_minus : (head_char > next_char);
       if (is_minus)
         type_bv[i >> 6] |= (1UL << (i & 63));
@@ -126,7 +150,7 @@ void im_induce_substrings(
   while (lastpos < total_block_size && (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63))) == 0) ++lastpos;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
   for (std::uint64_t i = 0; i < lastpos; ++i) {
-    std::uint64_t head_char = (i < block_size) ? block[i] : nextblock[i - block_size];
+    std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
     std::uint64_t ptr = bucket_ptr[head_char];
     bucket_ptr[head_char] = ++ptr;
   }
@@ -179,7 +203,7 @@ void im_induce_substrings(
   }
   for (std::uint64_t i = 1; i < lastpos; ++i) {
     if ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 && (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0) {
-      std::uint64_t head_char = (i < block_size) ? block[i] : nextblock[i - block_size];
+      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
       std::uint64_t ptr = bucket_ptr[head_char];
       buckets[ptr++] = i;
       bucket_ptr[head_char] = ptr;
@@ -216,7 +240,7 @@ void im_induce_substrings(
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
-    std::uint64_t head_char = (i < block_size) ? block[i] : nextblock[i - block_size];
+    std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
     std::uint64_t ptr = bucket_ptr[head_char];
     if (i == 0) {
       zero_item_pos = --ptr;
@@ -249,7 +273,7 @@ void im_induce_substrings(
       std::uint64_t prev_pos = head_pos - 1;
       bool is_prev_pos_minus = (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
       if (!is_prev_pos_minus) {
-        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : nextblock[prev_pos - block_size];
+        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : text_accessor->access(block_beg + prev_pos);
         std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
         if (prev_pos == 0) {
           zero_item_pos = --ptr;
@@ -299,7 +323,7 @@ void im_induce_substrings(
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
-    std::uint64_t head_char = (i < block_size) ? block[i] : nextblock[i - block_size];
+    std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
     std::uint64_t ptr = bucket_ptr[head_char];
     if (i == 0) {
       zero_item_pos = ptr++;
@@ -326,7 +350,7 @@ void im_induce_substrings(
       std::uint64_t prev_pos = head_pos - 1;
       bool is_prev_pos_minus = (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
       if (is_prev_pos_minus) {
-        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : nextblock[prev_pos - block_size];
+        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : text_accessor->access(block_beg + prev_pos);
         std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
         if (prev_pos == 0) {
           zero_item_pos = ptr++;
@@ -364,6 +388,7 @@ void im_induce_substrings(
   delete output_minus_pos_writer;
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
+  delete text_accessor;
   delete[] type_bv;
   delete[] buckets;
   delete[] bucket_ptr;
