@@ -53,8 +53,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     if (testid % 100 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
+    std::uint64_t text_alphabet_size = utils::random_int64(1L, 256L);
     for (std::uint64_t j = 0; j < text_length; ++j)
-      text[j] = utils::random_int64(0L, 255L);
+      text[j] = utils::random_int64(0L, (std::int64_t)text_alphabet_size - 1);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
 
@@ -115,7 +116,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                     text_offset_type,
                     block_offset_type,
                     ext_block_offset_type>(
-                        256,
+                        text_alphabet_size,
                         text_length,
                         max_block_size,
                         block_beg,
@@ -151,21 +152,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
     // Input.
-    std::string minus_data_filename = "tmp." + utils::random_string_hash();
-    {
-      typedef packed_pair<block_id_type, char_type> pair_type;
-      typedef async_stream_writer<pair_type> writer_type;
-      writer_type *writer = new writer_type(minus_data_filename);
-      for (std::uint64_t i = text_length; i > 0; --i) {
-        std::uint64_t s = i - 1;
-        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
-          std::uint64_t block_id = s / max_block_size;
-          pair_type p(block_id, text[s]);
-          writer->write(p);
-        }
-      }
-      delete writer;
-    }
     std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
     {
       {
@@ -207,9 +193,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_heap_bufsize,
         radix_log,
         max_block_size,
-        255,
+        text_alphabet_size,
         block_count_target,
-        minus_data_filename,
+        text_filename,
         plus_pos_filename,
         plus_diff_filename,
         plus_count_filename,
@@ -219,7 +205,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
  
     // Delete input files.
-    utils::file_delete(minus_data_filename);
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
       if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
@@ -294,7 +279,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_heap_bufsize,
         radix_log,
         max_block_size,
-        255,
+        text_alphabet_size,
         text[text_length - 1],
         block_beg_target,
         output_filename,
@@ -465,7 +450,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(500, max_length, buffer_size, radix_log);
+        test(1000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }

@@ -27,7 +27,7 @@ void em_induce_plus_star_substrings(
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
     std::vector<std::uint64_t> &block_count_target,
-    std::string minus_data_filename,
+    std::string text_filename,
     std::string output_pos_filename,
     std::string output_diff_filename,
     std::string output_count_filename,
@@ -65,17 +65,31 @@ void em_induce_plus_star_substrings(
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
   {
-    typedef packed_pair<block_id_type, char_type> pair_type;
-    typedef async_stream_reader<pair_type> reader_type;
-    reader_type *reader = new reader_type(minus_data_filename);
-    while (!reader->empty()) {
-      pair_type p = reader->read();
-      std::uint64_t block_id = p.first;
-      char_type ch = p.second;
+    typedef async_backward_stream_reader<char_type> reader_type;
+    reader_type *reader = new reader_type(text_filename);
 
-      // We invert the rank of a symbol, since
-      // radix_heap implements only extract_min().
-      radix_heap->push(std::numeric_limits<char_type>::max() - ch, ext_pair_type(block_id, 0));
+    bool is_next_minus = false;
+    char_type next_char = 0;
+    std::uint64_t cur_pos_block_id = n_blocks - 1;
+    std::uint64_t cur_pos_block_beg = cur_pos_block_id * max_block_size;
+    std::uint64_t next_pos_block_id = 0;
+    for (std::uint64_t iplus = text_length; iplus > 0; --iplus) {
+      std::uint64_t i = iplus - 1;
+      char_type cur_char = reader->read();
+      bool is_minus = (iplus == text_length) ||
+        ((std::uint64_t)cur_char > (std::uint64_t)next_char) ||
+        ((std::uint64_t)cur_char == (std::uint64_t)next_char && is_next_minus);
+
+      if (iplus < text_length && !is_minus && is_next_minus)
+        radix_heap->push(std::numeric_limits<char_type>::max() - next_char, ext_pair_type(next_pos_block_id, 0));
+
+      is_next_minus = is_minus;
+      next_char = cur_char;
+      next_pos_block_id = cur_pos_block_id;
+      if (i == cur_pos_block_beg && i > 0) {
+        --cur_pos_block_id;
+        cur_pos_block_beg -= max_block_size;
+      }
     }
 
     // Update I/O volume.
@@ -212,9 +226,9 @@ void em_induce_plus_star_substrings(
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
-    std::uint64_t max_text_symbol,
+    std::uint64_t text_alphabet_size,
     std::vector<std::uint64_t> &block_count_target,
-    std::string minus_data_filename,
+    std::string text_filename,
     std::string output_pos_filename,
     std::string output_diff_filename,
     std::string output_count_filename,
@@ -251,17 +265,31 @@ void em_induce_plus_star_substrings(
   // Sort start positions of all minus star substrings by
   // the first symbol by adding them to the heap.
   {
-    typedef packed_pair<block_id_type, char_type> pair_type;
-    typedef async_stream_reader<pair_type> reader_type;
-    reader_type *reader = new reader_type(minus_data_filename);
-    while (!reader->empty()) {
-      pair_type p = reader->read();
-      std::uint64_t block_id = p.first;
-      char_type ch = p.second;
+    typedef async_backward_stream_reader<char_type> reader_type;
+    reader_type *reader = new reader_type(text_filename);
 
-      // We invert the rank of a symbol, since
-      // radix_heap implements only extract_min().
-      radix_heap->push(std::numeric_limits<char_type>::max() - ch, block_id);
+    bool is_next_minus = false;
+    char_type next_char = 0;
+    std::uint64_t cur_pos_block_id = n_blocks - 1;
+    std::uint64_t cur_pos_block_beg = cur_pos_block_id * max_block_size;
+    std::uint64_t next_pos_block_id = 0;
+    for (std::uint64_t iplus = text_length; iplus > 0; --iplus) {
+      std::uint64_t i = iplus - 1;
+      char_type cur_char = reader->read();
+      bool is_minus = (iplus == text_length) ||
+        ((std::uint64_t)cur_char > (std::uint64_t)next_char) ||
+        ((std::uint64_t)cur_char == (std::uint64_t)next_char && is_next_minus);
+
+      if (iplus < text_length && !is_minus && is_next_minus)
+        radix_heap->push(std::numeric_limits<char_type>::max() - next_char, next_pos_block_id);
+
+      is_next_minus = is_minus;
+      next_char = cur_char;
+      next_pos_block_id = cur_pos_block_id;
+      if (i == cur_pos_block_beg && i > 0) {
+        --cur_pos_block_id;
+        cur_pos_block_beg -= max_block_size;
+      }
     }
 
     // Update I/O volume.
@@ -281,7 +309,7 @@ void em_induce_plus_star_substrings(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  std::vector<text_offset_type> symbol_timestamps(max_text_symbol + 1, (text_offset_type)0);
+  std::vector<text_offset_type> symbol_timestamps(text_alphabet_size, (text_offset_type)0);
 
   while (!radix_heap->empty()) {
     std::pair<char_type, extext_block_id_type> p = radix_heap->extract_min();

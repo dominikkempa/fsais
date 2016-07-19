@@ -285,7 +285,7 @@ void em_induce_minus_star_substrings(
     std::uint64_t radix_heap_bufsize,
     std::uint64_t radix_log,
     std::uint64_t max_block_size,
-    std::uint64_t max_text_symbol,
+    std::uint64_t text_alphabet_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
@@ -348,7 +348,7 @@ void em_induce_minus_star_substrings(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  std::vector<text_offset_type> symbol_timestamps(max_text_symbol + 1, (text_offset_type)0);
+  std::vector<text_offset_type> symbol_timestamps(text_alphabet_size, (text_offset_type)0);
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Extract all minus substrings starting
     // with cur_symbol from the heap.
