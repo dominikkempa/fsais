@@ -34,18 +34,6 @@ struct substring {
 
 struct substring_cmp {
   inline bool operator() (const substring &a, const substring &b) const {
-    return (a.m_str == b.m_str) ? (a.m_beg > b.m_beg) : (a.m_str < b.m_str);
-  }
-};
-
-struct substring_cmp_2 {
-  inline bool operator() (const substring &a, const substring &b) const {
-    return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
-  }
-};
-
-struct substring_cmp_3 {
-  inline bool operator() (const substring &a, const substring &b) const {
     return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
   }
 };
@@ -143,7 +131,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         {
           typedef async_stream_writer<blockidx_t> writer_1_type;
@@ -200,7 +188,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
               substrings.push_back(substring(j, s));
             }
           }
-          substring_cmp_2 cmp;
+          substring_cmp cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
           for (std::uint64_t j = substrings.size(); j > 0; --j) {
             std::uint64_t s = substrings[j - 1].m_beg;
@@ -233,7 +221,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
               }
             }
           }
-          substring_cmp_2 cmp;
+          substring_cmp cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
           for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
             std::uint64_t j = jplus - 1;
@@ -261,7 +249,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
               substrings.push_back(substring(j, s));
             }
           }
-          substring_cmp_2 cmp;
+          substring_cmp cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
           for (std::uint64_t jplus = substrings.size(); jplus > 0; --jplus) {
             std::uint64_t j = jplus - 1;
@@ -341,7 +329,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint64_t s = substrings[j].m_beg;
@@ -376,7 +364,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint64_t s = substrings[j].m_beg;
@@ -407,7 +395,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint64_t s = substrings[j].m_beg;
@@ -437,7 +425,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint64_t s = substrings[j].m_beg;
@@ -521,7 +509,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
             substrings.push_back(substring(j, s));
           }
         }
-        substring_cmp_3 cmp;
+        substring_cmp cmp;
         std::sort(substrings.begin(), substrings.end(), cmp);
         std::uint64_t diff_items_counter = 0;
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
