@@ -76,6 +76,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     typedef std::uint8_t blockidx_t;
     typedef std::uint16_t ext_blockidx_t;
+    typedef std::uint16_t ext_block_offset_type;
+
     std::uint64_t max_block_size = 0;
     std::uint64_t n_blocks = 0;
     do {
@@ -324,7 +326,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       {
         for (std::uint64_t j = 0; j < n_blocks; ++j)
           minus_pos_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
-        typedef async_stream_writer<saidx_tt> writer_type;
+        typedef async_stream_writer<ext_block_offset_type> writer_type;
         writer_type **writers = new writer_type*[n_blocks];
         for (std::uint64_t j = 0; j < n_blocks; ++j)
           writers[j] = new writer_type(minus_pos_filenames[j]);
@@ -344,7 +346,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         for (std::uint64_t j = 0; j < substrings.size(); ++j) {
           std::uint64_t s = substrings[j].m_beg;
           std::uint64_t block_id = s / max_block_size;
-          writers[block_id]->write((saidx_tt)s);
+          std::uint64_t block_beg = block_id * max_block_size;
+          writers[block_id]->write(s - block_beg);
         }
         for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
         delete[] writers;
@@ -459,7 +462,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_filename = "tmp." + utils::random_string_hash();
     std::string output_count_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    em_induce_minus_star_substrings<chr_t, saidx_tt, blockidx_t, ext_blockidx_t>(
+    em_induce_minus_star_substrings<chr_t, saidx_tt, ext_block_offset_type, blockidx_t, ext_blockidx_t>(
         text_length,
         radix_heap_bufsize,
         radix_log,

@@ -19,7 +19,11 @@
 
 
 // Note: ext_block_id_type needs to hold block is and one extra bit.
-template<typename char_type, typename text_offset_type, typename block_id_type, typename ext_block_id_type>
+template<typename char_type,
+  typename text_offset_type,
+  typename ext_block_offset_type,
+  typename block_id_type,
+  typename ext_block_id_type>
 void em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
@@ -56,7 +60,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<text_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader<ext_block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -142,7 +146,7 @@ void em_induce_minus_star_substrings(
           }
 
           empty_output = false;
-          text_offset_type head_pos = minus_pos_reader->read_from_ith_file(block_id);
+          text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
           output_pos_writer->write(head_pos);
           output_pos_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -210,7 +214,7 @@ void em_induce_minus_star_substrings(
           }
 
           empty_output = false;
-          text_offset_type head_pos = minus_pos_reader->read_from_ith_file(block_id);
+          text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
           output_pos_writer->write(head_pos);
           output_pos_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -271,7 +275,11 @@ void em_induce_minus_star_substrings(
 }
 
 // Note: ext_block_id_type has to be able to hold block id and have one extra bit.
-template<typename char_type, typename text_offset_type, typename block_id_type, typename ext_block_id_type>
+template<typename char_type,
+  typename text_offset_type,
+  typename ext_block_offset_type,
+  typename block_id_type,
+  typename ext_block_id_type>
 void em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
@@ -308,7 +316,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<text_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader<ext_block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -394,7 +402,7 @@ void em_induce_minus_star_substrings(
             }
 
             empty_output = false;
-            text_offset_type head_pos = minus_pos_reader->read_from_ith_file(block_id);
+            text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
             output_pos_writer->write(head_pos);
             output_pos_writer->write(diff_items_written - 1);
             cur_substring_name_snapshot = cur_substring_name;
@@ -458,7 +466,7 @@ void em_induce_minus_star_substrings(
             }
 
             empty_output = false;
-            text_offset_type head_pos = minus_pos_reader->read_from_ith_file(block_id);
+            text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
             output_pos_writer->write(head_pos);
             output_pos_writer->write(diff_items_written - 1);
             cur_substring_name_snapshot = cur_substring_name;
