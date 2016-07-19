@@ -49,10 +49,11 @@ void im_induce_substrings(
     bool is_last_minus,
     std::string text_filename,
     std::string output_plus_pos_filename,
-    std::string output_symbols_filename,
+    std::string output_plus_symbols_filename,
     std::string output_plus_type_filename,
     std::string output_minus_pos_filename,
-    std::string output_minus_type_filename) {
+    std::string output_minus_type_filename,
+    std::string output_minus_symbols_filename) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
@@ -69,15 +70,17 @@ void im_induce_substrings(
 
   // Initialize output writers.
   typedef async_stream_writer<block_offset_type> output_plus_pos_writer_type;
-  typedef async_stream_writer<char_type> output_symbols_writer_type;
+  typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
   typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
   output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename);
-  output_symbols_writer_type *output_symbols_writer = new output_symbols_writer_type(output_symbols_filename);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
   output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
   output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
 
 
 
@@ -255,14 +258,14 @@ void im_induce_substrings(
         bucket_ptr[prev_pos_head_char] = ptr;
 
         if (head_pos < block_size)
-          output_symbols_writer->write(prev_pos_head_char);
+          output_plus_symbols_writer->write(prev_pos_head_char);
       }
     } else if (block_beg > 0) {
       bool is_minus = (type_bv[0] & 1UL);
       bool is_star = is_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
         ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
       if (is_minus == is_star)
-        output_symbols_writer->write(block_prec_symbol);
+        output_plus_symbols_writer->write(block_prec_symbol);
     }
   }
 
@@ -330,7 +333,16 @@ void im_induce_substrings(
           buckets[zero_item_pos] = 1;
         } else buckets[ptr++] = prev_pos;
         bucket_ptr[prev_pos_head_char] = ptr;
+
+        if (head_pos < block_size)
+          output_minus_symbols_writer->write(prev_pos_head_char);
       }
+    } else if (block_beg > 0) {
+      bool is_minus = (type_bv[0] & 1UL);
+      bool is_star = is_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
+        ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_minus ^ is_star)
+        output_minus_symbols_writer->write(block_prec_symbol);
     }
   }
 
@@ -347,10 +359,11 @@ void im_induce_substrings(
 
   // Clean up.
   delete output_plus_pos_writer;
-  delete output_symbols_writer;
+  delete output_plus_symbols_writer;
   delete output_plus_type_writer;
   delete output_minus_pos_writer;
   delete output_minus_type_writer;
+  delete output_minus_symbols_writer;
   delete[] type_bv;
   delete[] buckets;
   delete[] bucket_ptr;

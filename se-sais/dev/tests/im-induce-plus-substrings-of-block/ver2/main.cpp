@@ -100,7 +100,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<char_type> symbols_correct;
+    std::vector<char_type> plus_symbols_correct;
     {
       std::vector<substring> substrings;
       for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -123,9 +123,42 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::uint64_t j = jplus - 1;
         std::uint64_t s = substrings[j].m_beg;
         if (block_beg <= s && s < block_end)
-          symbols_correct.push_back(text[s - 1]);
+          plus_symbols_correct.push_back(text[s - 1]);
       }
     }
+
+
+
+    std::vector<char_type> minus_symbols_correct;
+    {
+      std::vector<substring> substrings;
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        if (suf_type[j] == 0) {
+          std::string s; s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 0) s += text[end++];
+          while (end < text_length && suf_type[end] == 1) s += text[end++];
+          if (end < text_length)  s += text[end++];
+          substrings.push_back(substring(j, s));
+        } else if (j > 0 && suf_type[j - 1] == 0) {
+          std::string s; s = text[j];
+          std::uint64_t end = j + 1;
+          while (end < text_length && suf_type[end] == 1) s += text[end++];
+          if (end < text_length) s += text[end++];
+          substrings.push_back(substring(j, s));
+        }
+      }
+      substring_cmp_2 cmp;
+      std::sort(substrings.begin(), substrings.end(), cmp);
+      for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+        std::uint64_t s = substrings[j].m_beg;
+        std::uint8_t is_minus_star = (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1);
+        std::uint8_t is_plus_star  = (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0);
+        if (s > 0 && block_beg <= s && s < block_end && (!is_minus_star || is_plus_star))
+          minus_symbols_correct.push_back(text[s - 1]);
+      }
+    }
+
 
 
 
@@ -243,29 +276,34 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Run the tested algorithm.
     std::string output_plus_pos_filename = "tmp." + utils::random_string_hash();
-    std::string output_symbols_filename = "tmp." + utils::random_string_hash();
+    std::string output_plus_symbols_filename = "tmp." + utils::random_string_hash();
     std::string output_plus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_type_filename = "tmp." + utils::random_string_hash();
+    std::string output_minus_symbols_filename = "tmp." + utils::random_string_hash();
     char_type *block = new char_type[block_size];
     char_type *nextblock = new char_type[block_size];
     std::copy(text + block_beg, text + block_end, block);
     std::copy(text + block_end, text + next_block_end, nextblock);
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
-    im_induce_substrings<char_type, text_offset_type, block_offset_type, ext_block_offset_type>(
-        block,
-        nextblock,
-        text_alphabet_size,
-        text_length,
-        max_block_size,
-        block_beg,
-        is_last_minus,
-        text_filename,
-        output_plus_pos_filename,
-        output_symbols_filename,
-        output_plus_type_filename,
-        output_minus_pos_filename,
-        output_minus_type_filename);
+    im_induce_substrings<char_type,
+      text_offset_type,
+      block_offset_type,
+      ext_block_offset_type>(
+          block,
+          nextblock,
+          text_alphabet_size,
+          text_length,
+          max_block_size,
+          block_beg,
+          is_last_minus,
+          text_filename,
+          output_plus_pos_filename,
+          output_plus_symbols_filename,
+          output_plus_type_filename,
+          output_minus_pos_filename,
+          output_minus_type_filename,
+          output_minus_symbols_filename);
     delete[] block;
     delete[] nextblock;
     utils::file_delete(text_filename);
@@ -276,18 +314,51 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-    std::vector<char_type> symbols_computed;
+    std::vector<char_type> plus_symbols_computed;
     {
       typedef async_stream_reader<char_type> reader_type;
-      reader_type *reader = new reader_type(output_symbols_filename);
+      reader_type *reader = new reader_type(output_plus_symbols_filename);
       while (!reader->empty())
-        symbols_computed.push_back(reader->read());
+        plus_symbols_computed.push_back(reader->read());
       delete reader;
     }
-    utils::file_delete(output_symbols_filename);
-    if (symbols_correct.size() != symbols_computed.size() ||
-        std::equal(symbols_correct.begin(), symbols_correct.end(), symbols_computed.begin()) == false) {
-      fprintf(stderr, "Error: symbols not equal!\n");
+    utils::file_delete(output_plus_symbols_filename);
+    if (plus_symbols_correct.size() != plus_symbols_computed.size() ||
+        std::equal(plus_symbols_correct.begin(), plus_symbols_correct.end(), plus_symbols_computed.begin()) == false) {
+      fprintf(stderr, "Error: plus symbols not equal!\n");
+      std::exit(EXIT_FAILURE);
+    }
+
+
+
+
+
+
+    std::vector<char_type> minus_symbols_computed;
+    {
+      typedef async_stream_reader<char_type> reader_type;
+      reader_type *reader = new reader_type(output_minus_symbols_filename);
+      while (!reader->empty())
+        minus_symbols_computed.push_back(reader->read());
+      delete reader;
+    }
+    utils::file_delete(output_minus_symbols_filename);
+    if (minus_symbols_correct.size() != minus_symbols_computed.size() ||
+        std::equal(minus_symbols_correct.begin(), minus_symbols_correct.end(), minus_symbols_computed.begin()) == false) {
+      fprintf(stderr, "Error: minus symbols not equal!\n");
+      fprintf(stderr, "  text: ");
+      for (std::uint64_t i = 0; i < text_length; ++i)
+        fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  computed result: ");
+      for (std::uint64_t i = 0; i < minus_symbols_computed.size(); ++i)
+        fprintf(stderr, "%lu ", (std::uint64_t)minus_symbols_computed[i]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  correct result: ");
+      for (std::uint64_t i = 0; i < minus_symbols_correct.size(); ++i)
+        fprintf(stderr, "%lu ", (std::uint64_t)minus_symbols_correct[i]);
+      fprintf(stderr, "\n");
+      fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
       std::exit(EXIT_FAILURE);
     }
 
