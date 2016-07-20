@@ -7,7 +7,6 @@
 #include <string>
 #include <algorithm>
 
-#include "utils.hpp"
 #include "packed_pair.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_stream_reader.hpp"
@@ -17,16 +16,27 @@
 #include "io/async_backward_bit_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 
+#include "im_induce_substrings.hpp"
+#include "em_induce_plus_star_substrings.hpp"
 
-// Note: ext_block_id_type needs to hold block is and one extra bit.
+#include "uint24.hpp"
+#include "uint40.hpp"
+#include "uint48.hpp"
+#include "utils.hpp"
+
+
+// TODO: split the ram_use into radix heap and readers
+// Right now radix_heap uses all the ram, and I/O readers
+// (non-contant number of them!) use the space beyond that.
 template<typename char_type,
   typename text_offset_type,
-  typename ext_block_offset_type,
-  typename block_id_type = std::uint16_t,
-  typename ext_block_id_type = std::uint16_t>
-void em_induce_minus_star_substrings(
+  typename block_offset_type,
+  typename block_id_type,
+  typename ext_block_id_type>
+void em_induce_minus_star_substrings_large_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
+    std::uint64_t ram_use,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
@@ -41,20 +51,43 @@ void em_induce_minus_star_substrings(
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
-  // XXX decide.
-  std::uint64_t radix_heap_bufsize = 1;
-  std::uint64_t radix_log = 1;
-
+  // Check that all types are sufficiently large.
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+    fprintf(stderr, "\nError: block_offset_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+    fprintf(stderr, "\nError: text_offset_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+    fprintf(stderr, "\nError: block_id_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() * 2UL + 1 < n_blocks) {
+    fprintf(stderr, "\nError: ext_block_id_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
 
   // Start the timer.
-//  long double start = utils::wclock();
-//  fprintf(stderr, "EM induce minus substrings: ");
+  long double start = utils::wclock();
+  fprintf(stderr, "  EM induce minus substrings (large alphabet):\n");
+  fprintf(stderr, "    sizeof(ext_block_id_type) = %lu\n", sizeof(ext_block_id_type));
 
   // Initialize radix heap.
+  std::vector<std::uint64_t> radix_logs;
+  {
+    std::uint64_t target_sum = 8UL * sizeof(char_type);
+    std::uint64_t cur_sum = 0;
+    while (cur_sum < target_sum) {
+      std::uint64_t radix_log = std::min(10UL, target_sum - cur_sum);
+      radix_logs.push_back(radix_log);
+      cur_sum += radix_log;
+    }
+  }
   typedef packed_pair<ext_block_id_type, text_offset_type> ext_pair_type;
   typedef em_radix_heap<char_type, ext_pair_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
-      radix_heap_bufsize, output_pos_filename);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_pos_filename, ram_use);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
@@ -66,7 +99,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<ext_block_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -263,21 +296,65 @@ void em_induce_minus_star_substrings(
   delete symbols_reader;
   delete output_pos_writer;
 
-//  long double total_time = utils::wclock() - start;
-//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-//      (1.L * io_volume / (1L << 20)) / total_time);
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time);
 }
 
-// Note: ext_block_id_type has to be able to hold block id and have one extra bit.
 template<typename char_type,
   typename text_offset_type,
-  typename ext_block_offset_type,
-  typename block_id_type = std::uint16_t,
-  typename ext_block_id_type = std::uint16_t>
-void em_induce_minus_star_substrings(
+  typename block_offset_type,
+  typename block_id_type>
+void em_induce_minus_star_substrings_large_alphabet(
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::uint64_t ram_use,
+    char_type last_text_symbol,
+    std::vector<std::uint64_t> &block_count_target,
+    std::string output_pos_filename,
+    std::string plus_pos_filename,
+    std::string plus_count_filename,
+    std::string plus_diff_filename,
+    std::vector<std::string> &minus_type_filenames,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &symbols_filenames,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  if (n_blocks < (1UL << 7))
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>
+      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 15))
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>
+      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 23))
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>
+      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 31))
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>
+      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>
+      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+}
+
+// TODO: split the ram_use into radix heap and readers
+// Right now radix_heap uses all the ram, and I/O readers
+// (non-contant number of them!) use the space beyond that.
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename block_id_type,
+  typename ext_block_id_type>
+void em_induce_minus_star_substrings_small_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
+    std::uint64_t ram_use,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
@@ -292,19 +369,46 @@ void em_induce_minus_star_substrings(
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
-  // XXX decide
-  std::uint64_t radix_heap_bufsize = 1;
-  std::uint64_t radix_log = 1;
-
+  // Check that all types are sufficiently large.
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+    fprintf(stderr, "\nError: char_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+    fprintf(stderr, "\nError: block_offset_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+    fprintf(stderr, "\nError: text_offset_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+    fprintf(stderr, "\nError: block_id_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() * 2UL + 1 < n_blocks) {
+    fprintf(stderr, "\nError: ext_block_id_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
 
   // Start the timer.
-//  long double start = utils::wclock();
-//  fprintf(stderr, "EM induce minus substrings: ");
+  long double start = utils::wclock();
+  fprintf(stderr, "  EM induce minus substrings (small alphabet):\n");
+  fprintf(stderr, "    sizeof(ext_block_id_type) = %lu\n", sizeof(ext_block_id_type));
 
   // Initialize radix heap.
+  std::vector<std::uint64_t> radix_logs;
+  {
+    std::uint64_t target_sum = 8UL * sizeof(char_type);
+    std::uint64_t cur_sum = 0;
+    while (cur_sum < target_sum) {
+      std::uint64_t radix_log = std::min(10UL, target_sum - cur_sum);
+      radix_logs.push_back(radix_log);
+      cur_sum += radix_log;
+    }
+  }
   typedef em_radix_heap<char_type, ext_block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
-      radix_heap_bufsize, output_pos_filename);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_pos_filename, ram_use);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
@@ -316,7 +420,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<ext_block_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -513,9 +617,294 @@ void em_induce_minus_star_substrings(
   delete symbols_reader;
   delete output_pos_writer;
 
-//  long double total_time = utils::wclock() - start;
-//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-//      (1.L * io_volume / (1L << 20)) / total_time);
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time);
 }
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename block_id_type>
+void em_induce_minus_star_substrings_small_alphabet(
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t ram_use,
+    char_type last_text_symbol,
+    std::vector<std::uint64_t> &block_count_target,
+    std::string output_pos_filename,
+    std::string plus_pos_filename,
+    std::string plus_count_filename,
+    std::string plus_diff_filename,
+    std::vector<std::string> &minus_type_filenames,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &symbols_filenames,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  if (n_blocks < (1UL << 7))
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 15))
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 23))
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else if (n_blocks < (1UL << 31))
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename block_id_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t ram_use,
+    char_type last_text_symbol,
+    std::vector<std::uint64_t> &block_count_target,
+    std::string output_pos_filename,
+    std::string plus_pos_filename,
+    std::string plus_count_filename,
+    std::string plus_diff_filename,
+    std::vector<std::string> &minus_type_filenames,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &symbols_filenames,
+    std::uint64_t &total_io_volume) {
+  // TODO more sophisticated criterion
+  if (text_alphabet_size <= 2000000)
+    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(text_length,
+        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+  else
+    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(text_length,
+        max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename block_id_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t max_block_size,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t io_volume = 0;
+
+  fprintf(stderr, "EM induce substrings:\n");
+  fprintf(stderr, "  sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
+  fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
+
+  char_type last_text_symbol;
+  utils::read_at_offset(&last_text_symbol,
+      text_length - 1, 1, text_filename);
+
+  std::vector<std::string> plus_symbols_filenames(n_blocks);
+  std::vector<std::string> plus_type_filenames(n_blocks);
+  std::vector<std::string> minus_pos_filenames(n_blocks);
+  std::vector<std::string> minus_symbols_filenames(n_blocks);
+  std::vector<std::string> minus_type_filenames(n_blocks);
+  std::vector<std::uint64_t> plus_block_count_targets(n_blocks, 0UL);
+  std::vector<std::uint64_t> minus_block_count_targets(n_blocks, 0UL);
+
+  // Internal memory preprocessing of blocks.
+  im_induce_substrings<
+    char_type,
+    text_offset_type,
+    block_offset_type>(
+        text_alphabet_size,
+        text_length,
+        max_block_size,
+        text_filename,
+        plus_symbols_filenames,
+        plus_type_filenames,
+        minus_pos_filenames,
+        minus_type_filenames,
+        minus_symbols_filenames,
+        plus_block_count_targets,
+        minus_block_count_targets,
+        io_volume);
+
+  // Induce plus star substrings.
+  std::string plus_count_filename = "tmp." + utils::random_string_hash();
+  std::string plus_pos_filename = "tmp." + utils::random_string_hash();
+  std::string plus_diff_filename = "tmp." + utils::random_string_hash();
+  em_induce_plus_star_substrings<
+    char_type,
+    text_offset_type,
+    block_id_type>(
+        text_length,
+        max_block_size,
+        text_alphabet_size,
+        ram_use,
+        plus_block_count_targets,
+        text_filename,
+        plus_pos_filename,
+        plus_diff_filename,
+        plus_count_filename,
+        plus_type_filenames,
+        plus_symbols_filenames,
+        io_volume);
+
+  // Delete input files.
+  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+    if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
+    if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
+  }
+
+  // Induce minus star substrings.
+  em_induce_minus_star_substrings<
+    char_type,
+    text_offset_type,
+    block_offset_type,
+    block_id_type>(
+      text_length,
+      max_block_size,
+      text_alphabet_size,
+      ram_use,
+      last_text_symbol,
+      minus_block_count_targets,
+      output_filename,
+      plus_pos_filename,
+      plus_count_filename,
+      plus_diff_filename,
+      minus_type_filenames,
+      minus_pos_filenames,
+      minus_symbols_filenames,
+      io_volume);
+
+  // Delete input files.
+  utils::file_delete(plus_pos_filename);
+  utils::file_delete(plus_count_filename);
+  utils::file_delete(plus_diff_filename);
+  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+    if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
+    if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
+    if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
+  }
+
+  // Update I/O volume.
+  total_io_volume += io_volume;
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t max_block_size,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  if (n_blocks < (1UL << 8))
+    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint8_t>
+      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else if (n_blocks < (1UL << 16))
+    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint16_t>
+      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else if (n_blocks < (1UL << 24))
+    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, uint24>
+      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else if (n_blocks < (1UL << 32))
+    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint32_t>
+      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else
+    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint64_t>
+      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t max_block_size,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  if (max_block_size < (1UL << 32))
+    em_induce_minus_star_substrings<char_type, text_offset_type, std::uint32_t>(text_length,
+        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else if (max_block_size < (1UL << 40))
+    em_induce_minus_star_substrings<char_type, text_offset_type, uint40>(text_length,
+        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else if (max_block_size < (1UL << 48))
+    em_induce_minus_star_substrings<char_type, text_offset_type, uint48>(text_length,
+        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+  else
+    em_induce_minus_star_substrings<char_type, text_offset_type, std::uint64_t>(text_length,
+        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  // Binary search for the largest block size that
+  // can be processed using the given ram_budget.
+  std::uint64_t low = 1, high = text_length + 1;
+  while (high - low > 1) {
+    std::uint64_t mid = (low + high) / 2;
+
+    // Compute RAM usage assuming max block size is equal to mid.
+    // TODO take buffers for I/O streamers into account.
+    std::uint64_t ext_max_block_size_sizeof = 0;
+    if (2 * mid < (1UL << 32)) ext_max_block_size_sizeof = 4;
+    else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
+    else if (2 * mid < (1UL << 48)) ext_max_block_size_sizeof = 6;
+    else ext_max_block_size_sizeof = 8;
+    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
+      (text_alphabet_size + 2UL * mid) * ext_max_block_size_sizeof;
+
+    // Update bounds.
+    if (required_ram <= ram_use) low = mid;
+    else high = mid;
+  }
+
+  std::uint64_t max_block_size = low;
+  em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
+      max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type>
+void em_induce_minus_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t text_alphabet_size = (std::uint64_t)std::numeric_limits<char_type>::max() + 1;
+  em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
+      ram_use, text_filename, output_filename, total_io_volume);
+}
+
 
 #endif  // __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED

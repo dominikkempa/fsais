@@ -23,7 +23,7 @@ template<typename value_type>
 void write_to_file(const value_type *src, std::uint64_t length, std::FILE *f) {
   std::uint64_t fwrite_ret = std::fwrite(src, sizeof(value_type), length, f);
   if (fwrite_ret != length) {
-    fprintf(stderr, "Error: fwrite failed.\n");
+    fprintf(stderr, "\nError: fwrite failed.\n");
     std::exit(EXIT_FAILURE);
   }
 }

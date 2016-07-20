@@ -7,204 +7,16 @@
 #include <ctime>
 #include <map>
 #include <unistd.h>
+#include <sys/stat.h>
+#include <fcntl.h>
 
 #include "em_induce_minus_star_substrings.hpp"
-#include "em_induce_plus_star_substrings.hpp"
-#include "im_induce_substrings.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
 
 #include "utils.hpp"
-#include "uint40.hpp"
-#include "uint48.hpp"
 #include "divsufsort.h"
-
-
-std::uint64_t get_smallest_type_size(std::uint64_t max_value) {
-  if (max_value < (1UL << 8)) return 1UL;
-  else if (max_value < (1UL << 16)) return 2UL;
-  else if (max_value < (1UL << 32)) return 4UL;
-  else if (max_value < (1UL << 40)) return 5UL;
-  else if (max_value < (1UL << 48)) return 6UL;
-  else return 8UL;
-}
-
-template<typename char_type,
-  typename text_offset_type>
-std::uint64_t required_ram_use(std::uint64_t max_block_size,
-    std::uint64_t text_alphabet_size) {
-  return max_block_size / 4UL +
-    max_block_size * sizeof(char_type) +
-    2UL * max_block_size * get_smallest_type_size(2 * max_block_size) +
-    text_alphabet_size * get_smallest_type_size(2 * max_block_size);
-}
-
-template<typename char_type,
-  typename text_offset_type,
-  typename ext_block_offset_type>
-void em_induce_star_substrings(
-    std::uint64_t text_length,
-    std::uint64_t text_alphabet_size,
-    std::uint64_t max_block_size,
-    std::string text_filename,
-    std::string output_filename,
-    std::uint64_t &total_io_volume) {
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  std::uint64_t io_volume = 0;
-
-  char_type last_text_symbol;
-  utils::read_at_offset(&last_text_symbol,
-      text_length - 1, 1, text_filename);
-
-  std::vector<std::string> plus_symbols_filenames(n_blocks);
-  std::vector<std::string> plus_type_filenames(n_blocks);
-  std::vector<std::string> minus_pos_filenames(n_blocks);
-  std::vector<std::string> minus_symbols_filenames(n_blocks);
-  std::vector<std::string> minus_type_filenames(n_blocks);
-
-  std::vector<std::uint64_t> plus_block_count_target(n_blocks, 0UL);
-  std::vector<std::uint64_t> minus_block_count_target(n_blocks, 0UL);
-
-  // Run the in-RAM inducing of substrings.
-  bool is_last_minus = true;
-
-  // fprintf(stderr, "Preprocess blocks:\n");
-  for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
-    std::uint64_t block_id = block_id_plus - 1;
-    std::uint64_t block_beg = block_id * max_block_size;
-
-    std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
-    std::string plus_type_filename = "tmp." + utils::random_string_hash();
-    std::string minus_pos_filename = "tmp." + utils::random_string_hash();
-    std::string minus_type_filename = "tmp." + utils::random_string_hash();
-    std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
-
-    std::uint64_t this_block_plus_count_target = 0;
-    std::uint64_t this_block_minus_count_target = 0;
-    is_last_minus = im_induce_substrings<char_type,
-                  text_offset_type,
-                  ext_block_offset_type>(
-                      text_alphabet_size,
-                      text_length,
-                      max_block_size,
-                      block_beg,
-                      is_last_minus,
-                      text_filename,
-                      plus_symbols_filename,
-                      plus_type_filename,
-                      minus_pos_filename,
-                      minus_type_filename,
-                      minus_symbols_filename,
-                      this_block_plus_count_target,
-                      this_block_minus_count_target,
-                      io_volume);
-
-    plus_symbols_filenames[block_id] = plus_symbols_filename;
-    plus_type_filenames[block_id] = plus_type_filename;
-    minus_pos_filenames[block_id] = minus_pos_filename;
-    minus_type_filenames[block_id] = minus_type_filename;
-    minus_symbols_filenames[block_id] = minus_symbols_filename;
-    plus_block_count_target[block_id] = this_block_plus_count_target;
-    minus_block_count_target[block_id] = this_block_minus_count_target;
-  }
-
-  // Induce plus star substrings.
-  std::string plus_count_filename = "tmp." + utils::random_string_hash();
-  std::string plus_pos_filename = "tmp." + utils::random_string_hash();
-  std::string plus_diff_filename = "tmp." + utils::random_string_hash();
-  em_induce_plus_star_substrings<
-    char_type,
-    text_offset_type>(
-      text_length,
-      max_block_size,
-      text_alphabet_size,
-      plus_block_count_target,
-      text_filename,
-      plus_pos_filename,
-      plus_diff_filename,
-      plus_count_filename,
-      plus_type_filenames,
-      plus_symbols_filenames,
-      io_volume);
-
-  // Delete input files.
-  for (std::uint64_t j = 0; j < n_blocks; ++j) {
-    if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
-    if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
-  }
-
-  // Induce minus star substrings.
-  em_induce_minus_star_substrings<
-    char_type,
-    text_offset_type,
-    ext_block_offset_type>(
-      text_length,
-      max_block_size,
-      text_alphabet_size,
-      last_text_symbol,
-      minus_block_count_target,
-      output_filename,
-      plus_pos_filename,
-      plus_count_filename,
-      plus_diff_filename,
-      minus_type_filenames,
-      minus_pos_filenames,
-      minus_symbols_filenames,
-      io_volume);
-
-  // Delete input files.
-  utils::file_delete(plus_pos_filename);
-  utils::file_delete(plus_count_filename);
-  utils::file_delete(plus_diff_filename);
-  for (std::uint64_t j = 0; j < n_blocks; ++j) {
-    if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
-    if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
-    if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
-  }
-
-  // Update I/O volume.
-  total_io_volume += io_volume;
-}
-
-template<typename char_type,
-  typename text_offset_type>
-void em_induce_star_substrings(
-    std::uint64_t text_length,
-    std::uint64_t text_alphabet_size,
-    std::uint64_t ram_use,
-    std::string text_filename,
-    std::string output_filename,
-    std::uint64_t &total_io_volume) {
-  // Binary search for the largest block size that
-  // can be processed using the given ram_budget.
-  std::uint64_t low = 1, high = text_length + 1;
-  while (high - low > 1) {
-    std::uint64_t mid = (low + high) / 2;
-    if (required_ram_use<char_type, text_offset_type>(mid, text_alphabet_size) <= ram_use)
-      low = mid;
-    else high = mid;
-  }
-
-  std::uint64_t max_block_size = low;
-  std::uint64_t s = get_smallest_type_size(2UL * max_block_size);
-
-  fprintf(stderr, "text_length = %lu, max_block_size = %lu, n_blocks = %lu\n", text_length, max_block_size,
-      (text_length + max_block_size - 1) / max_block_size);
-
-  if (s == 1UL) em_induce_star_substrings<char_type, text_offset_type, std::uint8_t>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-  else if (s == 2UL) em_induce_star_substrings<char_type, text_offset_type, std::uint16_t>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-  else if (s == 4UL) em_induce_star_substrings<char_type, text_offset_type, std::uint32_t>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-  else if (s == 5UL) em_induce_star_substrings<char_type, text_offset_type, uint40>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-  else if (s == 6UL) em_induce_star_substrings<char_type, text_offset_type, uint48>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-  else em_induce_star_substrings<char_type, text_offset_type, std::uint64_t>(
-      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
-}
 
 
 struct substring {
@@ -251,38 +63,35 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     do {
       max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
       n_blocks = (text_length + max_block_size - 1) / max_block_size;
-    } while (n_blocks > 256);
+    } while (n_blocks > (1UL << 16));
 
-    std::uint64_t io_volume = 0;
     std::string output_filename = "tmp." + utils::random_string_hash();
-
-#if 1
-    em_induce_star_substrings<
-      char_type,
-      text_offset_type,
-      std::uint32_t>(
-          text_length,
-          text_alphabet_size,
-          max_block_size,
-          text_filename,
-          output_filename,
-          io_volume);
-#else
     std::uint64_t ram_use = utils::random_int64(1L, 1024L);
-    em_induce_star_substrings<
+    std::uint64_t io_volume = 0;
+
+    // Close stderr.
+    int stderr_backup = 0;
+    std::fflush(stderr);
+    stderr_backup = dup(2);
+    int stderr_temp = open("/dev/null", O_WRONLY);
+    dup2(stderr_temp, 2);
+    close(stderr_temp);
+
+    em_induce_minus_star_substrings<
       char_type,
       text_offset_type>(
           text_length,
           text_alphabet_size,
+          max_block_size,
           ram_use,
           text_filename,
           output_filename,
           io_volume);
-#endif
 
-
-
-
+    // Restore stderr.
+    std::fflush(stderr);
+    dup2(stderr_backup, 2);
+    close(stderr_backup);
 
     // Check the answer.
     {
@@ -335,7 +144,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         else if (!std::equal(v_correct.begin(), v_correct.end(), v_computed.begin()) || 
             !std::equal(v_correct_names.begin(), v_correct_names.end(), v_computed_names.begin())) ok = false;
         if (!ok) {
-          fprintf(stderr, "Error:\n");
+          fprintf(stderr, "\nError:\n");
           fprintf(stderr, "  text: ");
           for (std::uint64_t i = 0; i < text_length; ++i)
             fprintf(stderr, "%c", text[i]);
@@ -365,8 +174,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       }
     }
 
-
-
     utils::file_delete(output_filename);
     utils::file_delete(text_filename);
   }
@@ -378,9 +185,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
 int main() {
   srand(time(0) + getpid());
-
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     test(1000, max_length);
-
   fprintf(stderr, "All tests passed.\n");
 }
