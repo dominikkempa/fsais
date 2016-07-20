@@ -363,31 +363,13 @@ bool im_induce_substrings(
     if (head_pos == 0) seen_block_beg = true;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
-    if (head_pos < block_size) {
-      if (is_head_minus) {
-        bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
-            (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
-        output_minus_type_writer->write(is_star);
-        if (is_star)
-          output_minus_pos_writer->write(head_pos);
-//        if (!seen_block_beg)
-//          ++minus_block_count_target;
-      } /*else if (!seen_block_beg) {
-        bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) > 0) ||
-            (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
-        if (is_star) ++minus_block_count_target;
-      }*/
+    if (is_head_minus && head_pos < block_size) {
+      bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
+          (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+      output_minus_type_writer->write(is_star);
+      if (is_star)
+        output_minus_pos_writer->write(head_pos);
     }
-
-/*    if (head_pos == 0) {
-      if (is_head_minus)
-        seen_block_beg = true;
-      else {
-        bool is_star = (block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
-        if (is_star)
-          seen_block_beg = true;
-      }
-    }*/
 
     if (head_pos > 0) {
       std::uint64_t prev_pos = head_pos - 1;

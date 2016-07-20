@@ -58,15 +58,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       text[j] = utils::random_int64(0L, (std::int64_t)text_alphabet_size - 1);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
-
     std::string text_filename = "tmp." + utils::random_string_hash();
     utils::write_to_file(text, text_length, text_filename);
-
-    typedef std::uint8_t block_id_type;
-    typedef std::uint16_t ext_block_id_type;
-    typedef std::uint16_t extext_block_id_type;
-    typedef std::uint32_t block_offset_type;
-    typedef std::uint16_t ext_block_offset_type;
 
     std::uint64_t max_block_size = 0;
     std::uint64_t n_blocks = 0;
@@ -79,27 +72,20 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-
-
-    for (std::uint64_t i = text_length; i > 0; --i) {
-      if (i == text_length) suf_type[i - 1] = 0;
-      else {
-        if (text[i - 1] > text[i]) suf_type[i - 1] = 0;
-        else if (text[i - 1] < text[i]) suf_type[i - 1] = 1;
-        else suf_type[i - 1] = suf_type[i];
-      }
-    }
-
-
-
-
-
+    typedef std::uint8_t block_id_type;
+    typedef std::uint16_t ext_block_id_type;
+    typedef std::uint16_t extext_block_id_type;
+    typedef std::uint32_t block_offset_type;
+    typedef std::uint16_t ext_block_offset_type;
 
     std::vector<std::string> plus_symbols_filenames(n_blocks);
     std::vector<std::string> plus_type_filenames(n_blocks);
     std::vector<std::string> minus_pos_filenames(n_blocks);
     std::vector<std::string> minus_symbols_filenames(n_blocks);
     std::vector<std::string> minus_type_filenames(n_blocks);
+
+    std::vector<std::uint64_t> plus_block_count_target(n_blocks, 0UL);
+    std::vector<std::uint64_t> minus_block_count_target(n_blocks, 0UL);
 
     bool is_last_minus = true;
     for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -112,6 +98,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::string minus_type_filename = "tmp." + utils::random_string_hash();
       std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
 
+      std::uint64_t this_block_plus_count_target = 0;
+      std::uint64_t this_block_minus_count_target = 0;
       is_last_minus = im_induce_substrings<char_type,
                     text_offset_type,
                     block_offset_type,
@@ -126,62 +114,18 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                         plus_type_filename,
                         minus_pos_filename,
                         minus_type_filename,
-                        minus_symbols_filename);
+                        minus_symbols_filename,
+                        this_block_plus_count_target,
+                        this_block_minus_count_target);
 
       plus_symbols_filenames[block_id] = plus_symbols_filename;
       plus_type_filenames[block_id] = plus_type_filename;
       minus_pos_filenames[block_id] = minus_pos_filename;
       minus_type_filenames[block_id] = minus_type_filename;
       minus_symbols_filenames[block_id] = minus_symbols_filename;
+      plus_block_count_target[block_id] = this_block_plus_count_target;
+      minus_block_count_target[block_id] = this_block_minus_count_target;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // Input.
-    std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
-    {
-      {
-        std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-        std::vector<substring> substrings;
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          if (suf_type[j] == 1) {
-            std::string s; s = text[j];
-            std::uint64_t end = j + 1;
-            while (end < text_length && suf_type[end] == 1) s += text[end++];
-            if (end < text_length)  s += text[end++];
-            substrings.push_back(substring(j, s));
-          } else if (j > 0 && suf_type[j - 1] == 1) {
-            std::string s; s = text[j];
-            substrings.push_back(substring(j, s));
-          }
-        }
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-        for (std::uint64_t j = substrings.size(); j > 0; --j) {
-          std::uint64_t s = substrings[j - 1].m_beg;
-          std::uint64_t block_id = s / max_block_size;
-          std::uint8_t is_block_beg = (block_id * max_block_size == s);
-          ++block_count[block_id];
-          if (is_block_beg)
-            block_count_target[block_id] = block_count[block_id];
-        }
-      }
-    }
-
 
     // Run the tested algorithm.
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
@@ -193,7 +137,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_heap_bufsize,
         radix_log,
         max_block_size,
-        block_count_target,
+        plus_block_count_target,
         text_filename,
         plus_pos_filename,
         plus_diff_filename,
@@ -202,69 +146,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         plus_symbols_filenames,
         total_io_volume);
 
- 
     // Delete input files.
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
       if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
       if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-    // Input from in-RAM processing.
-    std::vector<std::uint64_t> block_beg_target(n_blocks, 0UL);
-    {
-      {
-        std::vector<std::uint64_t> block_beg_counter(n_blocks, 0UL);
-        std::vector<substring> substrings;
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          if (suf_type[j] == 0) {
-            std::string s; s = text[j];
-            std::uint64_t end = j + 1;
-            while (end < text_length && suf_type[end] == 0) s += text[end++];
-            while (end < text_length && suf_type[end] == 1) s += text[end++];
-            if (end < text_length)  s += text[end++];
-            substrings.push_back(substring(j, s));
-          } else if (j > 0 && suf_type[j - 1] == 0) {
-            std::string s; s = text[j];
-            std::uint64_t end = j + 1;
-            while (end < text_length && suf_type[end] == 1) s += text[end++];
-            if (end < text_length) s += text[end++];
-            substrings.push_back(substring(j, s));
-          }
-        }
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-          std::uint64_t s = substrings[j].m_beg;
-          std::uint64_t block_id = s / max_block_size;
-          std::uint8_t is_block_beg = (block_id * max_block_size == substrings[j].m_beg);
-          ++block_beg_counter[block_id];
-          if (is_block_beg) block_beg_target[block_id] = block_beg_counter[block_id];
-        }
-      }
-    }
-
-
-
-
-
-
-
-
 
     // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
@@ -279,7 +165,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         radix_log,
         max_block_size,
         text[text_length - 1],
-        block_beg_target,
+        minus_block_count_target,
         output_filename,
         output_count_filename,
         plus_pos_filename,
@@ -289,14 +175,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         minus_pos_filenames,
         minus_symbols_filenames,
         total_io_volume);
-
-
-
-
-
-
-
-
 
     // Delete input files.
     utils::file_delete(plus_pos_filename);
@@ -317,111 +195,127 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Check the answer.
     {
-      std::vector<text_offset_type> v_correct;
-      std::vector<text_offset_type> v_correct_names;
-      std::vector<substring> substrings;
+      for (std::uint64_t i = text_length; i > 0; --i) {
+        if (i == text_length) suf_type[i - 1] = 0;
+        else {
+          if (text[i - 1] > text[i]) suf_type[i - 1] = 0;
+          else if (text[i - 1] < text[i]) suf_type[i - 1] = 1;
+          else suf_type[i - 1] = suf_type[i];
+        }
+      }
       {
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          if (j > 0 && suf_type[j] == 0 && suf_type[j - 1] == 1) {
-            std::string s; s = text[j];
-            std::uint64_t end = j + 1;
-            while (end < text_length && suf_type[end] == 0) s += text[end++];
-            while (end < text_length && suf_type[end] == 1) s += text[end++];
-            if (end < text_length) s += text[end++];
-            substrings.push_back(substring(j, s));
+        std::vector<text_offset_type> v_correct;
+        std::vector<text_offset_type> v_correct_names;
+        std::vector<substring> substrings;
+        {
+          for (std::uint64_t j = 0; j < text_length; ++j) {
+            if (j > 0 && suf_type[j] == 0 && suf_type[j - 1] == 1) {
+              std::string s; s = text[j];
+              std::uint64_t end = j + 1;
+              while (end < text_length && suf_type[end] == 0) s += text[end++];
+              while (end < text_length && suf_type[end] == 1) s += text[end++];
+              if (end < text_length) s += text[end++];
+              substrings.push_back(substring(j, s));
+            }
+          }
+          substring_cmp cmp;
+          std::sort(substrings.begin(), substrings.end(), cmp);
+          std::uint64_t diff_items_counter = 0;
+          for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+            if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
+              ++diff_items_counter;
+            v_correct.push_back(substrings[j].m_beg);
+            v_correct_names.push_back(diff_items_counter - 1);
           }
         }
-        substring_cmp cmp;
-        std::sort(substrings.begin(), substrings.end(), cmp);
-        std::uint64_t diff_items_counter = 0;
-        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
-          if (j == 0 || substrings[j].m_str != substrings[j - 1].m_str)
-            ++diff_items_counter;
-          v_correct.push_back(substrings[j].m_beg);
-          v_correct_names.push_back(diff_items_counter - 1);
+        std::vector<text_offset_type> v_computed;
+        std::vector<text_offset_type> v_computed_names;
+        {
+          typedef async_stream_reader<text_offset_type> reader_type;
+          reader_type *reader = new reader_type(output_filename);
+          while (!reader->empty()) {
+            v_computed.push_back(reader->read());
+            v_computed_names.push_back(reader->read());
+          }
+          delete reader;
         }
-      }
-      std::vector<text_offset_type> v_computed;
-      std::vector<text_offset_type> v_computed_names;
-      {
-        typedef async_stream_reader<text_offset_type> reader_type;
-        reader_type *reader = new reader_type(output_filename);
-        while (!reader->empty()) {
-          v_computed.push_back(reader->read());
-          v_computed_names.push_back(reader->read());
+        std::vector<std::pair<char_type, std::uint64_t> > v_computed_count;
+        {
+          typedef async_stream_reader<saidx_t> reader_type;
+          reader_type *reader = new reader_type(output_count_filename);
+          char_type cur_sym = 0;
+           while (reader->empty() == false) {
+            std::uint64_t count = reader->read();
+            if (count > 0)
+              v_computed_count.push_back(std::make_pair(cur_sym, count));
+            ++cur_sym;
+          }
+          delete reader;
         }
-        delete reader;
-      }
-      std::vector<std::pair<char_type, std::uint64_t> > v_computed_count;
-      {
-        typedef async_stream_reader<saidx_t> reader_type;
-        reader_type *reader = new reader_type(output_count_filename);
-        char_type cur_sym = 0;
-         while (reader->empty() == false) {
-          std::uint64_t count = reader->read();
-          if (count > 0)
-            v_computed_count.push_back(std::make_pair(cur_sym, count));
-          ++cur_sym;
+        std::vector<std::pair<char_type, std::uint64_t> > v_correct_count;
+        {
+          std::map<char_type, std::uint64_t> m;
+          for (std::uint64_t j = 0; j < text_length; ++j) {
+            std::uint64_t s = sa[j];
+            if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
+              m[text[s]] += 1;
+          }
+          for (std::map<char_type, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
+            v_correct_count.push_back(std::make_pair(it->first, it->second));
         }
-        delete reader;
-      }
-      std::vector<std::pair<char_type, std::uint64_t> > v_correct_count;
-      {
-        std::map<char_type, std::uint64_t> m;
-        for (std::uint64_t j = 0; j < text_length; ++j) {
-          std::uint64_t s = sa[j];
-          if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
-            m[text[s]] += 1;
+        if (v_computed_count.size() != v_correct_count.size() ||
+            std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
+          fprintf(stderr, "Error: counts do not match!\n");
+          fprintf(stderr, "  text: ");
+          for (std::uint64_t i = 0; i < text_length; ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  v_computed_count: ");
+          for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
+            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  v_correct_count: ");
+          for (std::uint64_t j = 0; j < v_correct_count.size(); ++j)
+            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_correct_count[j].first, (std::uint64_t)v_correct_count[j].second);
+          fprintf(stderr, "\n");
+          std::exit(EXIT_FAILURE);
         }
-        for (std::map<char_type, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
-          v_correct_count.push_back(std::make_pair(it->first, it->second));
-      }
-      if (v_computed_count.size() != v_correct_count.size() ||
-          std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
-        fprintf(stderr, "Error: counts do not match!\n");
-        fprintf(stderr, "  v_computed_count: ");
-        for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
-          fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  v_correct_count: ");
-        for (std::uint64_t j = 0; j < v_correct_count.size(); ++j)
-          fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_correct_count[j].first, (std::uint64_t)v_correct_count[j].second);
-        fprintf(stderr, "\n");
-        std::exit(EXIT_FAILURE);
-      }
-      bool ok = true;
-      if (v_correct.size() != v_computed.size()) ok = false;
-      else if (!std::equal(v_correct.begin(), v_correct.end(), v_computed.begin()) || 
-          !std::equal(v_correct_names.begin(), v_correct_names.end(), v_computed_names.begin())) ok = false;
-      if (!ok) {
-        fprintf(stderr, "Error:\n");
-        fprintf(stderr, "  text: ");
-        for (std::uint64_t i = 0; i < text_length; ++i)
-          fprintf(stderr, "%c", text[i]);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  SA: ");
-        for (std::uint64_t i = 0; i < text_length; ++i)
-          fprintf(stderr, "%lu ", (std::uint64_t)sa[i]);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  computed result: ");
-        for (std::uint64_t i = 0; i < v_computed.size(); ++i)
-          fprintf(stderr, "%lu ", (std::uint64_t)v_computed[i]);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  computed names: ");
-        for (std::uint64_t i = 0; i < v_computed_names.size(); ++i)
-          fprintf(stderr, "%lu ", (std::uint64_t)v_computed_names[i]);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  correct result: ");
-        for (std::uint64_t i = 0; i < v_correct.size(); ++i)
-          fprintf(stderr, "%lu ", (std::uint64_t)v_correct[i]);
-        fprintf(stderr, "\n");
-        fprintf(stderr, "  correct names: ");
-        for (std::uint64_t i = 0; i < v_correct_names.size(); ++i)
-          fprintf(stderr, "%lu ", (std::uint64_t)v_correct_names[i]);
-        fprintf(stderr, "\n");
-        std::exit(EXIT_FAILURE);
+        bool ok = true;
+        if (v_correct.size() != v_computed.size()) ok = false;
+        else if (!std::equal(v_correct.begin(), v_correct.end(), v_computed.begin()) || 
+            !std::equal(v_correct_names.begin(), v_correct_names.end(), v_computed_names.begin())) ok = false;
+        if (!ok) {
+          fprintf(stderr, "Error:\n");
+          fprintf(stderr, "  text: ");
+          for (std::uint64_t i = 0; i < text_length; ++i)
+            fprintf(stderr, "%c", text[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  SA: ");
+          for (std::uint64_t i = 0; i < text_length; ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)sa[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  computed result: ");
+          for (std::uint64_t i = 0; i < v_computed.size(); ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)v_computed[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  computed names: ");
+          for (std::uint64_t i = 0; i < v_computed_names.size(); ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)v_computed_names[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  correct result: ");
+          for (std::uint64_t i = 0; i < v_correct.size(); ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)v_correct[i]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  correct names: ");
+          for (std::uint64_t i = 0; i < v_correct_names.size(); ++i)
+            fprintf(stderr, "%lu ", (std::uint64_t)v_correct_names[i]);
+          fprintf(stderr, "\n");
+          std::exit(EXIT_FAILURE);
+        }
       }
     }
+
+
 
 
 
