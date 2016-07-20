@@ -58,14 +58,20 @@ bool im_induce_substrings(
     std::string output_minus_type_filename,
     std::string output_minus_symbols_filename,
     std::uint64_t &plus_block_count_target,
-    std::uint64_t &minus_block_count_target) {
+    std::uint64_t &minus_block_count_target,
+    std::uint64_t &total_io_volume) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
   std::uint64_t total_block_size = block_size + next_block_size;
+  std::uint64_t io_volume = 0;
 
 
 
+
+  // Start the timer.
+//  long double start = utils::wclock();
+//  fprintf(stderr, "  Process block [%lu..%lu): ", block_beg, block_end);
 
 
 
@@ -73,6 +79,7 @@ bool im_induce_substrings(
   // Read block into RAM.
   char_type *block = new char_type[block_size];
   utils::read_at_offset(block, block_beg, block_size, text_filename);
+  io_volume += block_size * sizeof(char_type);
 
 
 
@@ -401,14 +408,21 @@ bool im_induce_substrings(
 
 
 
+  // Update I/O volume.
+  io_volume += output_plus_symbols_writer->bytes_written() +
+    output_plus_type_writer->bytes_written() +
+    output_minus_pos_writer->bytes_written() +
+    output_minus_type_writer->bytes_written() +
+    output_minus_symbols_writer->bytes_written() +
+    text_accessor->bytes_read();
+  total_io_volume += io_volume;
+
 
 
 
 
   // Store result.
   bool result = (type_bv[(block_size - 1) >> 6] & (1UL << ((block_size - 1) & 63)));
-
-
 
 
 
@@ -425,6 +439,18 @@ bool im_induce_substrings(
   delete[] buckets;
   delete[] bucket_ptr;
   delete[] block;
+
+
+
+
+
+  // Print summary.
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time);
+
+
+
 
   // Return result.
   return result;

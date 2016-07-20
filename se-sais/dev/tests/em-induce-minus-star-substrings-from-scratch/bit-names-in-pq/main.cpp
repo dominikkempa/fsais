@@ -78,6 +78,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     typedef std::uint32_t block_offset_type;
     typedef std::uint16_t ext_block_offset_type;
 
+    std::uint64_t io_volume = 0;
+
     std::vector<std::string> plus_symbols_filenames(n_blocks);
     std::vector<std::string> plus_type_filenames(n_blocks);
     std::vector<std::string> minus_pos_filenames(n_blocks);
@@ -116,7 +118,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                         minus_type_filename,
                         minus_symbols_filename,
                         this_block_plus_count_target,
-                        this_block_minus_count_target);
+                        this_block_minus_count_target,
+                        io_volume);
 
       plus_symbols_filenames[block_id] = plus_symbols_filename;
       plus_type_filenames[block_id] = plus_type_filename;
@@ -131,7 +134,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
     std::string plus_pos_filename = "tmp." + utils::random_string_hash();
     std::string plus_diff_filename = "tmp." + utils::random_string_hash();
-    std::uint64_t total_io_volume = 0;
     em_induce_plus_star_substrings<char_type, text_offset_type, block_id_type, extext_block_id_type>(
         text_length,
         radix_heap_bufsize,
@@ -145,7 +147,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         plus_count_filename,
         plus_type_filenames,
         plus_symbols_filenames,
-        total_io_volume);
+        io_volume);
 
     // Delete input files.
     for (std::uint64_t j = 0; j < n_blocks; ++j) {
@@ -176,7 +178,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         minus_type_filenames,
         minus_pos_filenames,
         minus_symbols_filenames,
-        total_io_volume);
+        io_volume);
 
     // Delete input files.
     utils::file_delete(plus_pos_filename);

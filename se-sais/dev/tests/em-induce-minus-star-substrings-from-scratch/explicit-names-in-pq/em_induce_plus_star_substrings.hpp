@@ -38,6 +38,10 @@ void em_induce_plus_star_substrings(
   std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
 
+  // Start the timer.
+//  long double start = utils::wclock();
+//  fprintf(stderr, "EM induce plus substrings: ");
+
   // Initialize radix heap.
   typedef packed_pair<extext_block_id_type, text_offset_type> ext_pair_type;
   typedef em_radix_heap<char_type, ext_pair_type> heap_type;
@@ -217,6 +221,10 @@ void em_induce_plus_star_substrings(
   delete output_pos_writer;
   delete output_diff_writer;
   delete output_count_writer;
+
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time);
 }
 
 // Note: extext_block_id_type type needs to store block id and two extra bits.
@@ -238,6 +246,10 @@ void em_induce_plus_star_substrings(
   std::uint64_t is_diff_bit = ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() + 1) / 2;
   std::uint64_t is_head_plus_bit = is_diff_bit / 2;
   std::uint64_t io_volume = 0;
+
+  // Start the timer.
+//  long double start = utils::wclock();
+//  fprintf(stderr, "EM induce plus substrings: ");
 
   // Initialize radix heap.
   typedef em_radix_heap<char_type, extext_block_id_type> heap_type;
@@ -425,6 +437,10 @@ void em_induce_plus_star_substrings(
   delete output_pos_writer;
   delete output_diff_writer;
   delete output_count_writer;
+
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time);
 }
 
 #endif  // __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED

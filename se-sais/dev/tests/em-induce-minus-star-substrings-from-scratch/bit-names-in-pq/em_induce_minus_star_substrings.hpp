@@ -44,6 +44,10 @@ void em_induce_minus_star_substrings(
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
+  // Start the timer.
+//  long double start = utils::wclock();
+//  fprintf(stderr, "EM induce minus substrings: ");
+
   // Initialize radix heap.
   typedef packed_pair<ext_block_id_type, text_offset_type> ext_pair_type;
   typedef em_radix_heap<char_type, ext_pair_type> radix_heap_type;
@@ -272,6 +276,10 @@ void em_induce_minus_star_substrings(
   delete symbols_reader;
   delete output_pos_writer;
   delete output_count_writer;
+
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time);
 }
 
 // Note: ext_block_id_type has to be able to hold block id and have one extra bit.
@@ -300,6 +308,10 @@ void em_induce_minus_star_substrings(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
+
+  // Start the timer.
+//  long double start = utils::wclock();
+//  fprintf(stderr, "EM induce minus substrings: ");
 
   // Initialize radix heap.
   typedef em_radix_heap<char_type, ext_block_id_type> radix_heap_type;
@@ -528,6 +540,10 @@ void em_induce_minus_star_substrings(
   delete symbols_reader;
   delete output_pos_writer;
   delete output_count_writer;
+
+//  long double total_time = utils::wclock() - start;
+//  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+//      (1.L * io_volume / (1L << 20)) / total_time);
 }
 
 #endif  // __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
