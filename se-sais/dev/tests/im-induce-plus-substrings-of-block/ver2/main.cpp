@@ -221,6 +221,77 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
+    std::uint64_t plus_block_count_target_correct = std::numeric_limits<std::uint64_t>::max();
+    {
+      {
+        std::vector<substring> substrings;
+        for (std::uint64_t j = 0; j < text_length; ++j) {
+          if (suf_type[j] == 1) {
+            std::string s; s = text[j];
+            std::uint64_t end = j + 1;
+            while (end < text_length && suf_type[end] == 1) s += text[end++];
+            if (end < text_length)  s += text[end++];
+            substrings.push_back(substring(j, s));
+          } else if (j > 0 && suf_type[j - 1] == 1) {
+            std::string s; s = text[j];
+            substrings.push_back(substring(j, s));
+          }
+        }
+        substring_cmp_2 cmp;
+        std::sort(substrings.begin(), substrings.end(), cmp);
+        std::uint64_t cur_block_count = 0;
+        for (std::uint64_t j = substrings.size(); j > 0; --j) {
+          std::uint64_t s = substrings[j - 1].m_beg;
+          if (block_beg <= s && s < block_end) {
+            ++cur_block_count;
+            if (s == block_beg) {
+              plus_block_count_target_correct = cur_block_count;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+
+
+    std::uint64_t minus_block_count_target_correct = std::numeric_limits<std::uint64_t>::max();
+    {
+      {
+        std::vector<substring> substrings;
+        for (std::uint64_t j = 0; j < text_length; ++j) {
+          if (suf_type[j] == 0) {
+            std::string s; s = text[j];
+            std::uint64_t end = j + 1;
+            while (end < text_length && suf_type[end] == 0) s += text[end++];
+            while (end < text_length && suf_type[end] == 1) s += text[end++];
+            if (end < text_length)  s += text[end++];
+            substrings.push_back(substring(j, s));
+          } else if (j > 0 && suf_type[j - 1] == 0) {
+            std::string s; s = text[j];
+            std::uint64_t end = j + 1;
+            while (end < text_length && suf_type[end] == 1) s += text[end++];
+            if (end < text_length) s += text[end++];
+            substrings.push_back(substring(j, s));
+          }
+        }
+        substring_cmp_2 cmp;
+        std::sort(substrings.begin(), substrings.end(), cmp);
+        std::uint64_t cur_block_count = 0;
+        for (std::uint64_t j = 0; j < substrings.size(); ++j) {
+          std::uint64_t s = substrings[j].m_beg;
+          if (block_beg <= s && s < block_end) {
+            ++cur_block_count;
+            if (s == block_beg) {
+              minus_block_count_target_correct = cur_block_count;
+              break;
+            }
+          }
+        }
+      }
+    }
+
+
 
 
 
@@ -260,6 +331,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_minus_type_filename = "tmp." + utils::random_string_hash();
     std::string output_minus_symbols_filename = "tmp." + utils::random_string_hash();
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
+    std::uint64_t minus_block_count_target = 0;
+    std::uint64_t plus_block_count_target = 0;
     is_last_minus = im_induce_substrings<char_type,
                   text_offset_type,
                   block_offset_type,
@@ -274,10 +347,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
                       output_plus_type_filename,
                       output_minus_pos_filename,
                       output_minus_type_filename,
-                      output_minus_symbols_filename);
+                      output_minus_symbols_filename,
+                      plus_block_count_target,
+                      minus_block_count_target);
 
 
 
+
+
+    if (plus_block_count_target_correct != plus_block_count_target ||
+        minus_block_count_target_correct != minus_block_count_target) {
+      fprintf(stderr, "Error: one of target waluse was computed incorrectly!\n");
+      std::exit(EXIT_FAILURE);
+    }
 
 
 
@@ -417,7 +499,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = (1UL << 10); buffer_size <= (1UL << 10); buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(5000, max_length, buffer_size, radix_log);
+        test(1000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
