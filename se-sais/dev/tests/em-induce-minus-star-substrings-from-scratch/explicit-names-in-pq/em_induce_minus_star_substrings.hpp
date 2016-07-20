@@ -32,7 +32,6 @@ void em_induce_minus_star_substrings(
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
-    std::string output_count_filename,
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
@@ -80,9 +79,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize the output writers.
   typedef async_stream_writer<text_offset_type> output_pos_writer_type;
-  typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
-  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -136,15 +133,10 @@ void em_induce_minus_star_substrings(
           if (empty_output == false) {
             if (head_char == prev_written_head_char) ++cur_bucket_size;
             else {
-              output_count_writer->write(cur_bucket_size);
-              for (char_type ch = prev_written_head_char + 1; ch < head_char; ++ch)
-                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
           } else {
-            for (char_type ch = 0; ch < head_char; ++ch)
-              output_count_writer->write(0);
             cur_bucket_size = 1;
             prev_written_head_char = head_char;
           }
@@ -204,15 +196,10 @@ void em_induce_minus_star_substrings(
           if (empty_output == false) {
             if (head_char == prev_written_head_char) ++cur_bucket_size;
             else {
-              output_count_writer->write(cur_bucket_size);
-              for (char_type ch = prev_written_head_char + 1; ch < head_char; ++ch)
-                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
           } else {
-            for (char_type ch = 0; ch < head_char; ++ch)
-              output_count_writer->write(0);
             cur_bucket_size = 1;
             prev_written_head_char = head_char;
           }
@@ -255,15 +242,12 @@ void em_induce_minus_star_substrings(
     ++cur_symbol;
   }
 
-  if (cur_bucket_size > 0)
-    output_count_writer->write(cur_bucket_size);
-
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_pos_reader->bytes_read() +  plus_count_reader->bytes_read() +
     plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
     minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
+    output_pos_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -275,7 +259,6 @@ void em_induce_minus_star_substrings(
   delete minus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
-  delete output_count_writer;
 
 //  long double total_time = utils::wclock() - start;
 //  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
@@ -297,7 +280,6 @@ void em_induce_minus_star_substrings(
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
-    std::string output_count_filename,
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
@@ -344,9 +326,7 @@ void em_induce_minus_star_substrings(
 
   // Initialize the output writers.
   typedef async_stream_writer<text_offset_type> output_pos_writer_type;
-  typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
-  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -400,15 +380,10 @@ void em_induce_minus_star_substrings(
             if (empty_output == false) {
               if (head_char == prev_written_head_char) ++cur_bucket_size;
               else {
-                output_count_writer->write(cur_bucket_size);
-                for (char_type ch = prev_written_head_char + 1; ch < head_char; ++ch)
-                  output_count_writer->write(0);
                 cur_bucket_size = 1;
                 prev_written_head_char = head_char;
               }
             } else {
-              for (char_type ch = 0; ch < head_char; ++ch)
-                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
@@ -464,15 +439,10 @@ void em_induce_minus_star_substrings(
             if (empty_output == false) {
               if (head_char == prev_written_head_char) ++cur_bucket_size;
               else {
-                output_count_writer->write(cur_bucket_size);
-                for (char_type ch = prev_written_head_char + 1; ch < head_char; ++ch)
-                  output_count_writer->write(0);
                 cur_bucket_size = 1;
                 prev_written_head_char = head_char;
               }
             } else {
-              for (char_type ch = 0; ch < head_char; ++ch)
-                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
@@ -519,15 +489,12 @@ void em_induce_minus_star_substrings(
     ++cur_symbol;
   }
 
-  if (cur_bucket_size > 0)
-    output_count_writer->write(cur_bucket_size);
-
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_pos_reader->bytes_read() + plus_count_reader->bytes_read() +
     plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
     minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
+    output_pos_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -539,7 +506,6 @@ void em_induce_minus_star_substrings(
   delete minus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
-  delete output_count_writer;
 
 //  long double total_time = utils::wclock() - start;
 //  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,

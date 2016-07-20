@@ -22,6 +22,147 @@
 #include "packed_pair.hpp"
 
 
+
+template<typename char_type,
+  typename text_offset_type>
+void em_induce_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t io_volume = 0;
+
+  char_type last_text_symbol;
+  utils::read_at_offset(&last_text_symbol,
+      text_length - 1, 1, text_filename);
+
+  typedef std::uint16_t block_id_type;
+  typedef std::uint16_t ext_block_id_type;
+  typedef std::uint16_t extext_block_id_type;
+
+  typedef std::uint32_t block_offset_type;
+  typedef std::uint32_t ext_block_offset_type;
+
+  std::uint64_t radix_heap_bufsize = 1;
+  std::uint64_t radix_log = 1;
+
+  std::vector<std::string> plus_symbols_filenames(n_blocks);
+  std::vector<std::string> plus_type_filenames(n_blocks);
+  std::vector<std::string> minus_pos_filenames(n_blocks);
+  std::vector<std::string> minus_symbols_filenames(n_blocks);
+  std::vector<std::string> minus_type_filenames(n_blocks);
+
+  std::vector<std::uint64_t> plus_block_count_target(n_blocks, 0UL);
+  std::vector<std::uint64_t> minus_block_count_target(n_blocks, 0UL);
+
+  // Run the in-RAM inducing of substrings.
+  bool is_last_minus = true;
+
+  // fprintf(stderr, "Preprocess blocks:\n");
+  for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
+    std::uint64_t block_id = block_id_plus - 1;
+    std::uint64_t block_beg = block_id * max_block_size;
+
+    std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
+    std::string plus_type_filename = "tmp." + utils::random_string_hash();
+    std::string minus_pos_filename = "tmp." + utils::random_string_hash();
+    std::string minus_type_filename = "tmp." + utils::random_string_hash();
+    std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
+
+    std::uint64_t this_block_plus_count_target = 0;
+    std::uint64_t this_block_minus_count_target = 0;
+    is_last_minus = im_induce_substrings<char_type,
+                  text_offset_type,
+                  block_offset_type,
+                  ext_block_offset_type>(
+                      text_alphabet_size,
+                      text_length,
+                      max_block_size,
+                      block_beg,
+                      is_last_minus,
+                      text_filename,
+                      plus_symbols_filename,
+                      plus_type_filename,
+                      minus_pos_filename,
+                      minus_type_filename,
+                      minus_symbols_filename,
+                      this_block_plus_count_target,
+                      this_block_minus_count_target,
+                      io_volume);
+
+    plus_symbols_filenames[block_id] = plus_symbols_filename;
+    plus_type_filenames[block_id] = plus_type_filename;
+    minus_pos_filenames[block_id] = minus_pos_filename;
+    minus_type_filenames[block_id] = minus_type_filename;
+    minus_symbols_filenames[block_id] = minus_symbols_filename;
+    plus_block_count_target[block_id] = this_block_plus_count_target;
+    minus_block_count_target[block_id] = this_block_minus_count_target;
+  }
+
+  // Induce plus star substrings.
+  std::string plus_count_filename = "tmp." + utils::random_string_hash();
+  std::string plus_pos_filename = "tmp." + utils::random_string_hash();
+  std::string plus_diff_filename = "tmp." + utils::random_string_hash();
+  em_induce_plus_star_substrings<char_type, text_offset_type, block_id_type, extext_block_id_type>(
+      text_length,
+      radix_heap_bufsize,
+      radix_log,
+      max_block_size,
+      text_alphabet_size,
+      plus_block_count_target,
+      text_filename,
+      plus_pos_filename,
+      plus_diff_filename,
+      plus_count_filename,
+      plus_type_filenames,
+      plus_symbols_filenames,
+      io_volume);
+
+  // Delete input files.
+  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+    if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
+    if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
+  }
+
+  // Induce minus star substrings.
+  em_induce_minus_star_substrings<char_type,
+    text_offset_type,
+    block_offset_type,
+    block_id_type,
+    ext_block_id_type>(
+      text_length,
+      radix_heap_bufsize,
+      radix_log,
+      max_block_size,
+      text_alphabet_size,
+      last_text_symbol,
+      minus_block_count_target,
+      output_filename,
+      plus_pos_filename,
+      plus_count_filename,
+      plus_diff_filename,
+      minus_type_filenames,
+      minus_pos_filenames,
+      minus_symbols_filenames,
+      io_volume);
+
+  // Delete input files.
+  utils::file_delete(plus_pos_filename);
+  utils::file_delete(plus_count_filename);
+  utils::file_delete(plus_diff_filename);
+  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+    if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
+    if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
+    if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
+  }
+
+  // Update I/O volume.
+  total_io_volume += io_volume;
+}
+
 struct substring {
   std::uint64_t m_beg;
   std::string m_str;
@@ -39,8 +180,8 @@ struct substring_cmp {
   }
 };
 
-void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
-  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
+void test(std::uint64_t n_testcases, std::uint64_t max_length) {
+  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
   typedef std::uint32_t text_offset_type;
   typedef std::uint8_t char_type;
@@ -69,129 +210,17 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     } while (n_blocks > 256);
 
 
-
-
-
-    typedef std::uint8_t block_id_type;
-    typedef std::uint16_t ext_block_id_type;
-    typedef std::uint16_t extext_block_id_type;
-    typedef std::uint32_t block_offset_type;
-    typedef std::uint16_t ext_block_offset_type;
-
     std::uint64_t io_volume = 0;
-
-    std::vector<std::string> plus_symbols_filenames(n_blocks);
-    std::vector<std::string> plus_type_filenames(n_blocks);
-    std::vector<std::string> minus_pos_filenames(n_blocks);
-    std::vector<std::string> minus_symbols_filenames(n_blocks);
-    std::vector<std::string> minus_type_filenames(n_blocks);
-
-    std::vector<std::uint64_t> plus_block_count_target(n_blocks, 0UL);
-    std::vector<std::uint64_t> minus_block_count_target(n_blocks, 0UL);
-
-    bool is_last_minus = true;
-    for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
-      std::uint64_t block_id = block_id_plus - 1;
-      std::uint64_t block_beg = block_id * max_block_size;
-
-      std::string plus_symbols_filename = "tmp." + utils::random_string_hash();
-      std::string plus_type_filename = "tmp." + utils::random_string_hash();
-      std::string minus_pos_filename = "tmp." + utils::random_string_hash();
-      std::string minus_type_filename = "tmp." + utils::random_string_hash();
-      std::string minus_symbols_filename = "tmp." + utils::random_string_hash();
-
-      std::uint64_t this_block_plus_count_target = 0;
-      std::uint64_t this_block_minus_count_target = 0;
-      is_last_minus = im_induce_substrings<char_type,
-                    text_offset_type,
-                    block_offset_type,
-                    ext_block_offset_type>(
-                        text_alphabet_size,
-                        text_length,
-                        max_block_size,
-                        block_beg,
-                        is_last_minus,
-                        text_filename,
-                        plus_symbols_filename,
-                        plus_type_filename,
-                        minus_pos_filename,
-                        minus_type_filename,
-                        minus_symbols_filename,
-                        this_block_plus_count_target,
-                        this_block_minus_count_target,
-                        io_volume);
-
-      plus_symbols_filenames[block_id] = plus_symbols_filename;
-      plus_type_filenames[block_id] = plus_type_filename;
-      minus_pos_filenames[block_id] = minus_pos_filename;
-      minus_type_filenames[block_id] = minus_type_filename;
-      minus_symbols_filenames[block_id] = minus_symbols_filename;
-      plus_block_count_target[block_id] = this_block_plus_count_target;
-      minus_block_count_target[block_id] = this_block_minus_count_target;
-    }
-
-    // Run the tested algorithm.
-    std::string plus_count_filename = "tmp." + utils::random_string_hash();
-    std::string plus_pos_filename = "tmp." + utils::random_string_hash();
-    std::string plus_diff_filename = "tmp." + utils::random_string_hash();
-    em_induce_plus_star_substrings<char_type, text_offset_type, block_id_type, extext_block_id_type>(
-        text_length,
-        radix_heap_bufsize,
-        radix_log,
-        max_block_size,
-        text_alphabet_size,
-        plus_block_count_target,
-        text_filename,
-        plus_pos_filename,
-        plus_diff_filename,
-        plus_count_filename,
-        plus_type_filenames,
-        plus_symbols_filenames,
-        io_volume);
-
-    // Delete input files.
-    for (std::uint64_t j = 0; j < n_blocks; ++j) {
-      if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
-      if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
-    }
-
-    // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
-    std::string output_count_filename = "tmp." + utils::random_string_hash();
-    em_induce_minus_star_substrings<char_type,
-      text_offset_type,
-      block_offset_type,
-      block_id_type,
-      ext_block_id_type>(
-        text_length,
-        radix_heap_bufsize,
-        radix_log,
-        max_block_size,
-        text_alphabet_size,
-        text[text_length - 1],
-        minus_block_count_target,
-        output_filename,
-        output_count_filename,
-        plus_pos_filename,
-        plus_count_filename,
-        plus_diff_filename,
-        minus_type_filenames,
-        minus_pos_filenames,
-        minus_symbols_filenames,
-        io_volume);
-
-    // Delete input files.
-    utils::file_delete(plus_pos_filename);
-    utils::file_delete(plus_count_filename);
-    utils::file_delete(plus_diff_filename);
-    for (std::uint64_t j = 0; j < n_blocks; ++j) {
-      if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
-      if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
-      if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
-    }
-    
-
-
+    em_induce_star_substrings<
+      char_type,
+      text_offset_type>(
+          text_length,
+          text_alphabet_size,
+          max_block_size,
+          text_filename,
+          output_filename,
+          io_volume);
 
 
 
@@ -243,47 +272,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           }
           delete reader;
         }
-        std::vector<std::pair<char_type, std::uint64_t> > v_computed_count;
-        {
-          typedef async_stream_reader<saidx_t> reader_type;
-          reader_type *reader = new reader_type(output_count_filename);
-          char_type cur_sym = 0;
-           while (reader->empty() == false) {
-            std::uint64_t count = reader->read();
-            if (count > 0)
-              v_computed_count.push_back(std::make_pair(cur_sym, count));
-            ++cur_sym;
-          }
-          delete reader;
-        }
-        std::vector<std::pair<char_type, std::uint64_t> > v_correct_count;
-        {
-          std::map<char_type, std::uint64_t> m;
-          for (std::uint64_t j = 0; j < text_length; ++j) {
-            std::uint64_t s = sa[j];
-            if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
-              m[text[s]] += 1;
-          }
-          for (std::map<char_type, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
-            v_correct_count.push_back(std::make_pair(it->first, it->second));
-        }
-        if (v_computed_count.size() != v_correct_count.size() ||
-            std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
-          fprintf(stderr, "Error: counts do not match!\n");
-          fprintf(stderr, "  text: ");
-          for (std::uint64_t i = 0; i < text_length; ++i)
-            fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
-          fprintf(stderr, "\n");
-          fprintf(stderr, "  v_computed_count: ");
-          for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
-            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
-          fprintf(stderr, "\n");
-          fprintf(stderr, "  v_correct_count: ");
-          for (std::uint64_t j = 0; j < v_correct_count.size(); ++j)
-            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_correct_count[j].first, (std::uint64_t)v_correct_count[j].second);
-          fprintf(stderr, "\n");
-          std::exit(EXIT_FAILURE);
-        }
         bool ok = true;
         if (v_correct.size() != v_computed.size()) ok = false;
         else if (!std::equal(v_correct.begin(), v_correct.end(), v_computed.begin()) || 
@@ -321,17 +309,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 
 
-
-
-
-
-
-
-
-
-    // Delete output files.
     utils::file_delete(output_filename);
-    utils::file_delete(output_count_filename);
     utils::file_delete(text_filename);
   }
 
@@ -344,9 +322,7 @@ int main() {
   srand(time(0) + getpid());
 
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(1000, max_length, buffer_size, radix_log);
+    test(1000, max_length);
 
   fprintf(stderr, "All tests passed.\n");
 }
