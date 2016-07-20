@@ -22,12 +22,10 @@
 template<typename char_type,
   typename text_offset_type,
   typename ext_block_offset_type,
-  typename block_id_type,
-  typename ext_block_id_type>
+  typename block_id_type = std::uint16_t,
+  typename ext_block_id_type = std::uint16_t>
 void em_induce_minus_star_substrings(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
@@ -42,6 +40,11 @@ void em_induce_minus_star_substrings(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
+
+  // XXX decide.
+  std::uint64_t radix_heap_bufsize = 1;
+  std::uint64_t radix_log = 1;
+
 
   // Start the timer.
 //  long double start = utils::wclock();
@@ -269,12 +272,10 @@ void em_induce_minus_star_substrings(
 template<typename char_type,
   typename text_offset_type,
   typename ext_block_offset_type,
-  typename block_id_type,
-  typename ext_block_id_type>
+  typename block_id_type = std::uint16_t,
+  typename ext_block_id_type = std::uint16_t>
 void em_induce_minus_star_substrings(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
     char_type last_text_symbol,
@@ -290,6 +291,11 @@ void em_induce_minus_star_substrings(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
+
+  // XXX decide
+  std::uint64_t radix_heap_bufsize = 1;
+  std::uint64_t radix_log = 1;
+
 
   // Start the timer.
 //  long double start = utils::wclock();

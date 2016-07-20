@@ -43,7 +43,6 @@
 
 template<typename char_type,
   typename text_offset_type,
-  typename block_offset_type,
   typename ext_block_offset_type>
 bool im_induce_substrings(
     std::uint64_t text_alphabet_size,
@@ -65,6 +64,8 @@ bool im_induce_substrings(
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
   std::uint64_t total_block_size = block_size + next_block_size;
   std::uint64_t io_volume = 0;
+
+  typedef ext_block_offset_type block_offset_type;
 
 
 
@@ -266,7 +267,7 @@ bool im_induce_substrings(
   }
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
     std::uint64_t i = iplus - 1;
-    if (buckets[i] == 0) continue;
+    if ((std::uint64_t)buckets[i] == 0) continue;
     std::uint64_t head_pos = buckets[i];
     if (i == zero_item_pos)
       head_pos = 0;
@@ -360,7 +361,7 @@ bool im_induce_substrings(
     bucket_ptr[head_char] = ptr;
   }
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
-    if (buckets[i] == 0) continue;
+    if ((std::uint64_t)buckets[i] == 0) continue;
     std::uint64_t head_pos = buckets[i];
     if (i == zero_item_pos)
       head_pos = 0;

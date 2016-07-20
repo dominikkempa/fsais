@@ -19,12 +19,30 @@
 #include "uint40.hpp"
 #include "uint48.hpp"
 #include "divsufsort.h"
-#include "packed_pair.hpp"
 
 
+std::uint64_t get_smallest_type_size(std::uint64_t max_value) {
+  if (max_value < (1UL << 8)) return 1UL;
+  else if (max_value < (1UL << 16)) return 2UL;
+  else if (max_value < (1UL << 32)) return 4UL;
+  else if (max_value < (1UL << 40)) return 5UL;
+  else if (max_value < (1UL << 48)) return 6UL;
+  else return 8UL;
+}
 
 template<typename char_type,
   typename text_offset_type>
+std::uint64_t required_ram_use(std::uint64_t max_block_size,
+    std::uint64_t text_alphabet_size) {
+  return max_block_size / 4UL +
+    max_block_size * sizeof(char_type) +
+    2UL * max_block_size * get_smallest_type_size(2 * max_block_size) +
+    text_alphabet_size * get_smallest_type_size(2 * max_block_size);
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename ext_block_offset_type>
 void em_induce_star_substrings(
     std::uint64_t text_length,
     std::uint64_t text_alphabet_size,
@@ -38,16 +56,6 @@ void em_induce_star_substrings(
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol,
       text_length - 1, 1, text_filename);
-
-  typedef std::uint16_t block_id_type;
-  typedef std::uint16_t ext_block_id_type;
-  typedef std::uint16_t extext_block_id_type;
-
-  typedef std::uint32_t block_offset_type;
-  typedef std::uint32_t ext_block_offset_type;
-
-  std::uint64_t radix_heap_bufsize = 1;
-  std::uint64_t radix_log = 1;
 
   std::vector<std::string> plus_symbols_filenames(n_blocks);
   std::vector<std::string> plus_type_filenames(n_blocks);
@@ -76,7 +84,6 @@ void em_induce_star_substrings(
     std::uint64_t this_block_minus_count_target = 0;
     is_last_minus = im_induce_substrings<char_type,
                   text_offset_type,
-                  block_offset_type,
                   ext_block_offset_type>(
                       text_alphabet_size,
                       text_length,
@@ -106,10 +113,10 @@ void em_induce_star_substrings(
   std::string plus_count_filename = "tmp." + utils::random_string_hash();
   std::string plus_pos_filename = "tmp." + utils::random_string_hash();
   std::string plus_diff_filename = "tmp." + utils::random_string_hash();
-  em_induce_plus_star_substrings<char_type, text_offset_type, block_id_type, extext_block_id_type>(
+  em_induce_plus_star_substrings<
+    char_type,
+    text_offset_type>(
       text_length,
-      radix_heap_bufsize,
-      radix_log,
       max_block_size,
       text_alphabet_size,
       plus_block_count_target,
@@ -128,14 +135,11 @@ void em_induce_star_substrings(
   }
 
   // Induce minus star substrings.
-  em_induce_minus_star_substrings<char_type,
+  em_induce_minus_star_substrings<
+    char_type,
     text_offset_type,
-    block_offset_type,
-    block_id_type,
-    ext_block_id_type>(
+    ext_block_offset_type>(
       text_length,
-      radix_heap_bufsize,
-      radix_log,
       max_block_size,
       text_alphabet_size,
       last_text_symbol,
@@ -162,6 +166,46 @@ void em_induce_star_substrings(
   // Update I/O volume.
   total_io_volume += io_volume;
 }
+
+template<typename char_type,
+  typename text_offset_type>
+void em_induce_star_substrings(
+    std::uint64_t text_length,
+    std::uint64_t text_alphabet_size,
+    std::uint64_t ram_use,
+    std::string text_filename,
+    std::string output_filename,
+    std::uint64_t &total_io_volume) {
+  // Binary search for the largest block size that
+  // can be processed using the given ram_budget.
+  std::uint64_t low = 1, high = text_length + 1;
+  while (high - low > 1) {
+    std::uint64_t mid = (low + high) / 2;
+    if (required_ram_use<char_type, text_offset_type>(mid, text_alphabet_size) <= ram_use)
+      low = mid;
+    else high = mid;
+  }
+
+  std::uint64_t max_block_size = low;
+  std::uint64_t s = get_smallest_type_size(2UL * max_block_size);
+
+  fprintf(stderr, "text_length = %lu, max_block_size = %lu, n_blocks = %lu\n", text_length, max_block_size,
+      (text_length + max_block_size - 1) / max_block_size);
+
+  if (s == 1UL) em_induce_star_substrings<char_type, text_offset_type, std::uint8_t>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+  else if (s == 2UL) em_induce_star_substrings<char_type, text_offset_type, std::uint16_t>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+  else if (s == 4UL) em_induce_star_substrings<char_type, text_offset_type, std::uint32_t>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+  else if (s == 5UL) em_induce_star_substrings<char_type, text_offset_type, uint40>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+  else if (s == 6UL) em_induce_star_substrings<char_type, text_offset_type, uint48>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+  else em_induce_star_substrings<char_type, text_offset_type, std::uint64_t>(
+      text_length, text_alphabet_size, max_block_size, text_filename, output_filename, total_io_volume);
+}
+
 
 struct substring {
   std::uint64_t m_beg;
@@ -209,18 +253,32 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       n_blocks = (text_length + max_block_size - 1) / max_block_size;
     } while (n_blocks > 256);
 
-
     std::uint64_t io_volume = 0;
     std::string output_filename = "tmp." + utils::random_string_hash();
+
+#if 1
     em_induce_star_substrings<
       char_type,
-      text_offset_type>(
+      text_offset_type,
+      std::uint32_t>(
           text_length,
           text_alphabet_size,
           max_block_size,
           text_filename,
           output_filename,
           io_volume);
+#else
+    std::uint64_t ram_use = utils::random_int64(1L, 1024L);
+    em_induce_star_substrings<
+      char_type,
+      text_offset_type>(
+          text_length,
+          text_alphabet_size,
+          ram_use,
+          text_filename,
+          output_filename,
+          io_volume);
+#endif
 
 
 

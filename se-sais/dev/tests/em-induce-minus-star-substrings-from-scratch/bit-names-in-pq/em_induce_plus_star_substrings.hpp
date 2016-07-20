@@ -19,12 +19,13 @@
 #include "io/async_backward_multi_bit_stream_reader.hpp"
 
 
-// Note: extext_block_id_type type needs to store block id and two extra bits.
-template<typename char_type, typename text_offset_type, typename block_id_type, typename extext_block_id_type>
+// Note: extext_block_id_type type needs to store block id and two extra bits. XXX deal with the block if types here.
+template<typename char_type,
+  typename text_offset_type,
+  typename block_id_type = std::uint16_t,
+  typename extext_block_id_type = std::uint16_t>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
     std::vector<std::uint64_t> &block_count_target,
     std::string text_filename,
@@ -37,6 +38,11 @@ void em_induce_plus_star_substrings(
   std::uint64_t is_head_plus_bit = ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() + 1) / 2;
   std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
+
+  // Decide.
+  std::uint64_t radix_heap_bufsize = 1;
+  std::uint64_t radix_log = 1;
+
 
   // Start the timer.
 //  long double start = utils::wclock();
@@ -228,11 +234,12 @@ void em_induce_plus_star_substrings(
 }
 
 // Note: extext_block_id_type type needs to store block id and two extra bits.
-template<typename char_type, typename text_offset_type, typename block_id_type, typename extext_block_id_type>
+template<typename char_type,
+  typename text_offset_type,
+  typename block_id_type = std::uint16_t,
+  typename extext_block_id_type = std::uint16_t>
 void em_induce_plus_star_substrings(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
     std::vector<std::uint64_t> &block_count_target,
@@ -246,6 +253,10 @@ void em_induce_plus_star_substrings(
   std::uint64_t is_diff_bit = ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() + 1) / 2;
   std::uint64_t is_head_plus_bit = is_diff_bit / 2;
   std::uint64_t io_volume = 0;
+
+  // XXX decide
+  std::uint64_t radix_heap_bufsize = 1;
+  std::uint64_t radix_log = 1;
 
   // Start the timer.
 //  long double start = utils::wclock();
