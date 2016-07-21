@@ -345,6 +345,16 @@ bool im_induce_substrings_small_alphabet(
 
 
 
+  // Update I/O volume.
+  io_volume += output_plus_symbols_writer->bytes_written() + 
+    output_plus_type_writer->bytes_written();
+
+
+
+  // Clean up.
+  delete output_plus_symbols_writer;
+  delete output_plus_type_writer;
+
 
 
 
@@ -438,14 +448,17 @@ bool im_induce_substrings_small_alphabet(
 
 
   // Update I/O volume.
-  io_volume += output_plus_symbols_writer->bytes_written() +
-    output_plus_type_writer->bytes_written() +
-    output_minus_pos_writer->bytes_written() +
+  io_volume += output_minus_pos_writer->bytes_written() +
     output_minus_type_writer->bytes_written() +
     output_minus_symbols_writer->bytes_written() +
     text_accessor->bytes_read();
-  total_io_volume += io_volume;
 
+
+
+
+
+  // Update total I/O volume.
+  total_io_volume += io_volume;
 
 
 
@@ -458,8 +471,6 @@ bool im_induce_substrings_small_alphabet(
 
 
   // Clean up.
-  delete output_plus_symbols_writer;
-  delete output_plus_type_writer;
   delete output_minus_pos_writer;
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
