@@ -72,6 +72,7 @@ class async_bit_stream_writer {
       m_bit_pos = 0;
       m_active_buf_filled = 0;
       m_passive_buf_filled = 0;
+      m_bits_written = 0;
 
       // Start the I/O thread.
       m_avail = false;

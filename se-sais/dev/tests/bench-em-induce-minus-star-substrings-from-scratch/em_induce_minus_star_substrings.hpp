@@ -14,7 +14,6 @@
 #include "io/async_bit_stream_reader.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_backward_bit_stream_reader.hpp"
-#include "io/async_multi_bit_stream_reader.hpp"
 
 #include "im_induce_substrings.hpp"
 #include "em_induce_plus_star_substrings.hpp"
@@ -297,8 +296,8 @@ void em_induce_minus_star_substrings_large_alphabet(
   delete output_pos_writer;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time);
+  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
 }
 
 template<typename char_type,
@@ -618,8 +617,8 @@ void em_induce_minus_star_substrings_small_alphabet(
   delete output_pos_writer;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time);
+  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
 }
 
 template<typename char_type,
@@ -712,6 +711,8 @@ void em_induce_minus_star_substrings(
   fprintf(stderr, "EM induce substrings:\n");
   fprintf(stderr, "  sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
   fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
+  fprintf(stderr, "  block size = %lu (%.2LfMiB)\n", max_block_size, (1.L * max_block_size) / (1L << 20));
+
 
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol,
@@ -887,8 +888,14 @@ void em_induce_minus_star_substrings(
     else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
     else if (2 * mid < (1UL << 48)) ext_max_block_size_sizeof = 6;
     else ext_max_block_size_sizeof = 8;
+#if 0
     std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
       (text_alphabet_size + 2UL * mid) * ext_max_block_size_sizeof;
+#else
+    // XXX this is not entirely correct, but true in practice.
+    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
+      (text_alphabet_size + mid) * ext_max_block_size_sizeof;
+#endif
 
     // Update bounds.
     if (required_ram <= ram_use) low = mid;

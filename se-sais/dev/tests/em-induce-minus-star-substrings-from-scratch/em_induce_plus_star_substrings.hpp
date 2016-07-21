@@ -15,7 +15,6 @@
 #include "io/async_bit_stream_writer.hpp"
 #include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
-#include "io/async_backward_multi_bit_stream_reader.hpp"
 
 #include "uint24.hpp"
 #include "utils.hpp"
@@ -254,8 +253,8 @@ void em_induce_plus_star_substrings_large_alphabet(
   delete output_count_writer;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time);
+  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
 }
 
 template<typename char_type,
@@ -538,8 +537,8 @@ void em_induce_plus_star_substrings_small_alphabet(
   delete output_count_writer;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time);
+  fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
 }
 
 template<typename char_type,

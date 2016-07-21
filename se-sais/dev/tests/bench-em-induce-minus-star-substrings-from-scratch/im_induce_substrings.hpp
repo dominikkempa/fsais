@@ -503,9 +503,11 @@ void im_induce_substrings_small_alphabet(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t io_volume = 0;
 
   fprintf(stderr, "  IM induce substrings (small alphabet):\n");
   fprintf(stderr, "    sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
+  long double start = utils::wclock();
 
   bool is_last_minus = true;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -530,8 +532,16 @@ void im_induce_substrings_small_alphabet(
           output_minus_symbols_filenames[block_id],
           plus_block_count_targets[block_id],
           minus_block_count_targets[block_id],
-          total_io_volume);
+          io_volume);
   }
+
+  // Update I/O volume.
+  total_io_volume += io_volume;
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "    Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
 }
 
 template<typename char_type,
