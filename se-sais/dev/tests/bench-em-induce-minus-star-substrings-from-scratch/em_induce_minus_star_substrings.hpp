@@ -327,14 +327,14 @@ void em_induce_minus_star_substrings_large_alphabet(
     em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>
       (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-  else if (n_blocks < (1UL << 23))
-    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>
-      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-  else if (n_blocks < (1UL << 31))
-    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>
-      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+//  else if (n_blocks < (1UL << 23))
+//    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>
+//      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+//       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+//  else if (n_blocks < (1UL << 31))
+//    em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>
+//      (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+//       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
   else
     em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>
       (text_length, max_block_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
@@ -649,14 +649,14 @@ void em_induce_minus_star_substrings_small_alphabet(
     em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(text_length,
         max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
         plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-  else if (n_blocks < (1UL << 23))
-    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>(text_length,
-        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-  else if (n_blocks < (1UL << 31))
-    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>(text_length,
-        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+//  else if (n_blocks < (1UL << 23))
+//    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>(text_length,
+//        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+//        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+//  else if (n_blocks < (1UL << 31))
+//    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>(text_length,
+//        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
+//        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
   else
     em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(text_length,
         max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
@@ -827,12 +827,12 @@ void em_induce_minus_star_substrings(
   else if (n_blocks < (1UL << 16))
     em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint16_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-  else if (n_blocks < (1UL << 24))
-    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, uint24>
-      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-  else if (n_blocks < (1UL << 32))
-    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint32_t>
-      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+//  else if (n_blocks < (1UL << 24))
+//    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, uint24>
+//      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+//  else if (n_blocks < (1UL << 32))
+//    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint32_t>
+//      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
   else
     em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint64_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);

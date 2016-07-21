@@ -579,10 +579,10 @@ void im_induce_substrings_small_alphabet(
     im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-  else if (max_block_size < (1UL < 47))
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint48>(text_alphabet_size, text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+//  else if (max_block_size < (1UL < 47))
+//    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint48>(text_alphabet_size, text_length,
+//        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+//        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else
     im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
