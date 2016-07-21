@@ -706,7 +706,6 @@ void em_induce_minus_star_substrings(
     std::string output_filename,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  std::uint64_t io_volume = 0;
 
   fprintf(stderr, "EM induce substrings:\n");
   fprintf(stderr, "  sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
@@ -749,7 +748,7 @@ void em_induce_minus_star_substrings(
         minus_symbols_filenames,
         plus_block_count_targets,
         minus_block_count_targets,
-        io_volume);
+        total_io_volume);
 
   // Induce plus star substrings.
   std::string plus_count_filename = output_filename + ".tmp" + utils::random_string_hash();
@@ -770,7 +769,7 @@ void em_induce_minus_star_substrings(
         plus_count_filename,
         plus_type_filenames,
         plus_symbols_filenames,
-        io_volume);
+        total_io_volume);
 
   // Delete input files.
   for (std::uint64_t j = 0; j < n_blocks; ++j) {
@@ -797,7 +796,7 @@ void em_induce_minus_star_substrings(
       minus_type_filenames,
       minus_pos_filenames,
       minus_symbols_filenames,
-      io_volume);
+      total_io_volume);
 
   // Delete input files.
   utils::file_delete(plus_pos_filename);
@@ -808,9 +807,6 @@ void em_induce_minus_star_substrings(
     if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
     if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
   }
-
-  // Update I/O volume.
-  total_io_volume += io_volume;
 }
 
 template<typename char_type,
