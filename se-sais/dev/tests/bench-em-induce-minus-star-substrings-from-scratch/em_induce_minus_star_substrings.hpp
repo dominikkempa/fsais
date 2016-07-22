@@ -854,9 +854,9 @@ void em_induce_minus_star_substrings(
   else if (max_block_size < (1UL << 40))
     em_induce_minus_star_substrings<char_type, text_offset_type, uint40>(text_length,
         text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-  else if (max_block_size < (1UL << 48))
-    em_induce_minus_star_substrings<char_type, text_offset_type, uint48>(text_length,
-        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
+//  else if (max_block_size < (1UL << 48))
+//    em_induce_minus_star_substrings<char_type, text_offset_type, uint48>(text_length,
+//        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
   else
     em_induce_minus_star_substrings<char_type, text_offset_type, std::uint64_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
