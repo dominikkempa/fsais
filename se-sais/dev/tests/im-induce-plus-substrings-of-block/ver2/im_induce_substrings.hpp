@@ -9,13 +9,16 @@
 #include <queue>
 #include <algorithm>
 
-#include "utils.hpp"
 #include "packed_pair.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
 #include "io/simple_accessor.hpp"
+
+#include "uint40.hpp"
+#include "uint48.hpp"
+#include "utils.hpp"
 
 
 //=============================================================================
@@ -45,7 +48,7 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
-bool im_induce_substrings(
+bool im_induce_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
@@ -58,14 +61,39 @@ bool im_induce_substrings(
     std::string output_minus_type_filename,
     std::string output_minus_symbols_filename,
     std::uint64_t &plus_block_count_target,
-    std::uint64_t &minus_block_count_target) {
+    std::uint64_t &minus_block_count_target,
+    std::uint64_t &total_io_volume) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
   std::uint64_t block_size = block_end - block_beg;
   std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
   std::uint64_t total_block_size = block_size + next_block_size;
+  std::uint64_t io_volume = 0;
+
+  // Check that all types are sufficiently large.
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+    fprintf(stderr, "\nError: char_type in im_induce_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+    fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() * 2UL + 1 < max_block_size) {
+    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+    fprintf(stderr, "\nError: text_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
 
 
 
+
+
+  // Start the timer.
+  long double start = utils::wclock();
+  fprintf(stderr, "    Process block [%lu..%lu): ", block_beg, block_end);
 
 
 
@@ -73,6 +101,7 @@ bool im_induce_substrings(
   // Read block into RAM.
   char_type *block = new char_type[block_size];
   utils::read_at_offset(block, block_beg, block_size, text_filename);
+  io_volume += block_size * sizeof(char_type);
 
 
 
@@ -244,7 +273,7 @@ bool im_induce_substrings(
 
 
   // Induce plus suffixes.
-  plus_block_count_target = 0;
+  std::uint64_t local_plus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
@@ -259,13 +288,13 @@ bool im_induce_substrings(
   }
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
     std::uint64_t i = iplus - 1;
-    if (buckets[i] == 0) continue;
+    if ((std::uint64_t)buckets[i] == 0) continue;
     std::uint64_t head_pos = buckets[i];
     if (i == zero_item_pos)
       head_pos = 0;
 
     if (!seen_block_beg && head_pos < block_size)
-      ++plus_block_count_target;
+      ++local_plus_block_count_target;
     if (head_pos == 0) seen_block_beg = true;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
@@ -310,11 +339,21 @@ bool im_induce_substrings(
     }
   }
   if (!seen_block_beg)
-    plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+    local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
 
 
+
+  // Update I/O volume.
+  io_volume += output_plus_symbols_writer->bytes_written() + 
+    output_plus_type_writer->bytes_written();
+
+
+
+  // Clean up.
+  delete output_plus_symbols_writer;
+  delete output_plus_type_writer;
 
 
 
@@ -339,7 +378,7 @@ bool im_induce_substrings(
 
 
   // Induce minus suffixes.
-  minus_block_count_target = 0;
+  std::uint64_t local_minus_block_count_target = 0;
   seen_block_beg = false;
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
@@ -353,13 +392,13 @@ bool im_induce_substrings(
     bucket_ptr[head_char] = ptr;
   }
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
-    if (buckets[i] == 0) continue;
+    if ((std::uint64_t)buckets[i] == 0) continue;
     std::uint64_t head_pos = buckets[i];
     if (i == zero_item_pos)
       head_pos = 0;
 
     if (!seen_block_beg && head_pos < block_size)
-      ++minus_block_count_target;
+      ++local_minus_block_count_target;
     if (head_pos == 0) seen_block_beg = true;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
@@ -395,12 +434,31 @@ bool im_induce_substrings(
     }
   }
   if (!seen_block_beg)
-    minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+
+
+
+
+  // Update reference variables.
+  plus_block_count_target = local_plus_block_count_target;
+  minus_block_count_target = local_minus_block_count_target;
 
 
 
 
 
+  // Update I/O volume.
+  io_volume += output_minus_pos_writer->bytes_written() +
+    output_minus_type_writer->bytes_written() +
+    output_minus_symbols_writer->bytes_written() +
+    text_accessor->bytes_read();
+
+
+
+
+
+  // Update total I/O volume.
+  total_io_volume += io_volume;
 
 
 
@@ -412,11 +470,7 @@ bool im_induce_substrings(
 
 
 
-
-
   // Clean up.
-  delete output_plus_symbols_writer;
-  delete output_plus_type_writer;
   delete output_minus_pos_writer;
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
@@ -426,8 +480,140 @@ bool im_induce_substrings(
   delete[] bucket_ptr;
   delete[] block;
 
+
+
+
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time);
+
+
+
+
   // Return result.
   return result;
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename ext_block_offset_type>
+void im_induce_substrings_small_alphabet(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::vector<std::string> &output_plus_symbols_filenames,
+    std::vector<std::string> &output_plus_type_filenames,
+    std::vector<std::string> &output_minus_pos_filenames,
+    std::vector<std::string> &output_minus_type_filenames,
+    std::vector<std::string> &output_minus_symbols_filenames,
+    std::vector<std::uint64_t> &plus_block_count_targets,
+    std::vector<std::uint64_t> &minus_block_count_targets,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t io_volume = 0;
+
+  fprintf(stderr, "  IM induce substrings (small alphabet):\n");
+  fprintf(stderr, "    sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
+  long double start = utils::wclock();
+
+  bool is_last_minus = true;
+  for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
+    std::uint64_t block_id = block_id_plus - 1;
+    std::uint64_t block_beg = block_id * max_block_size;
+
+    is_last_minus = im_induce_substrings_small_alphabet<
+      char_type,
+      text_offset_type,
+      block_offset_type,
+      ext_block_offset_type>(
+          text_alphabet_size,
+          text_length,
+          max_block_size,
+          block_beg,
+          is_last_minus,
+          text_filename,
+          output_plus_symbols_filenames[block_id],
+          output_plus_type_filenames[block_id],
+          output_minus_pos_filenames[block_id],
+          output_minus_type_filenames[block_id],
+          output_minus_symbols_filenames[block_id],
+          plus_block_count_targets[block_id],
+          minus_block_count_targets[block_id],
+          io_volume);
+  }
+
+  // Update I/O volume.
+  total_io_volume += io_volume;
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "    Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type>
+void im_induce_substrings_small_alphabet(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::vector<std::string> &output_plus_symbols_filenames,
+    std::vector<std::string> &output_plus_type_filenames,
+    std::vector<std::string> &output_minus_pos_filenames,
+    std::vector<std::string> &output_minus_type_filenames,
+    std::vector<std::string> &output_minus_symbols_filenames,
+    std::vector<std::uint64_t> &plus_block_count_targets,
+    std::vector<std::uint64_t> &minus_block_count_targets,
+    std::uint64_t &total_io_volume) {
+  if (max_block_size < (1UL << 31))
+    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+  else if (max_block_size < (1UL < 39))
+    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+//  else if (max_block_size < (1UL < 47))
+//    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint48>(text_alphabet_size, text_length,
+//        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+//        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+  else
+    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+}
+
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type>
+void im_induce_substrings(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::vector<std::string> &output_plus_symbols_filenames,
+    std::vector<std::string> &output_plus_type_filenames,
+    std::vector<std::string> &output_minus_pos_filenames,
+    std::vector<std::string> &output_minus_type_filenames,
+    std::vector<std::string> &output_minus_symbols_filenames,
+    std::vector<std::uint64_t> &plus_block_count_targets,
+    std::vector<std::uint64_t> &minus_block_count_targets,
+    std::uint64_t &total_io_volume) {
+  if (text_alphabet_size <= 2000000) {
+    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+  } else {
+    fprintf(stderr, "\nError: im_induce_substrings_large_alphabet not implemented yet (text_alphabet_size = %lu)!\n", text_alphabet_size);
+    fprintf(stderr, "Try increasing the threshold in im_induce_substrings if text_alphabet_size does significantly exceed 2000000.\n");
+    std::exit(EXIT_FAILURE);
+  }
 }
 
 #endif  // __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
