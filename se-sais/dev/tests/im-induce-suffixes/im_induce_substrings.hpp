@@ -48,7 +48,6 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
-//bool
 std::pair<std::uint64_t, bool>
 im_induce_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
@@ -197,13 +196,7 @@ im_induce_substrings_small_alphabet(
   // Compute bucket sizes.
   ext_block_offset_type *bucket_ptr = new ext_block_offset_type[text_alphabet_size];
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
-#if 0
-  std::uint64_t lastpos = block_size;
-  while (lastpos < total_block_size && (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63))) > 0) ++lastpos;
-  while (lastpos < total_block_size && (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63))) == 0) ++lastpos;
-#else
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
-#endif
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
   for (std::uint64_t i = 0; i < lastpos; ++i) {
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -513,7 +506,6 @@ im_induce_substrings_small_alphabet(
 
 
   // Return result.
-//  return result;
   return std::make_pair(this_block_leftmost_minus_star_plus, result);
 }
 

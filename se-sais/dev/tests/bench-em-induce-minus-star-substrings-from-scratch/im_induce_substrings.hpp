@@ -48,11 +48,13 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
-bool im_induce_substrings_small_alphabet(
+std::pair<std::uint64_t, bool>
+im_induce_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
+    std::uint64_t next_block_leftmost_minus_star_plus,
     bool is_last_minus,
     std::string text_filename,
     std::string output_plus_symbols_filename,
@@ -176,14 +178,25 @@ bool im_induce_substrings_small_alphabet(
 
 
 
+  // Find the leftmost minus-star position in the current block.
+  std::uint64_t this_block_leftmost_minus_star_plus = 1;  // plus because it's one index past actual position
+  {
+    bool is_first_minus_star = (block_beg > 0 && (type_bv[0] & 1UL) && block_prec_symbol < block[0]);
+    if (!is_first_minus_star) {
+      while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+            (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) > 0) ++this_block_leftmost_minus_star_plus;
+      while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+            (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) == 0) ++this_block_leftmost_minus_star_plus;
+    }
+  }
+
+
 
 
   // Compute bucket sizes.
   ext_block_offset_type *bucket_ptr = new ext_block_offset_type[text_alphabet_size];
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
-  std::uint64_t lastpos = block_size;
-  while (lastpos < total_block_size && (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63))) > 0) ++lastpos;
-  while (lastpos < total_block_size && (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63))) == 0) ++lastpos;
+  std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
   for (std::uint64_t i = 0; i < lastpos; ++i) {
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -493,7 +506,7 @@ bool im_induce_substrings_small_alphabet(
 
 
   // Return result.
-  return result;
+  return std::make_pair(this_block_leftmost_minus_star_plus, result);
 }
 
 template<typename char_type,
@@ -521,11 +534,13 @@ void im_induce_substrings_small_alphabet(
   long double start = utils::wclock();
 
   bool is_last_minus = true;
+  std::uint64_t next_block_leftmost_minus_star = 0;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
     std::uint64_t block_id = block_id_plus - 1;
     std::uint64_t block_beg = block_id * max_block_size;
 
-    is_last_minus = im_induce_substrings_small_alphabet<
+    std::pair<std::uint64_t, bool > ret;
+    ret = im_induce_substrings_small_alphabet<
       char_type,
       text_offset_type,
       block_offset_type,
@@ -534,6 +549,7 @@ void im_induce_substrings_small_alphabet(
           text_length,
           max_block_size,
           block_beg,
+          next_block_leftmost_minus_star,
           is_last_minus,
           text_filename,
           output_plus_symbols_filenames[block_id],
@@ -544,6 +560,9 @@ void im_induce_substrings_small_alphabet(
           plus_block_count_targets[block_id],
           minus_block_count_targets[block_id],
           io_volume);
+
+    next_block_leftmost_minus_star = ret.first;
+    is_last_minus = ret.second;
   }
 
   // Update I/O volume.
