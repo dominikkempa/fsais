@@ -21,6 +21,7 @@
 
 template<typename char_type,
   typename text_offset_type,
+  typename block_offset_type,
   typename block_id_type>
 void em_induce_minus_and_plus_suffixes(
     std::uint64_t text_length,
@@ -79,14 +80,14 @@ void em_induce_minus_and_plus_suffixes(
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
       std::pair<char_type, block_id_type> p = radix_heap->extract_min();
       std::uint64_t head_pos_block_id = p.second;
-      text_offset_type head_pos = minus_pos_reader->read_from_ith_file(head_pos_block_id);
-      std::uint64_t head_pos_uint64 = head_pos;
+      std::uint64_t head_pos_block_beg = head_pos_block_id * max_block_size;
+      std::uint64_t head_pos = head_pos_block_beg + minus_pos_reader->read_from_ith_file(head_pos_block_id);
       std::uint8_t is_head_pos_star = minus_type_reader->read_from_ith_file(head_pos_block_id);
       output_writer->write(head_pos);
 
-      if (head_pos_uint64 > 0 && !is_head_pos_star) {
+      if (head_pos > 0 && !is_head_pos_star) {
         std::uint64_t prev_pos_char = symbols_reader->read_from_ith_file(head_pos_block_id);
-        std::uint64_t prev_pos_block_id = (head_pos_block_id * max_block_size == head_pos_uint64) ? head_pos_block_id - 1 : head_pos_block_id;
+        std::uint64_t prev_pos_block_id = (head_pos_block_id * max_block_size == head_pos) ? head_pos_block_id - 1 : head_pos_block_id;
         radix_heap->push(prev_pos_char, prev_pos_block_id);
       }
     }
