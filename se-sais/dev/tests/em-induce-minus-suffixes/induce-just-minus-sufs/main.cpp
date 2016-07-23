@@ -58,6 +58,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
     }
 
+    typedef std::uint32_t block_offset_type;
+    typedef std::uint8_t block_id_type;
+
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
     {
       typedef async_stream_writer<text_offset_type> writer_type;
@@ -88,6 +91,21 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       }
 #endif
       delete writer;
+    }
+
+    std::vector<std::uint64_t> target_block_count(n_blocks, std::numeric_limits<std::uint64_t>::max());
+    {
+      std::vector<std::uint64_t> block_count(n_blocks, 0UL);
+      for (std::uint64_t j = 0; j < text_length; ++j) {
+        std::uint64_t s = sa[j];
+        if (suf_type[s] == 0 || (s > 0 && suf_type[s - 1] == 0)) {
+          std::uint64_t block_id = s / max_block_size;
+          ++block_count[block_id];
+          bool is_at_block_beg = (block_id * max_block_size == s);
+          if (is_at_block_beg)
+            target_block_count[block_id] = block_count[block_id];
+        }
+      }
     }
 
     std::vector<std::string> symbols_filenames;
@@ -141,15 +159,16 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::string filename = "tmp." + utils::random_string_hash();
         minus_pos_filenames.push_back(filename);
       }
-      typedef async_stream_writer<text_offset_type> writer_type;
+      typedef async_stream_writer<block_offset_type> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(minus_pos_filenames[j]);
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
-        if (suf_type[s] == 0) {
+        if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
           std::uint64_t block_id = s / max_block_size;
-          writers[block_id]->write(s);
+          std::uint64_t block_beg = block_id * max_block_size;
+          writers[block_id]->write(s - block_beg);
         }
       }
       for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -160,13 +179,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Write all lex-sorted star suffixes to file.
     std::string plus_pos_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<text_offset_type> writer_type;
+      typedef async_stream_writer<block_id_type> writer_type;
       writer_type *writer = new writer_type(plus_pos_filename);
       for (std::uint64_t i = text_length; i > 0; --i) {
         std::uint64_t s = sa[i - 1];
         // BOTH WORK:
-        if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
-          writer->write(s);
+        if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0) {
+          std::uint64_t block_id = s / max_block_size;
+          writer->write(block_id);
+        }
       }
       delete writer;
     }
@@ -180,18 +201,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Run the tested algorithm.
-    typedef std::uint8_t block_id_type;
     std::string output_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
     char_type last_text_symbol = text[text_length - 1];
     em_induce_minus_star_suffixes<
       char_type,
       text_offset_type,
+      block_offset_type,
       block_id_type>(
         text_length,
         radix_heap_bufsize,
         radix_log,
         max_block_size,
+        target_block_count,
         last_text_symbol,
         output_filename,
         plus_pos_filename,
