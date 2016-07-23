@@ -75,11 +75,11 @@ void em_induce_plus_suffixes(
 
   bool empty_output = true;
   std::uint64_t max_char = std::numeric_limits<char_type>::max();
-  std::uint64_t cur_char = 0;
+  std::uint64_t head_char = 0;
   {
     std::uint64_t size = utils::file_size(minus_count_filename);
     if (size > 0)
-      cur_char = size / sizeof(text_offset_type) - 1;
+      head_char = size / sizeof(text_offset_type) - 1;
   }
   std::uint64_t prev_written_head_char = 0;
   std::uint64_t cur_bucket_size = 0;
@@ -88,34 +88,34 @@ void em_induce_plus_suffixes(
   // Induce plus suffixes.
   while (!radix_heap->empty() || !minus_count_reader->empty()) {
     // Process plus suffixes.
-    while (!radix_heap->empty() && radix_heap->min_compare(max_char - cur_char)) {
+    while (!radix_heap->empty() && radix_heap->min_compare(max_char - head_char)) {
       std::pair<char_type, block_id_type> p = radix_heap->extract_min();
-      std::uint64_t block_id = p.second;
-      std::uint64_t block_beg = block_id * max_block_size;
-      std::uint64_t pos = block_beg + plus_pos_reader->read_from_ith_file(block_id);
-      output_pos_writer->write(pos);
+      std::uint64_t head_pos_block_id = p.second;
+      std::uint64_t head_pos_block_beg = head_pos_block_id * max_block_size;
+      std::uint64_t head_pos = head_pos_block_beg + plus_pos_reader->read_from_ith_file(head_pos_block_id);
+      output_pos_writer->write(head_pos);
 
-      std::uint8_t is_star = plus_type_reader->read_from_ith_file(block_id);
-      output_type_writer->write(is_star);
+      std::uint8_t is_head_pos_star = plus_type_reader->read_from_ith_file(head_pos_block_id);
+      output_type_writer->write(is_head_pos_star);
 
-      if (empty_output == false) {
-        if (cur_char == prev_written_head_char) ++cur_bucket_size;
+      if (!empty_output) {
+        if (head_char == prev_written_head_char) ++cur_bucket_size;
         else {
           output_count_writer->write(cur_bucket_size);
-          for (std::uint64_t ch = prev_written_head_char; ch > cur_char + 1; --ch)
+          for (std::uint64_t ch = prev_written_head_char; ch > head_char + 1; --ch)
             output_count_writer->write(0);
           cur_bucket_size = 1;
-          prev_written_head_char = cur_char;
+          prev_written_head_char = head_char;
         }
       } else {
         cur_bucket_size = 1;
-        prev_written_head_char = cur_char;
+        prev_written_head_char = head_char;
       }
 
       empty_output = false;
-      if (pos > 0 && !is_star) {
-        std::uint64_t prev_pos_char = symbols_reader->read_from_ith_file(block_id);
-        std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos) ? block_id - 1 : block_id;
+      if (head_pos > 0 && !is_head_pos_star) {
+        std::uint64_t prev_pos_char = symbols_reader->read_from_ith_file(head_pos_block_id);
+        std::uint64_t prev_pos_block_id = (head_pos_block_id * max_block_size == head_pos) ? head_pos_block_id - 1 : head_pos_block_id;
         radix_heap->push(max_char - prev_pos_char, prev_pos_block_id);
       }
     }
@@ -132,7 +132,7 @@ void em_induce_plus_suffixes(
     }
 
     // Update current symbol.
-    --cur_char;
+    --head_char;
   }
 
   if (empty_output == false) {
