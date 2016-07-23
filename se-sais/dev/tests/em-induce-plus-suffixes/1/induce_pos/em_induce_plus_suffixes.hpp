@@ -17,7 +17,10 @@
 #include "io/async_bit_stream_writer.hpp"
 
 
-template<typename chr_t, typename saidx_t, typename blockidx_t>
+template<typename char_type,
+  typename text_offset_type,
+  typename block_offset_type,
+  typename block_id_type>
 void em_induce_plus_suffixes(
     std::uint64_t text_length,
     std::uint64_t radix_heap_bufsize,
@@ -35,20 +38,20 @@ void em_induce_plus_suffixes(
     std::uint64_t &total_io_volume) {
 
   // Initialize radix heap.
-  typedef em_radix_heap<chr_t, blockidx_t> radix_heap_type;
+  typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
   radix_heap_type *radix_heap = new radix_heap_type(radix_log,
       radix_heap_bufsize, output_pos_filename);
 
   // Initialize readers of data associated with minus suffixes.
-  typedef async_backward_stream_reader<saidx_t> minus_count_reader_type;
-  typedef async_backward_stream_reader<blockidx_t> minus_pos_reader_type;
+  typedef async_backward_stream_reader<text_offset_type> minus_count_reader_type;
+  typedef async_backward_stream_reader<block_id_type> minus_pos_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_pos_filename);
 
   // Initialize readers of data associated with plus suffixes.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<saidx_t> plus_pos_reader_type;
+  typedef async_backward_multi_stream_reader<block_offset_type> plus_pos_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -57,25 +60,26 @@ void em_induce_plus_suffixes(
   }
 
   // Initialize the readers of data associated with both types of suffixes.
-  typedef async_backward_multi_stream_reader<chr_t> symbols_reader_type;
+  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writers.
-  typedef async_stream_writer<saidx_t> output_pos_writer_type;
+  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
-  typedef async_stream_writer<saidx_t> output_count_writer_type;
+  typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   bool empty_output = true;
-  chr_t cur_char = 0;
+  std::uint64_t max_char = std::numeric_limits<char_type>::max();
+  std::uint64_t cur_char = 0;
   {
     std::uint64_t size = utils::file_size(minus_count_filename);
     if (size > 0)
-      cur_char = size / sizeof(saidx_t) - 1;
+      cur_char = size / sizeof(text_offset_type) - 1;
   }
   std::uint64_t prev_written_head_char = 0;
   std::uint64_t cur_bucket_size = 0;
@@ -84,12 +88,13 @@ void em_induce_plus_suffixes(
   // Induce plus suffixes.
   while (!radix_heap->empty() || !minus_count_reader->empty()) {
     // Process plus suffixes.
-    while (!radix_heap->empty() && radix_heap->min_compare(std::numeric_limits<chr_t>::max() - cur_char)) {
-      std::pair<chr_t, blockidx_t> p = radix_heap->extract_min();
+    while (!radix_heap->empty() && radix_heap->min_compare(max_char - cur_char)) {
+      std::pair<char_type, block_id_type> p = radix_heap->extract_min();
       std::uint64_t block_id = p.second;
-      saidx_t pos = plus_pos_reader->read_from_ith_file(block_id);
+      std::uint64_t block_beg = block_id * max_block_size;
+      std::uint64_t pos = block_beg + plus_pos_reader->read_from_ith_file(block_id);
       output_pos_writer->write(pos);
-      std::uint64_t pos_uint64 = pos;
+
       std::uint8_t is_star = plus_type_reader->read_from_ith_file(block_id);
       output_type_writer->write(is_star);
 
@@ -97,7 +102,7 @@ void em_induce_plus_suffixes(
         if (cur_char == prev_written_head_char) ++cur_bucket_size;
         else {
           output_count_writer->write(cur_bucket_size);
-          for (std::uint64_t ch = (std::uint64_t)prev_written_head_char; ch > (std::uint64_t)cur_char + 1; --ch)
+          for (std::uint64_t ch = prev_written_head_char; ch > cur_char + 1; --ch)
             output_count_writer->write(0);
           cur_bucket_size = 1;
           prev_written_head_char = cur_char;
@@ -108,11 +113,10 @@ void em_induce_plus_suffixes(
       }
 
       empty_output = false;
-      if (pos_uint64 > 0 && !is_star) {
-        chr_t prev_ch = symbols_reader->read_from_ith_file(block_id);
-        std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos_uint64) ?
-          block_id - 1 : block_id;
-        radix_heap->push(std::numeric_limits<chr_t>::max() - prev_ch, prev_pos_block_id);
+      if (pos > 0 && !is_star) {
+        std::uint64_t prev_pos_char = symbols_reader->read_from_ith_file(block_id);
+        std::uint64_t prev_pos_block_id = (block_id * max_block_size == pos) ? block_id - 1 : block_id;
+        radix_heap->push(max_char - prev_pos_char, prev_pos_block_id);
       }
     }
 
@@ -123,8 +127,8 @@ void em_induce_plus_suffixes(
       ++block_count[head_pos_block_id];
       bool pos_starts_at_block_beg = (block_count[head_pos_block_id] == block_count_target[head_pos_block_id]);
       std::uint64_t prev_pos_block_id = head_pos_block_id - pos_starts_at_block_beg;
-      chr_t prev_char = symbols_reader->read_from_ith_file(head_pos_block_id);
-      radix_heap->push(std::numeric_limits<chr_t>::max() - prev_char, prev_pos_block_id);
+      std::uint64_t prev_pos_char = symbols_reader->read_from_ith_file(head_pos_block_id);
+      radix_heap->push(max_char - prev_pos_char, prev_pos_block_id);
     }
 
     // Update current symbol.
@@ -133,7 +137,7 @@ void em_induce_plus_suffixes(
 
   if (empty_output == false) {
     output_count_writer->write(cur_bucket_size);
-    for (std::uint64_t ch = (std::uint64_t)prev_written_head_char; ch > 0; --ch)
+    for (std::uint64_t ch = prev_written_head_char; ch > 0; --ch)
       output_count_writer->write(0);
   }
 

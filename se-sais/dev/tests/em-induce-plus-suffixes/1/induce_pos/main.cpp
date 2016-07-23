@@ -33,19 +33,24 @@ void encode_vbyte_to_stream(T x, stream_type *stream) {
 void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
 
-  typedef std::uint8_t chr_t;
-  typedef std::uint32_t saidx_tt;
+  typedef std::uint8_t char_type;
+  typedef std::uint32_t text_offset_type;
 
-  chr_t *text = new chr_t[max_length];
-  saidx_tt *sa = new saidx_tt[max_length];
+  char_type *text = new char_type[max_length];
+  text_offset_type *sa = new text_offset_type[max_length];
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
+    if (testid % 100 == 0)
+      fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, 255L);
     divsufsort(text, (std::int32_t *)sa, text_length);
-    typedef std::uint8_t blockidx_t;
+
+    typedef std::uint8_t block_id_type;
+    typedef std::uint32_t block_offset_type;
+
     std::uint64_t max_block_size = 0;
     std::uint64_t n_blocks = 0;
     do {
@@ -64,7 +69,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     std::string minus_count_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<saidx_tt> writer_type;
+      typedef async_stream_writer<text_offset_type> writer_type;
       writer_type *writer = new writer_type(minus_count_filename);
 #if 0
       std::uint64_t end = text_length;
@@ -101,7 +106,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::string filename = "tmp." + utils::random_string_hash();
         symbols_filenames.push_back(filename);
       }
-      typedef async_stream_writer<chr_t> writer_type;
+      typedef async_stream_writer<char_type> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(symbols_filenames[j]);
@@ -145,7 +150,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::string filename = "tmp." + utils::random_string_hash();
         plus_pos_filenames.push_back(filename);
       }
-      typedef async_stream_writer<saidx_tt> writer_type;
+      typedef async_stream_writer<block_offset_type> writer_type;
       writer_type **writers = new writer_type*[n_blocks];
       for (std::uint64_t j = 0; j < n_blocks; ++j)
         writers[j] = new writer_type(plus_pos_filenames[j]);
@@ -153,7 +158,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::uint64_t s = sa[j];
         if (suf_type[s] == 1) {
           std::uint64_t block_id = s / max_block_size;
-          writers[block_id]->write((saidx_tt)s);
+          std::uint64_t block_beg = block_id * max_block_size;
+          writers[block_id]->write(s - block_beg);
         }
       }
       for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -179,7 +185,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Write all lex-sorted star suffixes to file.
     std::string minus_pos_filename = "tmp." + utils::random_string_hash();
     {
-      typedef async_stream_writer<blockidx_t> writer_type;
+      typedef async_stream_writer<block_id_type> writer_type;
       writer_type *writer = new writer_type(minus_pos_filename);
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
@@ -192,11 +198,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Create a vector with all minus-suffixes (i.e., correct answer).
-    std::vector<saidx_tt> v;
+    std::vector<text_offset_type> v;
     for (std::uint64_t i = 0; i < text_length; ++i) {
       std::uint64_t s = sa[i];
       if (suf_type[s] == 1)
-        v.push_back((saidx_tt)s);
+        v.push_back((text_offset_type)s);
     }
 
     // Run the tested algorithm.
@@ -204,21 +210,25 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     std::string output_type_filename = "tmp." + utils::random_string_hash();
     std::string output_count_filename = "tmp." + utils::random_string_hash();
     std::uint64_t total_io_volume = 0;
-    em_induce_plus_suffixes<chr_t, saidx_tt, blockidx_t>(
-        text_length,
-        radix_heap_bufsize,
-        radix_log,
-        max_block_size,
-        block_count_target,
-        output_pos_filename,
-        output_type_filename,
-        output_count_filename,
-        minus_pos_filename,
-        minus_count_filename,
-        plus_type_filenames,
-        plus_pos_filenames,
-        symbols_filenames,
-        total_io_volume);
+    em_induce_plus_suffixes<
+      char_type,
+      text_offset_type,
+      block_offset_type,
+      block_id_type>(
+          text_length,
+          radix_heap_bufsize,
+          radix_log,
+          max_block_size,
+          block_count_target,
+          output_pos_filename,
+          output_type_filename,
+          output_count_filename,
+          minus_pos_filename,
+          minus_count_filename,
+          plus_type_filenames,
+          plus_pos_filenames,
+          symbols_filenames,
+          total_io_volume);
 
     // Delete input files.
     utils::file_delete(minus_pos_filename);
@@ -230,9 +240,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
     
     // Read the computed output into vector.
-    std::vector<saidx_tt> v_computed;
+    std::vector<text_offset_type> v_computed;
     {
-      typedef async_backward_stream_reader<saidx_tt> reader_type;
+      typedef async_backward_stream_reader<text_offset_type> reader_type;
       reader_type *reader = new reader_type(output_pos_filename);
       while (!reader->empty())
         v_computed.push_back(reader->read());
@@ -267,11 +277,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       std::exit(EXIT_FAILURE);
     }
 
-    std::vector<std::pair<chr_t, std::uint64_t> > v_computed_count;
+    std::vector<std::pair<char_type, std::uint64_t> > v_computed_count;
     {
       typedef async_backward_stream_reader<saidx_t> reader_type;
       reader_type *reader = new reader_type(output_count_filename);
-      chr_t cur_sym = 0;
+      char_type cur_sym = 0;
       while (reader->empty() == false) {
         std::uint64_t count = reader->read();
         if (count > 0)
@@ -281,15 +291,15 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete reader;
     }
 
-    std::vector<std::pair<chr_t, std::uint64_t> > v_correct_count;
+    std::vector<std::pair<char_type, std::uint64_t> > v_correct_count;
     {
-      std::map<chr_t, std::uint64_t> m;
+      std::map<char_type, std::uint64_t> m;
       for (std::uint64_t j = 0; j < text_length; ++j) {
         std::uint64_t s = sa[j];
         if (suf_type[s] == 1)
           m[text[s]] += 1;
       }
-      for (std::map<chr_t, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
+      for (std::map<char_type, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
         v_correct_count.push_back(std::make_pair(it->first, it->second));
     }
 
@@ -342,7 +352,7 @@ int main() {
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
     for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
       for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(/*100*/1000, max_length, buffer_size, radix_log);
+        test(/*100*/5000, max_length, buffer_size, radix_log);
 
   fprintf(stderr, "All tests passed.\n");
 }
