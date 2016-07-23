@@ -144,29 +144,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       delete[] writers;
     }
     
-    std::vector<std::string> plus_pos_filenames;
-    {
-      for (std::uint64_t j = 0; j < n_blocks; ++j) {
-        std::string filename = "tmp." + utils::random_string_hash();
-        plus_pos_filenames.push_back(filename);
-      }
-      typedef async_stream_writer<block_offset_type> writer_type;
-      writer_type **writers = new writer_type*[n_blocks];
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        writers[j] = new writer_type(plus_pos_filenames[j]);
-      for (std::uint64_t j = 0; j < text_length; ++j) {
-        std::uint64_t s = sa[j];
-        if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0) {
-          std::uint64_t block_id = s / max_block_size;
-          std::uint64_t block_beg = block_id * max_block_size;
-          writers[block_id]->write(s - block_beg);
-        }
-      }
-      for (std::uint64_t j = 0; j < n_blocks; ++j)
-        delete writers[j];
-      delete[] writers;
-    }
-
     std::vector<std::uint64_t> block_count(n_blocks, 0UL);
     std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
     {
@@ -174,7 +151,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
         std::uint64_t s = sa[j - 1];
         std::uint64_t block_id = s / max_block_size;
         bool is_at_block_beg = (block_id * max_block_size == s);
-//        if (s == 0 || suf_type[s - 1] == 1) {
         if ((suf_type[s] == 1 && (s == 0 || suf_type[s - 1] == 1)) || (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)) {
           ++block_count[block_id];
           if (is_at_block_beg == true)
@@ -199,11 +175,13 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     }
 
     // Create a vector with all minus-suffixes (i.e., correct answer).
-    std::vector<text_offset_type> v;
+    std::vector<block_id_type> v;
     for (std::uint64_t i = 0; i < text_length; ++i) {
       std::uint64_t s = sa[i];
-      if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
-        v.push_back(s);
+      if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0) {
+        std::uint64_t block_id = s / max_block_size;
+        v.push_back(block_id);
+      }
     }
 
     // Run the tested algorithm.
@@ -225,7 +203,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           minus_pos_filename,
           minus_count_filename,
           plus_type_filenames,
-          plus_pos_filenames,
           symbols_filenames,
           total_io_volume);
 
@@ -235,13 +212,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     for (std::uint64_t i = 0; i < n_blocks; ++i) {
       if (utils::file_exists(symbols_filenames[i])) utils::file_delete(symbols_filenames[i]);
       if (utils::file_exists(plus_type_filenames[i])) utils::file_delete(plus_type_filenames[i]);
-      if (utils::file_exists(plus_pos_filenames[i])) utils::file_delete(plus_pos_filenames[i]);
     }
     
     // Read the computed output into vector.
     std::vector<text_offset_type> v_computed;
     {
-      typedef async_backward_stream_reader<text_offset_type> reader_type;
+      typedef async_backward_stream_reader<block_id_type> reader_type;
       reader_type *reader = new reader_type(output_pos_filename);
       while (!reader->empty())
         v_computed.push_back(reader->read());

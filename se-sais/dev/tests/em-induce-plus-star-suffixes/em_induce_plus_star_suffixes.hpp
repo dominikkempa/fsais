@@ -32,7 +32,6 @@ void em_induce_plus_star_suffixes(
     std::string minus_pos_filename,
     std::string minus_count_filename,
     std::vector<std::string> &plus_type_filenames,
-    std::vector<std::string> &plus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
 
@@ -50,13 +49,9 @@ void em_induce_plus_star_suffixes(
   // Initialize readers of data associated with plus suffixes.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<block_offset_type> plus_pos_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(n_blocks);
-  for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
+  for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     plus_type_reader->add_file(plus_type_filenames[block_id]);
-    plus_pos_reader->add_file(plus_pos_filenames[block_id]);
-  }
 
   // Initialize the readers of data associated with both types of suffixes.
   typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
@@ -65,7 +60,7 @@ void em_induce_plus_star_suffixes(
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writers.
-  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
+  typedef async_stream_writer<block_id_type> output_pos_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
@@ -91,9 +86,7 @@ void em_induce_plus_star_suffixes(
       bool is_head_pos_star = plus_type_reader->read_from_ith_file(head_pos_block_id);
 
       if (is_head_pos_star) {
-        std::uint64_t head_pos_block_beg = head_pos_block_id * max_block_size;
-        std::uint64_t head_pos = head_pos_block_beg + plus_pos_reader->read_from_ith_file(head_pos_block_id);
-        output_pos_writer->write(head_pos);
+        output_pos_writer->write(head_pos_block_id);
         if (!empty_output) {
           if (head_char == prev_written_head_char) ++cur_bucket_size;
           else {
@@ -143,9 +136,8 @@ void em_induce_plus_star_suffixes(
   // Update I/O volume.
   std::uint64_t io_volume = radix_heap->io_volume() +
     minus_pos_reader->bytes_read() + minus_count_reader->bytes_read() +
-    plus_type_reader->bytes_read() + plus_pos_reader->bytes_read() +
-    symbols_reader->bytes_read() + output_pos_writer->bytes_written() +
-    output_count_writer->bytes_written();
+    plus_type_reader->bytes_read() + symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -153,7 +145,6 @@ void em_induce_plus_star_suffixes(
   delete minus_pos_reader;
   delete minus_count_reader;
   delete plus_type_reader;
-  delete plus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
   delete output_count_writer;
