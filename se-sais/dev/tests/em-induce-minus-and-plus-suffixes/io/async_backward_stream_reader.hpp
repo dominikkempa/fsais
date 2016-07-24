@@ -175,10 +175,28 @@ class async_backward_stream_reader {
     std::thread *m_io_thread;
 
   public:
+    async_backward_stream_reader(std::string filename) {
+      init(filename, (8UL << 20), 4UL, 0UL);
+    }
+
     async_backward_stream_reader(std::string filename,
-        std::uint64_t total_buf_size_bytes = (8UL << 20),
-        std::uint64_t n_buffers = 4UL,
-        std::uint64_t n_skip_bytes = 0UL) {
+        std::uint64_t n_skip_bytes) {
+      init(filename, (8UL << 20), 4UL, n_skip_bytes);
+    }
+
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_items, std::uint64_t n_buffers) {
+      init(filename, total_buf_size_items, n_buffers, 0UL);
+    }
+
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_items, std::uint64_t n_buffers,
+        std::uint64_t n_skip_bytes) {
+      init(filename, total_buf_size_items, n_buffers, n_skip_bytes);
+    }
+
+    void init(std::string filename, std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers, std::uint64_t n_skip_bytes) {
       m_file = utils::file_open(filename.c_str(), "r");
       std::fseek(m_file, 0, SEEK_END);
       if (n_skip_bytes > 0)

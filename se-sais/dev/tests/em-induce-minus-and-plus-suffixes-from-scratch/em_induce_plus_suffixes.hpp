@@ -11,9 +11,9 @@
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
 #include "io/async_stream_writer.hpp"
+#include "io/async_multi_stream_reader.hpp"
+#include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_backward_stream_reader.hpp"
-#include "io/async_backward_multi_stream_reader.hpp"
-#include "io/async_backward_multi_bit_stream_reader.hpp"
 #include "io/async_bit_stream_writer.hpp"
 
 
@@ -58,8 +58,8 @@ void em_induce_plus_suffixes(
 
   // Initialize readers of data associated with plus suffixes.
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-  typedef async_backward_multi_bit_stream_reader plus_type_reader_type;
-  typedef async_backward_multi_stream_reader<block_offset_type> plus_pos_reader_type;
+  typedef async_multi_bit_stream_reader plus_type_reader_type;
+  typedef async_multi_stream_reader<block_offset_type> plus_pos_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -68,7 +68,7 @@ void em_induce_plus_suffixes(
   }
 
   // Initialize the readers of data associated with both types of suffixes.
-  typedef async_backward_multi_stream_reader<char_type> symbols_reader_type;
+  typedef async_multi_stream_reader<char_type> symbols_reader_type;
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);

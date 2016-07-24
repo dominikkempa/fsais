@@ -32,7 +32,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
-    if (testid % 100 == 0)
+    if (testid % 10 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     if (utils::random_int64(0L, 1L)) {
@@ -82,13 +82,14 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
 
 
+    //==============================================================================================================================================================
     std::vector<std::string> output_plus_type_filenames(n_blocks);
     std::vector<std::string> output_minus_type_filenames(n_blocks);
     std::vector<std::string> output_plus_symbols_filenames(n_blocks);
     std::vector<std::string> output_minus_symbols_filenames(n_blocks);
     std::vector<std::string> output_plus_pos_filenames(n_blocks);
     std::vector<std::string> output_minus_pos_filenames(n_blocks);
-
+    std::vector<std::uint64_t> minus_block_count_target_computed(n_blocks, std::numeric_limits<std::uint64_t>::max());
     for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
       output_plus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
       output_plus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
@@ -97,7 +98,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       output_minus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
       output_minus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
     }
-    std::vector<std::uint64_t> minus_block_count_target_computed(n_blocks, std::numeric_limits<std::uint64_t>::max());
+
     {
       // Inpute to in-RAM inducing of all suffixes.
       std::vector<std::string> minus_pos_filenames(n_blocks);
@@ -157,6 +158,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       // Restore stderr.
       std::fflush(stderr); dup2(stderr_backup, 2); close(stderr_backup);
     }
+    //===========================================================================================================================================================
 
 
 
