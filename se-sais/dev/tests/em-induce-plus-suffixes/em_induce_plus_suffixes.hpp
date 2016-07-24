@@ -23,9 +23,8 @@ template<typename char_type,
   typename block_id_type>
 void em_induce_plus_suffixes(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
+    std::uint64_t ram_use,
     std::vector<std::uint64_t> &block_count_target,
     std::string output_pos_filename,
     std::string output_type_filename,
@@ -38,9 +37,18 @@ void em_induce_plus_suffixes(
     std::uint64_t &total_io_volume) {
 
   // Initialize radix heap.
+  std::vector<std::uint64_t> radix_logs;
+  {
+    std::uint64_t target_sum = 8UL * sizeof(char_type);
+    std::uint64_t cur_sum = 0;
+    while (cur_sum < target_sum) {
+      std::uint64_t radix_log = std::min(10UL, target_sum - cur_sum);
+      radix_logs.push_back(radix_log);
+      cur_sum += radix_log;
+    }
+  }
   typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
-      radix_heap_bufsize, output_pos_filename);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_pos_filename, ram_use);
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_backward_stream_reader<text_offset_type> minus_count_reader_type;
