@@ -98,7 +98,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       output_minus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
     }
     std::vector<std::uint64_t> minus_block_count_target_computed(n_blocks, std::numeric_limits<std::uint64_t>::max());
-    std::vector<std::uint64_t> plus_block_count_target_computed(n_blocks, std::numeric_limits<std::uint64_t>::max());
     {
       // Inpute to in-RAM inducing of all suffixes.
       std::vector<std::string> minus_pos_filenames(n_blocks);
@@ -153,7 +152,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
                         output_minus_pos_filenames,
                         output_minus_type_filenames,
                         output_minus_symbols_filenames,
-                        plus_block_count_target_computed,
                         minus_block_count_target_computed,
                         total_io_volume);
       // Restore stderr.
@@ -217,29 +215,11 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
             }
           }
         }
-        std::uint64_t plus_block_count_target_correct = std::numeric_limits<std::uint64_t>::max();
-        {
-          std::uint64_t cur_block_count = 0;
-          for (std::uint64_t iplus = text_length; iplus > 0; --iplus) {
-            std::uint64_t i = iplus - 1;
-            std::uint64_t s = sa[i];
-
-            if (block_beg <= s && s < block_end &&
-              ((suf_type[s] == 1 && (s == 0 || suf_type[s - 1] == 1)) || (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1))) {
-              ++cur_block_count;
-              if (s == block_beg) {
-                plus_block_count_target_correct = cur_block_count;
-                break;
-              }
-            }
-          }
-        }
         std::uint64_t minus_block_count_target_correct = std::numeric_limits<std::uint64_t>::max();
         {
           std::uint64_t cur_block_count = 0;
           for (std::uint64_t i = 0; i < text_length; ++i) {
             std::uint64_t s = sa[i];
-//                (suf_type[s] == 0 || (s > 0 && suf_type[s - 1] == 0))) {
             if (block_beg <= s && s < block_end && (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)) {
               ++cur_block_count;
               if (s == block_beg) {
@@ -269,17 +249,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
               plus_pos_correct.push_back(block_offset);
             }
           }
-        }
-        if (plus_block_count_target_correct != plus_block_count_target_computed[block_id]) {
-          fprintf(stderr, "Error: plus target value was computed incorrectly!\n");
-          fprintf(stderr, "  text: ");
-          for (std::uint64_t i = 0; i < text_length; ++i)
-            fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
-          fprintf(stderr, "\n");
-          fprintf(stderr, "  max_block_size = %lu, block_beg = %lu, block_end = %lu\n", max_block_size, block_beg, block_end);
-          fprintf(stderr, "  plus_block_count_target_computed = %lu\n", plus_block_count_target_computed[block_id]);
-          fprintf(stderr, "  plus_block_count_target_correct = %lu\n", plus_block_count_target_correct);
-          std::exit(EXIT_FAILURE);
         }
         if (minus_block_count_target_correct != minus_block_count_target_computed[block_id]) {
           fprintf(stderr, "Error: minus target value was computed incorrectly!\n");
@@ -418,6 +387,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(10000, max_length);
+    test(2000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }

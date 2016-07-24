@@ -65,7 +65,6 @@ im_induce_suffixes_small_alphabet(
     std::string output_minus_pos_filename,
     std::string output_minus_type_filename,
     std::string output_minus_symbols_filename,
-    std::uint64_t &plus_block_count_target,
     std::uint64_t &minus_block_count_target,
     std::uint64_t &total_io_volume) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
@@ -316,8 +315,6 @@ im_induce_suffixes_small_alphabet(
 
 
   // Induce plus suffixes.
-  std::uint64_t local_plus_block_count_target = 0;
-  bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
@@ -338,11 +335,6 @@ im_induce_suffixes_small_alphabet(
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     if (is_head_minus) {
-      // Moved from two lines before.
-      if (!seen_block_beg && head_pos < block_size)
-        ++local_plus_block_count_target;
-      if (head_pos == 0) seen_block_beg = true;
-
       // Erase the item (minus substring) from bucket.
       buckets[i] = 0;
       if (i == zero_item_pos)
@@ -357,11 +349,6 @@ im_induce_suffixes_small_alphabet(
         buckets[i] = 0;
         if (i == zero_item_pos)
           zero_item_pos = total_bucket_size;
-
-        // Also moved.
-        if (!seen_block_beg && head_pos < block_size)
-          ++local_plus_block_count_target;
-        if (head_pos == 0) seen_block_beg = true;
       }
     }
 
@@ -388,9 +375,6 @@ im_induce_suffixes_small_alphabet(
         output_plus_symbols_writer->write(block_prec_symbol);
     }
   }
-  if (!seen_block_beg)
-    local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
-
 
 
 
@@ -431,7 +415,7 @@ im_induce_suffixes_small_alphabet(
 
   // Induce minus suffixes.
   std::uint64_t local_minus_block_count_target = 0;
-  seen_block_beg = false;
+  bool seen_block_beg = false;
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
@@ -492,7 +476,6 @@ im_induce_suffixes_small_alphabet(
 
 
   // Update reference variables.
-  plus_block_count_target = local_plus_block_count_target;
   minus_block_count_target = local_minus_block_count_target;
 
 
@@ -565,7 +548,6 @@ void im_induce_suffixes_small_alphabet(
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -602,7 +584,6 @@ void im_induce_suffixes_small_alphabet(
           output_minus_pos_filenames[block_id],
           output_minus_type_filenames[block_id],
           output_minus_symbols_filenames[block_id],
-          plus_block_count_targets[block_id],
           minus_block_count_targets[block_id],
           io_volume);
 
@@ -635,24 +616,23 @@ void im_induce_suffixes_small_alphabet(
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (max_block_size < (1UL << 31))
     im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
-        output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   else if (max_block_size < (1UL < 39))
     im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
-        output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   else
     im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
-        output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
 }
 
 template<typename char_type,
@@ -671,14 +651,13 @@ void im_induce_suffixes(
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (text_alphabet_size <= 2000000) {
     im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
-        output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   } else {
     fprintf(stderr, "\nError: im_induce_suffixes_large_alphabet not implemented yet (text_alphabet_size = %lu)!\n", text_alphabet_size);
     fprintf(stderr, "Try increasing the threshold in im_induce_suffixes if text_alphabet_size does significantly exceed 2000000.\n");
