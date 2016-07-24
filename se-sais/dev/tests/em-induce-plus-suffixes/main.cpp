@@ -97,10 +97,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       }  
       std::vector<std::string> symbols_filenames;
       {
-        for (std::uint64_t j = 0; j < n_blocks; ++j) {
-          std::string filename = "tmp." + utils::random_string_hash();
-          symbols_filenames.push_back(filename);
-        }
+        for (std::uint64_t j = 0; j < n_blocks; ++j)
+          symbols_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
         typedef async_stream_writer<char_type> writer_type;
         writer_type **writers = new writer_type*[n_blocks];
         for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -118,10 +116,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       }
       std::vector<std::string> plus_type_filenames;
       {
-        for (std::uint64_t j = 0; j < n_blocks; ++j) {
-          std::string filename = "tmp." + utils::random_string_hash();
-          plus_type_filenames.push_back(filename);
-        }
+        for (std::uint64_t j = 0; j < n_blocks; ++j)
+          plus_type_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
         typedef async_bit_stream_writer writer_type;
         writer_type **writers = new writer_type*[n_blocks];
         for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -139,10 +135,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       }   
       std::vector<std::string> plus_pos_filenames;
       {
-        for (std::uint64_t j = 0; j < n_blocks; ++j) {
-          std::string filename = "tmp." + utils::random_string_hash();
-          plus_pos_filenames.push_back(filename);
-        }
+        for (std::uint64_t j = 0; j < n_blocks; ++j)
+          plus_pos_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
         typedef async_stream_writer<block_offset_type> writer_type;
         writer_type **writers = new writer_type*[n_blocks];
         for (std::uint64_t j = 0; j < n_blocks; ++j)
@@ -230,8 +224,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       std::vector<text_offset_type> v;
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
-        if (suf_type[s] == 1)
-          v.push_back((text_offset_type)s);
+        if (suf_type[s] == 1) v.push_back(s);
       }
       std::vector<text_offset_type> v_computed;
       {
