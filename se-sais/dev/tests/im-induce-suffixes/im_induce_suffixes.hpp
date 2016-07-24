@@ -1,5 +1,5 @@
-#ifndef __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
-#define __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#ifndef __IM_INDUCE_SUFFIXES_HPP_INCLUDED
+#define __IM_INDUCE_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -49,7 +49,7 @@ template<typename char_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 std::pair<std::uint64_t, bool>
-im_induce_substrings_small_alphabet(
+im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
@@ -57,6 +57,7 @@ im_induce_substrings_small_alphabet(
     std::uint64_t next_block_leftmost_minus_star_plus,
     bool is_last_minus,
     std::string text_filename,
+    std::string minus_pos_filename,
     std::string output_plus_symbols_filename,
     std::string output_plus_type_filename,
     std::string output_minus_pos_filename,
@@ -73,19 +74,19 @@ im_induce_substrings_small_alphabet(
 
   // Check that all types are sufficiently large.
   if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
-    fprintf(stderr, "\nError: char_type in im_induce_substrings_small_alphabet too small!\n");
+    fprintf(stderr, "\nError: char_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
   if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
-    fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    fprintf(stderr, "\nError: block_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
   if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() * 2UL + 1 < max_block_size) {
-    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
   if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
-    fprintf(stderr, "\nError: text_offset_type in im_induce_substrings_small_alphabet too small!\n");
+    fprintf(stderr, "\nError: text_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -242,8 +243,8 @@ im_induce_substrings_small_alphabet(
 
 
   // Add minus positions at the beginning of buckets.
-#if 1
   std::uint64_t zero_item_pos = total_bucket_size;
+#if 0
   for (std::uint64_t i = 0; i < block_size; ++i) {
     bool is_minus_star = false;
     if (i == 0) is_minus_star = is_first_minus_star;
@@ -260,25 +261,34 @@ im_induce_substrings_small_alphabet(
       bucket_ptr[head_char] = ptr;
     }
   }
+#else
+  {
+    typedef async_stream_reader<block_offset_type> reader_type;
+    reader_type *reader = new reader_type(minus_pos_filename);
+    while (!reader->empty()) {
+      std::uint64_t i = reader->read();
+      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+      std::uint64_t ptr = bucket_ptr[head_char];
+      if (i == 0) {
+        zero_item_pos = ptr++;
+        buckets[zero_item_pos] = 1;
+      } else buckets[ptr++] = i;
+      bucket_ptr[head_char] = ptr;
+    }
+    delete reader;
+    utils::file_delete(minus_pos_filename);
+  }
+#endif
 
   // Separatelly handle position lastpos - 1 if it
   // was in next block and it was minus star.
-  if (lastpos > block_size && is_lastpos_minus) {
-    std::uint64_t i = lastpos - 1;
-    std::uint64_t head_char = text_accessor->access(block_beg + i);
-    std::uint64_t ptr = bucket_ptr[head_char];
-    buckets[ptr++] = i;
-    bucket_ptr[head_char] = ptr;
-  }
-#else
-  // Instead, add items from a streamer. For now, just the same
-  // positions in the same order. We move into sorted minus star
-  // suffixes later -- that should be an easy change.
-  std::uint64_t zero_item_pos = total_bucket_size;
-  {
-    typedef async_stream_reader<block_offset_type> 
-  }
-#endif
+//  if (lastpos > block_size && is_lastpos_minus) {
+//    std::uint64_t i = lastpos - 1;
+//    std::uint64_t head_char = text_accessor->access(block_beg + i);
+//    std::uint64_t ptr = bucket_ptr[head_char];
+//    buckets[ptr++] = i;
+//    bucket_ptr[head_char] = ptr;
+//  }
 
 
 
@@ -327,12 +337,13 @@ im_induce_substrings_small_alphabet(
     if (i == zero_item_pos)
       head_pos = 0;
 
-    if (!seen_block_beg && head_pos < block_size)
-      ++local_plus_block_count_target;
-    if (head_pos == 0) seen_block_beg = true;
-
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     if (is_head_minus) {
+      // Moved from two lines before.
+      if (!seen_block_beg && head_pos < block_size)
+        ++local_plus_block_count_target;
+      if (head_pos == 0) seen_block_beg = true;
+
       // Erase the item (minus substring) from bucket.
       buckets[i] = 0;
       if (i == zero_item_pos)
@@ -346,6 +357,11 @@ im_induce_substrings_small_alphabet(
         buckets[i] = 0;
         if (i == zero_item_pos)
           zero_item_pos = total_bucket_size;
+
+        // Also moved.
+        if (!seen_block_beg && head_pos < block_size)
+          ++local_plus_block_count_target;
+        if (head_pos == 0) seen_block_beg = true;
       }
     }
 
@@ -534,11 +550,12 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
-void im_induce_substrings_small_alphabet(
+void im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
@@ -550,7 +567,7 @@ void im_induce_substrings_small_alphabet(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "  IM induce substrings (small alphabet):\n");
+  fprintf(stderr, "  IM induce suffixes (small alphabet):\n");
   fprintf(stderr, "    sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
   long double start = utils::wclock();
 
@@ -561,7 +578,7 @@ void im_induce_substrings_small_alphabet(
     std::uint64_t block_beg = block_id * max_block_size;
 
     std::pair<std::uint64_t, bool > ret;
-    ret = im_induce_substrings_small_alphabet<
+    ret = im_induce_suffixes_small_alphabet<
       char_type,
       text_offset_type,
       block_offset_type,
@@ -573,6 +590,7 @@ void im_induce_substrings_small_alphabet(
           next_block_leftmost_minus_star,
           is_last_minus,
           text_filename,
+          minus_pos_filenames[block_id],
           output_plus_symbols_filenames[block_id],
           output_plus_type_filenames[block_id],
           output_minus_pos_filenames[block_id],
@@ -598,11 +616,12 @@ void im_induce_substrings_small_alphabet(
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type>
-void im_induce_substrings_small_alphabet(
+void im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
@@ -612,31 +631,28 @@ void im_induce_substrings_small_alphabet(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (max_block_size < (1UL << 31))
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, minus_pos_filenames, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else if (max_block_size < (1UL < 39))
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
+        max_block_size, text_filename, minus_pos_filenames, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-//  else if (max_block_size < (1UL < 47))
-//    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint48>(text_alphabet_size, text_length,
-//        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-//        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, minus_pos_filenames, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type>
-void im_induce_substrings(
+void im_induce_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
@@ -646,14 +662,14 @@ void im_induce_substrings(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (text_alphabet_size <= 2000000) {
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
+        max_block_size, text_filename, minus_pos_filenames, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   } else {
-    fprintf(stderr, "\nError: im_induce_substrings_large_alphabet not implemented yet (text_alphabet_size = %lu)!\n", text_alphabet_size);
-    fprintf(stderr, "Try increasing the threshold in im_induce_substrings if text_alphabet_size does significantly exceed 2000000.\n");
+    fprintf(stderr, "\nError: im_induce_suffixes_large_alphabet not implemented yet (text_alphabet_size = %lu)!\n", text_alphabet_size);
+    fprintf(stderr, "Try increasing the threshold in im_induce_suffixes if text_alphabet_size does significantly exceed 2000000.\n");
     std::exit(EXIT_FAILURE);
   }
 }
 
-#endif  // __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#endif  // __IM_INDUCE_SUFFIXES_HPP_INCLUDED
