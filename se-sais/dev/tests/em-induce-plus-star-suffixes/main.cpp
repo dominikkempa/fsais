@@ -20,8 +20,8 @@
 #include "divsufsort.h"
 
 
-void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
-  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
+void test(std::uint64_t n_testcases, std::uint64_t max_length) {
+  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
   typedef std::uint8_t char_type;
   typedef std::uint32_t text_offset_type;
@@ -38,6 +38,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       text[j] = utils::random_int64(0L, 255L);
     divsufsort(text, (std::int32_t *)sa, text_length);
 
+    std::uint64_t ram_use = utils::random_int64(1L, 1024L);
+    std::uint64_t total_io_volume = 0;
     typedef std::uint8_t block_id_type;
     typedef std::uint32_t block_offset_type;
 
@@ -183,16 +185,14 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
     // Run the tested algorithm.
     std::string output_pos_filename = "tmp." + utils::random_string_hash();
     std::string output_count_filename = "tmp." + utils::random_string_hash();
-    std::uint64_t total_io_volume = 0;
     em_induce_plus_star_suffixes<
       char_type,
       text_offset_type,
       block_offset_type,
       block_id_type>(
           text_length,
-          radix_heap_bufsize,
-          radix_log,
           max_block_size,
+          ram_use,
           block_count_target,
           output_pos_filename,
           output_count_filename,
@@ -201,6 +201,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
           plus_type_filenames,
           symbols_filenames,
           total_io_volume);
+
+
 
 
 
@@ -307,8 +309,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= 1; buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= 1; ++radix_log)
-        test(1000, max_length, buffer_size, radix_log);
+    test(5000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
