@@ -7,6 +7,7 @@
 #include <ctime>
 #include <unistd.h>
 
+#include "em_induce_plus_star_suffixes.hpp"
 #include "em_induce_minus_star_suffixes.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
@@ -29,6 +30,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
+    // fprintf(stderr, "\nNEWTEST:\n");
     if (testid % 10 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
@@ -75,15 +77,17 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
     std::string plus_pos_filename = "tmp." + utils::random_string_hash();
     {
-#if 1
+#if 0
       {
         typedef async_stream_writer<block_id_type> writer_type;
         writer_type *writer = new writer_type(plus_pos_filename);
         for (std::uint64_t iplus = text_length; iplus > 0; --iplus) {
           std::uint64_t i = iplus - 1;
           std::uint64_t s = sa[i];
-          if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
+          if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0) {
             writer->write(s / max_block_size);
+            fprintf(stderr, "  writer1->write(%lu)\n", s / max_block_size);
+          }
         }
         delete writer;
       }
@@ -99,12 +103,128 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
             --beg;
           }
           writer->write(plus_count);
+          fprintf(stderr, "  writer2->write(%lu)\n", plus_count);
           end = beg;
         }
         delete writer;
       }
 #else
-      // XXX
+      {
+        // Compute input files.
+        std::vector<std::uint64_t> block_count_target(n_blocks, 0UL);
+        std::string minus_count_filename = "tmp." + utils::random_string_hash();
+        std::string minus_pos_filename = "tmp." + utils::random_string_hash();
+        std::vector<std::string> symbols_filenames;
+        std::vector<std::string> plus_type_filenames;
+        {
+          {
+            typedef async_stream_writer<text_offset_type> writer_type;
+            writer_type *writer = new writer_type(minus_count_filename);
+            std::uint64_t beg = 0;
+            for (std::uint64_t ch = 0; ch < 256; ++ch) {
+              std::uint64_t minus_count = 0;
+              std::uint64_t end = beg;
+              while (end < text_length && text[sa[end]] == ch) {
+                if (suf_type[sa[end]] == 0 && sa[end] > 0 && suf_type[sa[end] - 1] == 1)
+                  ++minus_count;
+                ++end;
+              }
+              writer->write(minus_count);
+              beg = end;
+            }
+            delete writer;
+          }
+          {
+            for (std::uint64_t j = 0; j < n_blocks; ++j) {
+              std::string filename = "tmp." + utils::random_string_hash();
+              symbols_filenames.push_back(filename);
+            }
+            typedef async_stream_writer<char_type> writer_type;
+            writer_type **writers = new writer_type*[n_blocks];
+            for (std::uint64_t j = 0; j < n_blocks; ++j)
+              writers[j] = new writer_type(symbols_filenames[j]);
+            for (std::uint64_t j = 0; j < text_length; ++j) {
+              std::uint64_t s = sa[j];
+              if (s > 0 && suf_type[s - 1] == 1) {
+                std::uint64_t block_id = s / max_block_size;
+                writers[block_id]->write(text[s - 1]);
+              }
+            }
+            for (std::uint64_t j = 0; j < n_blocks; ++j)
+              delete writers[j];
+            delete[] writers;
+          }
+          {
+            for (std::uint64_t j = 0; j < n_blocks; ++j) {
+              std::string filename = "tmp." + utils::random_string_hash();
+              plus_type_filenames.push_back(filename);
+            }
+            typedef async_bit_stream_writer writer_type;
+            writer_type **writers = new writer_type*[n_blocks];
+            for (std::uint64_t j = 0; j < n_blocks; ++j)
+              writers[j] = new writer_type(plus_type_filenames[j]);
+            for (std::uint64_t j = 0; j < text_length; ++j) {
+              std::uint64_t s = sa[j];
+              if (suf_type[s] == 1) {
+                std::uint64_t block_id = s / max_block_size;
+                writers[block_id]->write((s > 0) && (suf_type[s - 1] == 0));
+              }
+            }
+            for (std::uint64_t j = 0; j < n_blocks; ++j)
+              delete writers[j];
+            delete[] writers;
+          }
+          {
+            std::vector<std::uint64_t> block_count(n_blocks, 0UL);
+            for (std::uint64_t j = text_length; j > 0; --j) {
+              std::uint64_t s = sa[j - 1];
+              std::uint64_t block_id = s / max_block_size;
+              bool is_at_block_beg = (block_id * max_block_size == s);
+              if ((suf_type[s] == 1 && (s == 0 || suf_type[s - 1] == 1)) || (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)) {
+                ++block_count[block_id];
+                if (is_at_block_beg == true)
+                  block_count_target[block_id] = block_count[block_id];
+              }
+            }
+          }
+          {
+            typedef async_stream_writer<block_id_type> writer_type;
+            writer_type *writer = new writer_type(minus_pos_filename);
+            for (std::uint64_t i = 0; i < text_length; ++i) {
+              std::uint64_t s = sa[i];
+              if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
+                std::uint64_t block_id = s / max_block_size;
+                writer->write(block_id);
+              }
+            }
+            delete writer;
+          }
+        }
+
+        em_induce_plus_star_suffixes<
+          char_type,
+          text_offset_type,
+          block_offset_type,
+          block_id_type>(
+              text_length,
+              max_block_size,
+              ram_use,
+              block_count_target,
+              plus_pos_filename,
+              plus_count_filename,
+              minus_pos_filename,
+              minus_count_filename,
+              plus_type_filenames,
+              symbols_filenames,
+              total_io_volume);
+
+        utils::file_delete(minus_pos_filename);
+        utils::file_delete(minus_count_filename);
+        for (std::uint64_t i = 0; i < n_blocks; ++i) {
+          if (utils::file_exists(symbols_filenames[i])) utils::file_delete(symbols_filenames[i]);
+          if (utils::file_exists(plus_type_filenames[i])) utils::file_delete(plus_type_filenames[i]);
+        }
+      }
 #endif
     }
 
@@ -292,7 +412,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(1000, max_length);
+    test(5000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
 
