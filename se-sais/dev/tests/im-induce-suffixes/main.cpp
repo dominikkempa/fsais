@@ -77,13 +77,20 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
 
 
-    std::vector<std::string> output_plus_symbols_filenames(n_blocks);
+
+
+
+
+
     std::vector<std::string> output_plus_type_filenames(n_blocks);
-    // missing one here I guess?
-    std::vector<std::string> output_minus_pos_filenames(n_blocks);
     std::vector<std::string> output_minus_type_filenames(n_blocks);
+    std::vector<std::string> output_plus_symbols_filenames(n_blocks);
     std::vector<std::string> output_minus_symbols_filenames(n_blocks);
+    std::vector<std::string> output_plus_pos_filenames(n_blocks);
+    std::vector<std::string> output_minus_pos_filenames(n_blocks);
+
     for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
+      output_plus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
       output_plus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
       output_plus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
       output_minus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
@@ -140,6 +147,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
                         next_block_leftmost_minus_star_plus_rank,
                         text_filename,
                         minus_pos_filenames,
+                        output_plus_pos_filenames,
                         output_plus_symbols_filenames,
                         output_plus_type_filenames,
                         output_minus_pos_filenames,
@@ -163,7 +171,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
 
 
-    // Compre answers.
+
+
+    // Compare answers.
     {
       for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
         std::uint64_t block_id = block_id_plus - 1;
@@ -239,14 +249,24 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
             }
           }
         }
-        std::vector<text_offset_type> minus_pos_correct;
+        std::vector<block_offset_type> minus_pos_correct;
         {
-          // Collect minus star suffixes with the starting position inside current block.
           for (std::uint64_t i = 0; i < text_length; ++i) {
             std::uint64_t s = sa[i];
-            if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1 && block_beg <= s && s < block_end) {
+            if (suf_type[s] == 0 && block_beg <= s && s < block_end) {
               std::uint64_t block_offset = s - block_beg;
               minus_pos_correct.push_back(block_offset);
+            }
+          }
+        }
+        std::vector<block_offset_type> plus_pos_correct;
+        {
+          for (std::uint64_t iplus = text_length; iplus > 0; --iplus) {
+            std::uint64_t i = iplus - 1;
+            std::uint64_t s = sa[i];
+            if (suf_type[s] == 1 && block_beg <= s && s < block_end) {
+              std::uint64_t block_offset = s - block_beg;
+              plus_pos_correct.push_back(block_offset);
             }
           }
         }
@@ -334,7 +354,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           fprintf(stderr, "Error: minus bits are not correct!\n");
           std::exit(EXIT_FAILURE);
         }
-        std::vector<text_offset_type> minus_pos_computed;
+        std::vector<block_offset_type> minus_pos_computed;
         {
           typedef async_stream_reader<block_offset_type> reader_type;
           reader_type *reader = new reader_type(output_minus_pos_filenames[block_id]);
@@ -361,8 +381,28 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           fprintf(stderr, "  block_beg = %lu, block_end = %lu\n", block_beg, block_end);
           std::exit(EXIT_FAILURE);
         }
+        std::vector<block_offset_type> plus_pos_computed;
+        {
+          typedef async_stream_reader<block_offset_type> reader_type;
+          reader_type *reader = new reader_type(output_plus_pos_filenames[block_id]);
+          while (!reader->empty())
+            plus_pos_computed.push_back(reader->read());
+          delete reader;
+        }
+        utils::file_delete(output_plus_pos_filenames[block_id]);
+        if (plus_pos_correct.size() != plus_pos_computed.size() ||
+           !std::equal(plus_pos_correct.begin(), plus_pos_correct.end(), plus_pos_computed.begin())) {
+           fprintf(stderr, "Error: plus pos not correct\n");
+        }
       }
     }
+
+
+
+
+
+
+
 
 
 
@@ -378,6 +418,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(1000, max_length);
+    test(10000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
