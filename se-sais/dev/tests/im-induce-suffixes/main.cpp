@@ -87,6 +87,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
     // Compute minus_pos_filenames. No need to delete -- they will be deleted by the function.
     std::vector<std::string> minus_pos_filenames(n_blocks);
+    std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());
     {
       for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
         minus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
@@ -104,6 +105,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           leftmost_minus_star_in_a_block[block_id] = std::min(leftmost_minus_star_in_a_block[block_id], i - block_beg);
         }
       }
+
+      std::vector<std::uint64_t> items_written_for_block(n_blocks, 0UL);
       for (std::uint64_t i = 0; i < text_length; ++i) {
         std::uint64_t s = sa[i];
         if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
@@ -111,8 +114,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           std::uint64_t block_beg = block_id * max_block_size;
           std::uint64_t block_offset = s - block_beg;
           writers[block_id]->write(block_offset);
+          ++items_written_for_block[block_id];
           if (block_id > 0 && leftmost_minus_star_in_a_block[block_id] == block_offset)
-            writers[block_id - 1]->write(block_offset + max_block_size);
+            next_block_leftmost_minus_star_plus_rank[block_id - 1] = items_written_for_block[block_id - 1];
         }
       }
 
@@ -135,6 +139,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
                       text_alphabet_size,
                       text_length,
                       max_block_size,
+                      next_block_leftmost_minus_star_plus_rank,
                       text_filename,
                       minus_pos_filenames,
                       output_plus_symbols_filenames,
@@ -381,6 +386,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(5000, max_length);
+    test(1000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
