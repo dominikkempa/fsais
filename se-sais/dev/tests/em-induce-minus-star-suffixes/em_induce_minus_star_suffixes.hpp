@@ -25,9 +25,8 @@ template<typename char_type,
   typename block_id_type>
 void em_induce_minus_star_suffixes(
     std::uint64_t text_length,
-    std::uint64_t radix_heap_bufsize,
-    std::uint64_t radix_log,
     std::uint64_t max_block_size,
+    std::uint64_t ram_use,
     std::vector<std::uint64_t> &target_block_count,
     char_type last_text_symbol,
     std::string output_filename,
@@ -40,9 +39,18 @@ void em_induce_minus_star_suffixes(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   // Initialize radix heap.
+  std::vector<std::uint64_t> radix_logs;
+  {
+    std::uint64_t target_sum = 8UL * sizeof(char_type);
+    std::uint64_t cur_sum = 0;
+    while (cur_sum < target_sum) {
+      std::uint64_t radix_log = std::min(10UL, target_sum - cur_sum);
+      radix_logs.push_back(radix_log);
+      cur_sum += radix_log;
+    }
+  }
   typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_log,
-      radix_heap_bufsize, output_filename);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_filename, ram_use);
 
   // Initialize the readers for plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;

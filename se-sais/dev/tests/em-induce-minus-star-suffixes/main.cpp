@@ -27,8 +27,8 @@ void encode_vbyte_to_stream(T x, stream_type *stream) {
   stream->write((std::uint8_t)y);
 }
 
-void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t radix_heap_bufsize, std::uint64_t radix_log) {
-  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu, buffer_size=%lu, radix_log=%lu\n", n_testcases, max_length, radix_heap_bufsize, radix_log);
+void test(std::uint64_t n_testcases, std::uint64_t max_length) {
+  fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
   typedef std::uint8_t char_type;
   typedef std::uint32_t text_offset_type;
@@ -38,6 +38,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
+    if (testid % 10 == 0)
+      fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, 255L);
@@ -202,7 +204,10 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
     // Run the tested algorithm.
     std::string output_filename = "tmp." + utils::random_string_hash();
+
+    std::uint64_t ram_use = utils::random_int64(1L, 1024L);
     std::uint64_t total_io_volume = 0;
+
     char_type last_text_symbol = text[text_length - 1];
     em_induce_minus_star_suffixes<
       char_type,
@@ -210,9 +215,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
       block_offset_type,
       block_id_type>(
         text_length,
-        radix_heap_bufsize,
-        radix_log,
         max_block_size,
+        ram_use,
         target_block_count,
         last_text_symbol,
         output_filename,
@@ -278,11 +282,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length, std::uint64_t rad
 
 int main() {
   srand(time(0) + getpid());
-
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    for (std::uint64_t buffer_size = 1; buffer_size <= /*(1L << 10)*/1; buffer_size *= 2)
-      for (std::uint64_t radix_log = 1; radix_log <= /*5*/1; ++radix_log)
-        test(/*50*/1000, max_length, buffer_size, radix_log);
-
+    test(1000, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
