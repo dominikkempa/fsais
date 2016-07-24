@@ -239,8 +239,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           std::uint64_t cur_block_count = 0;
           for (std::uint64_t i = 0; i < text_length; ++i) {
             std::uint64_t s = sa[i];
-            if (block_beg <= s && s < block_end &&
-                (suf_type[s] == 0 || (s > 0 && suf_type[s - 1] == 0))) {
+//                (suf_type[s] == 0 || (s > 0 && suf_type[s - 1] == 0))) {
+            if (block_beg <= s && s < block_end && (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1)) {
               ++cur_block_count;
               if (s == block_beg) {
                 minus_block_count_target_correct = cur_block_count;
