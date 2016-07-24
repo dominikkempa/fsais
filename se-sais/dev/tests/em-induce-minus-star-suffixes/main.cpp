@@ -72,15 +72,19 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
 
 
-    // Prepare input files.
-    std::vector<std::uint64_t> target_block_count(n_blocks, std::numeric_limits<std::uint64_t>::max());
     std::string plus_count_filename = "tmp." + utils::random_string_hash();
     std::string plus_pos_filename = "tmp." + utils::random_string_hash();
-    std::vector<std::string> symbols_filenames;
-    std::vector<std::string> minus_type_filenames;
-    std::vector<std::string> minus_pos_filenames;
     {
-      // 1
+      {
+        typedef async_stream_writer<block_id_type> writer_type;
+        writer_type *writer = new writer_type(plus_pos_filename);
+        for (std::uint64_t i = text_length; i > 0; --i) {
+          std::uint64_t s = sa[i - 1];
+          if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
+            writer->write(s / max_block_size);
+        }
+        delete writer;
+      }
       {
         typedef async_stream_writer<text_offset_type> writer_type;
         writer_type *writer = new writer_type(plus_count_filename);
@@ -97,7 +101,23 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         }
         delete writer;
       }
-      // 2
+    }
+
+
+
+
+
+
+
+
+
+
+
+    std::vector<std::uint64_t> target_block_count(n_blocks, std::numeric_limits<std::uint64_t>::max());
+    std::vector<std::string> symbols_filenames;
+    std::vector<std::string> minus_type_filenames;
+    std::vector<std::string> minus_pos_filenames;
+    { 
       {
         std::vector<std::uint64_t> block_count(n_blocks, 0UL);
         for (std::uint64_t j = 0; j < text_length; ++j) {
@@ -110,7 +130,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           }
         }
       }
-      // 3
       {
         for (std::uint64_t j = 0; j < n_blocks; ++j)
           symbols_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
@@ -125,7 +144,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
         delete[] writers;
       }
-      // 4
       {
         for (std::uint64_t j = 0; j < n_blocks; ++j)
           minus_type_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
@@ -140,7 +158,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
         delete[] writers;
       }
-      // 5
       {
         for (std::uint64_t j = 0; j < n_blocks; ++j)
           minus_pos_filenames.push_back(std::string("tmp.") + utils::random_string_hash());
@@ -158,17 +175,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         }
         for (std::uint64_t j = 0; j < n_blocks; ++j) delete writers[j];
         delete[] writers;
-      }
-      // 6
-      {
-        typedef async_stream_writer<block_id_type> writer_type;
-        writer_type *writer = new writer_type(plus_pos_filename);
-        for (std::uint64_t i = text_length; i > 0; --i) {
-          std::uint64_t s = sa[i - 1];
-          if (s > 0 && suf_type[s] == 1 && suf_type[s - 1] == 0)
-            writer->write(s / max_block_size);
-        }
-        delete writer;
       }
     }
 
