@@ -45,7 +45,6 @@
 //=============================================================================
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 std::pair<std::uint64_t, bool>
@@ -97,10 +96,6 @@ im_induce_substrings_small_alphabet(
   }
   if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2UL) {
     fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_small_alphabet too small!\n");
-    std::exit(EXIT_FAILURE);
-  }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
-    fprintf(stderr, "\nError: text_offset_type in im_induce_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -536,7 +531,6 @@ im_induce_substrings_small_alphabet(
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 void im_induce_substrings_small_alphabet(
@@ -568,7 +562,6 @@ void im_induce_substrings_small_alphabet(
     std::pair<std::uint64_t, bool > ret;
     ret = im_induce_substrings_small_alphabet<
       char_type,
-      text_offset_type,
       block_offset_type,
       ext_block_offset_type>(
           text_alphabet_size,
@@ -601,7 +594,6 @@ void im_induce_substrings_small_alphabet(
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type>
 void im_induce_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
@@ -617,21 +609,20 @@ void im_induce_substrings_small_alphabet(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (max_block_size < (1UL << 31))
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
+    im_induce_substrings_small_alphabet<char_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else if (max_block_size < (1UL < 39))
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
+    im_induce_substrings_small_alphabet<char_type, block_offset_type, uint40>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
+    im_induce_substrings_small_alphabet<char_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type>
 void im_induce_substrings(
     std::uint64_t text_alphabet_size,
@@ -647,7 +638,7 @@ void im_induce_substrings(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (text_alphabet_size <= 2000000) {
-    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
+    im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   } else {

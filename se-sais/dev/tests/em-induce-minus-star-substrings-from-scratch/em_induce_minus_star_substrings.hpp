@@ -139,7 +139,7 @@ void em_induce_minus_star_substrings_large_alphabet(
   bool was_prev_plus_name = false;
   char_type prev_head_char = 0;
   char_type prev_written_head_char = 0;
-  text_offset_type prev_tail_name = 0;
+  std::uint64_t prev_tail_name = 0;
   std::uint64_t diff_str = 0;
   std::uint64_t cur_symbol = 0;
   std::uint64_t diff_str_snapshot = 0;
@@ -153,7 +153,7 @@ void em_induce_minus_star_substrings_large_alphabet(
     if (cur_symbol == (std::uint64_t)last_text_symbol) {
       char_type head_char = cur_symbol;
       std::uint64_t block_id = (text_length - 1) / max_block_size;
-      text_offset_type tail_name = 0;
+      std::uint64_t tail_name = 0;
       bool is_tail_minus = true;
 
       // Update diff_str.
@@ -192,7 +192,7 @@ void em_induce_minus_star_substrings_large_alphabet(
           }
 
           empty_output = false;
-          text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
+          std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
           output_pos_writer->write(head_pos);
           output_pos_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -208,7 +208,7 @@ void em_induce_minus_star_substrings_large_alphabet(
       std::pair<char_type, ext_pair_type> p = radix_heap->extract_min();
       char_type head_char = cur_symbol;
       std::uint64_t block_id = p.second.first;
-      text_offset_type tail_name = p.second.second;
+      std::uint64_t tail_name = p.second.second;
 
       // Unpack the flag from block_id.
       bool is_tail_minus = false;
@@ -255,7 +255,7 @@ void em_induce_minus_star_substrings_large_alphabet(
           }
 
           empty_output = false;
-          text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
+          std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
           output_pos_writer->write(head_pos);
           output_pos_writer->write(diff_items_written - 1);
           diff_str_snapshot = diff_str;
@@ -591,7 +591,7 @@ void em_induce_minus_star_substrings_small_alphabet(
             }
 
             empty_output = false;
-            text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
+            std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
             output_pos_writer->write(head_pos);
             output_pos_writer->write(diff_items_written - 1);
             cur_substring_name_snapshot = cur_substring_name;
