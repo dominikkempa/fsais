@@ -6,7 +6,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=nat
 all: test
 
 test:
-	$(CC) $(CFLAGS) -o test main.cpp utils.cpp -fopenmp -ldivsufsort
+	$(CC) $(CFLAGS) -o test main.cpp utils.cpp -fopenmp -ldivsufsort -ldivsufsort64
 
 clean:
 	/bin/rm -f *.o

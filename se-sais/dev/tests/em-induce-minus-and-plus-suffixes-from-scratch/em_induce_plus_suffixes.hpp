@@ -22,6 +22,7 @@ template<typename char_type,
   typename block_offset_type,
   typename block_id_type>
 void em_induce_plus_suffixes(
+    std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
@@ -35,6 +36,45 @@ void em_induce_plus_suffixes(
     std::vector<std::string> &plus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "Error: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+  
+  if (n_blocks == 0) {
+    fprintf(stderr, "\nError: n_blocks = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Check that all types are sufficiently large.
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
+    fprintf(stderr, "\nError: char_type in im_induce_minus_and_plus_suffixes too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() < n_blocks - 1) {
+    fprintf(stderr, "\nError: block_id_type in im_induce_minus_and_plus_suffixes_small too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
+    fprintf(stderr, "\nError: block_offset_type in im_induce_minus_and_plus_suffixes too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
+    fprintf(stderr, "\nError: text_offset_type in im_induce_minus_and_plus_suffixes too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -57,7 +97,6 @@ void em_induce_plus_suffixes(
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_pos_filename);
 
   // Initialize readers of data associated with plus suffixes.
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   typedef async_multi_bit_stream_reader plus_type_reader_type;
   typedef async_multi_stream_reader<block_offset_type> plus_pos_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
@@ -103,7 +142,7 @@ void em_induce_plus_suffixes(
       std::uint64_t head_pos = head_pos_block_beg + plus_pos_reader->read_from_ith_file(head_pos_block_id);
       output_pos_writer->write(head_pos);
 
-      std::uint8_t is_head_pos_star = plus_type_reader->read_from_ith_file(head_pos_block_id);
+      bool is_head_pos_star = plus_type_reader->read_from_ith_file(head_pos_block_id);
       output_type_writer->write(is_head_pos_star);
 
       if (!empty_output) {

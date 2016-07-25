@@ -45,7 +45,6 @@
 //=============================================================================
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 std::pair<std::uint64_t, bool>
@@ -73,21 +72,32 @@ im_induce_suffixes_small_alphabet(
   std::uint64_t total_block_size = block_size + next_block_size;
   std::uint64_t io_volume = 0;
 
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "Error: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
     fprintf(stderr, "\nError: char_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
     fprintf(stderr, "\nError: block_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() * 2UL + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2) {
     fprintf(stderr, "\nError: ext_block_offset_type in im_induce_suffixes_small_alphabet too small!\n");
-    std::exit(EXIT_FAILURE);
-  }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
-    fprintf(stderr, "\nError: text_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -546,7 +556,6 @@ im_induce_suffixes_small_alphabet(
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type,
   typename ext_block_offset_type>
 void im_induce_suffixes_small_alphabet(
@@ -580,7 +589,6 @@ void im_induce_suffixes_small_alphabet(
     std::pair<std::uint64_t, bool > ret;
     ret = im_induce_suffixes_small_alphabet<
       char_type,
-      text_offset_type,
       block_offset_type,
       ext_block_offset_type>(
           text_alphabet_size,
@@ -615,7 +623,6 @@ void im_induce_suffixes_small_alphabet(
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type>
 void im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
@@ -633,24 +640,23 @@ void im_induce_suffixes_small_alphabet(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (max_block_size < (1UL << 31))
-    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
+    im_induce_suffixes_small_alphabet<char_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   else if (max_block_size < (1UL < 39))
-    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
+    im_induce_suffixes_small_alphabet<char_type, block_offset_type, uint40>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   else
-    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
+    im_induce_suffixes_small_alphabet<char_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
 }
 
 template<typename char_type,
-  typename text_offset_type,
   typename block_offset_type>
 void im_induce_suffixes(
     std::uint64_t text_alphabet_size,
@@ -668,7 +674,7 @@ void im_induce_suffixes(
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   if (text_alphabet_size <= 2000000) {
-    im_induce_suffixes_small_alphabet<char_type, text_offset_type, block_offset_type>(text_alphabet_size, text_length,
+    im_induce_suffixes_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
