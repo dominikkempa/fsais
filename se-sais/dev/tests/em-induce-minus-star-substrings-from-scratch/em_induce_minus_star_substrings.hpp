@@ -737,11 +737,6 @@ void em_induce_minus_star_substrings(
   fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
   fprintf(stderr, "  block size = %lu (%.2LfMiB)\n", max_block_size, (1.L * max_block_size) / (1L << 20));
 
-
-  char_type last_text_symbol;
-  utils::read_at_offset(&last_text_symbol,
-      text_length - 1, 1, text_filename);
-
   std::vector<std::uint64_t> plus_block_count_targets(n_blocks, 0UL);
   std::vector<std::uint64_t> minus_block_count_targets(n_blocks, 0UL);
   std::vector<std::string> plus_symbols_filenames(n_blocks);
@@ -760,7 +755,6 @@ void em_induce_minus_star_substrings(
   // Internal memory preprocessing of blocks.
   im_induce_substrings<
     char_type,
-    text_offset_type,
     block_offset_type>(
         text_alphabet_size,
         text_length,
@@ -801,6 +795,13 @@ void em_induce_minus_star_substrings(
     if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
     if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
   }
+
+  // Read last symbol of text.
+  char_type last_text_symbol;
+  utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+
+  // Delete the text.
+  utils::file_delete(text_filename);
 
   // Induce minus star substrings.
   em_induce_minus_star_substrings<

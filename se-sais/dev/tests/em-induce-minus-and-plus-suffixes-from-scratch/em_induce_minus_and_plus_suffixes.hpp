@@ -198,7 +198,8 @@ void induce_minus_and_plus_suffixes(
     std::string minus_count_filename,
     std::string output_filename,
     std::vector<std::string> &init_minus_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    std::uint64_t recursion_depth = 0) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   char_type last_text_symbol;
@@ -237,6 +238,10 @@ void induce_minus_and_plus_suffixes(
         minus_symbols_filenames,
         block_count_target,
         total_io_volume);
+
+  // Delete text.
+  if (recursion_depth > 0)
+    utils::file_delete(text_filename);
 
   std::string plus_type_filename = "tmp." + utils::random_string_hash();
   std::string plus_count_filename = "tmp." + utils::random_string_hash();

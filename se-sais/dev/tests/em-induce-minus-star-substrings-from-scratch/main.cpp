@@ -86,7 +86,7 @@ struct substring_cmp {
 void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
-  typedef uint40 char_type;
+  typedef uint24 char_type;
   typedef uint40 text_offset_type;
 
   char_type *text = new char_type[max_length];
@@ -223,7 +223,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     }
 
     utils::file_delete(output_filename);
-    utils::file_delete(text_filename);
   }
 
   delete[] text;
@@ -234,6 +233,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(50, max_length);
+    test(100, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
