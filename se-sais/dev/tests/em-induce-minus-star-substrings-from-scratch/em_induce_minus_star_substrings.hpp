@@ -50,20 +50,35 @@ void em_induce_minus_star_substrings_large_alphabet(
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (n_blocks == 0) {
+    fprintf(stderr, "\nError: n_blocks = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
     fprintf(stderr, "\nError: block_offset_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
     fprintf(stderr, "\nError: text_offset_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() < n_blocks - 1) {
     fprintf(stderr, "\nError: block_id_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() * 2UL + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() < n_blocks / 2UL) {
     fprintf(stderr, "\nError: ext_block_id_type in em_induce_minus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
@@ -150,10 +165,10 @@ void em_induce_minus_star_substrings_large_alphabet(
       was_extract_min = true;
 
       ++block_count[block_id];
-      std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
+      bool head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
       // Watch for the order of minus-substrings with the same name!!!
-      std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
+      bool is_star = minus_type_reader->read_from_ith_file(block_id);
       if (block_id > 0 || head_pos_at_block_beg == false) {
         if (!is_star) {
           char_type prev_char = symbols_reader->read_from_ith_file(block_id);
@@ -211,10 +226,10 @@ void em_induce_minus_star_substrings_large_alphabet(
       was_extract_min = true;
 
       ++block_count[block_id];
-      std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
+      bool head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
       // Watch for the order of minus-substrings with the same name!!!
-      std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
+      bool is_star = minus_type_reader->read_from_ith_file(block_id);
       if (block_id > 0 || head_pos_at_block_beg == false) {
         if (!is_star) {
           char_type prev_char = symbols_reader->read_from_ith_file(block_id);
@@ -261,8 +276,7 @@ void em_induce_minus_star_substrings_large_alphabet(
       // Compute pos_block_id and prev_pos_block_id.
       std::uint64_t pos_block_id = plus_pos_reader->read();
       ++block_count[pos_block_id];
-      std::uint8_t head_pos_at_block_beg =
-        (block_count[pos_block_id] == block_count_target[pos_block_id]);
+      bool head_pos_at_block_beg = (block_count[pos_block_id] == block_count_target[pos_block_id]);
       std::uint64_t prev_pos_block_id = pos_block_id - head_pos_at_block_beg;
 
       // Update current name, compute prev_char, and add item to the heap.
@@ -368,24 +382,45 @@ void em_induce_minus_star_substrings_small_alphabet(
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (n_blocks == 0) {
+    fprintf(stderr, "\nError: n_blocks = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "\nError: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
     fprintf(stderr, "\nError: char_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
     fprintf(stderr, "\nError: block_offset_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
     fprintf(stderr, "\nError: text_offset_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() < n_blocks - 1) {
     fprintf(stderr, "\nError: block_id_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() * 2UL + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() < n_blocks / 2UL) {
     fprintf(stderr, "\nError: ext_block_id_type in em_induce_minus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
@@ -462,11 +497,10 @@ void em_induce_minus_star_substrings_small_alphabet(
         ++current_timestamp;
         was_extract_min = true;
         ++block_count[block_id];
-        std::uint8_t head_pos_at_block_beg =
-          (block_count[block_id] == block_count_target[block_id]);
+        bool head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
         // Watch for the order of minus-substrings with the same name!!!
-        std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
+        bool is_star = minus_type_reader->read_from_ith_file(block_id);
         if (block_id > 0 || head_pos_at_block_beg == false) {
           if (!is_star) {
             char_type prev_char = symbols_reader->read_from_ith_file(block_id);
@@ -522,10 +556,10 @@ void em_induce_minus_star_substrings_small_alphabet(
           ++current_timestamp;
         was_extract_min = true;
         ++block_count[block_id];
-        std::uint8_t head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
+        bool head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
         // Watch for the order of minus-substrings with the same name!!!
-        std::uint8_t is_star = minus_type_reader->read_from_ith_file(block_id);
+        bool is_star = minus_type_reader->read_from_ith_file(block_id);
         if (block_id > 0 || head_pos_at_block_beg == false) {
           if (!is_star) {
             char_type prev_char = symbols_reader->read_from_ith_file(block_id);
@@ -574,8 +608,7 @@ void em_induce_minus_star_substrings_small_alphabet(
       // Compute pos_block_id and prev_pos_block_id.
       std::uint64_t pos_block_id = plus_pos_reader->read();
       ++block_count[pos_block_id];
-      std::uint8_t head_pos_at_block_beg =
-        (block_count[pos_block_id] == block_count_target[pos_block_id]);
+      bool head_pos_at_block_beg = (block_count[pos_block_id] == block_count_target[pos_block_id]);
       std::uint64_t prev_pos_block_id = pos_block_id - head_pos_at_block_beg;
       std::uint64_t heap_value = prev_pos_block_id;
 
@@ -649,14 +682,6 @@ void em_induce_minus_star_substrings_small_alphabet(
     em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(text_length,
         max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
         plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 23))
-//    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, uint24>(text_length,
-//        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-//        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 31))
-//    em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint32_t>(text_length,
-//        max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
-//        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
   else
     em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(text_length,
         max_block_size, text_alphabet_size, ram_use, last_text_symbol, block_count_target, output_pos_filename, plus_pos_filename,
@@ -827,12 +852,6 @@ void em_induce_minus_star_substrings(
   else if (n_blocks < (1UL << 16))
     em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint16_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-//  else if (n_blocks < (1UL << 24))
-//    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, uint24>
-//      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-//  else if (n_blocks < (1UL << 32))
-//    em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint32_t>
-//      (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
   else
     em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint64_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
@@ -854,9 +873,6 @@ void em_induce_minus_star_substrings(
   else if (max_block_size < (1UL << 40))
     em_induce_minus_star_substrings<char_type, text_offset_type, uint40>(text_length,
         text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
-//  else if (max_block_size < (1UL << 48))
-//    em_induce_minus_star_substrings<char_type, text_offset_type, uint48>(text_length,
-//        text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);
   else
     em_induce_minus_star_substrings<char_type, text_offset_type, std::uint64_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, text_filename, output_filename, total_io_volume);

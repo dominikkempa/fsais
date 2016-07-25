@@ -34,7 +34,7 @@ class simple_accessor {
       m_bytes_read = 0;
     }
 
-    inline std::uint8_t access(std::uint64_t i) {
+    inline value_type access(std::uint64_t i) {
       if (!(m_buf_pos <= i && i < m_buf_pos + m_buf_filled)) {
         if (i >= m_items_per_buf / 2) m_buf_pos = i - m_items_per_buf / 2;
         else m_buf_pos = 0;

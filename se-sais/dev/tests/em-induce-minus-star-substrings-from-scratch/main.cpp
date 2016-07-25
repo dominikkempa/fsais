@@ -15,45 +15,91 @@
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
 
+#include "uint24.hpp"
+#include "uint40.hpp"
+#include "uint48.hpp"
 #include "utils.hpp"
 #include "divsufsort.h"
 
 
+template<typename char_type>
+class substr {
+  public:
+    typedef substr<char_type> substr_type;
+
+    substr() {}
+    substr(const char_type *text, std::uint64_t beg, std::uint64_t length, std::uint64_t text_length) {
+      m_beg = beg;
+      m_text_length = text_length;
+      for (std::uint64_t j = 0; j < length; ++j)
+        m_data.push_back(text[beg + j]);
+    }
+
+    inline bool operator < (const substr_type &s) const {
+      std::uint64_t lcp = 0;
+      while (m_beg + lcp < m_text_length && s.m_beg + lcp < m_text_length && m_data[lcp] == s.m_data[lcp]) ++lcp;
+      return (m_beg + lcp == m_text_length || (s.m_beg + lcp < m_text_length && (std::uint64_t)m_data[lcp] < (std::uint64_t)s.m_data[lcp]));
+    }
+
+    std::uint64_t m_beg;
+    std::uint64_t m_text_length;
+    std::vector<char_type> m_data;
+};
+
+template<typename char_type,
+  typename text_offset_type>
+void naive_sufsort(const char_type *text,
+    std::uint64_t text_length,
+    text_offset_type *sa) {
+  typedef substr<char_type> substr_type;
+  std::vector<substr_type> substrings;
+  for (std::uint64_t i = 0; i < text_length; ++i)
+    substrings.push_back(substr_type(text, i, text_length - i, text_length));
+  std::sort(substrings.begin(), substrings.end());
+  for (std::uint64_t i = 0; i < text_length; ++i)
+    sa[i] = substrings[i].m_beg;
+}
+
+template<typename char_type>
 struct substring {
   std::uint64_t m_beg;
-  std::string m_str;
+  std::vector<char_type> m_str;
 
   substring() {}
-  substring(std::uint64_t beg, std::string str) {
+  substring(std::uint64_t beg, std::vector<char_type> &str) {
     m_beg = beg;
     m_str = str;
   }
 };
 
+template<typename char_type>
 struct substring_cmp {
-  inline bool operator() (const substring &a, const substring &b) const {
-    return (a.m_str == b.m_str) ? (a.m_beg < b.m_beg) : (a.m_str < b.m_str);
+  inline bool operator() (const substring<char_type> &a, const substring<char_type> &b) const {
+    std::uint64_t lcp = 0;
+    while (lcp < a.m_str.size() && lcp < b.m_str.size() && a.m_str[lcp] == b.m_str[lcp])
+      ++lcp;
+    if (lcp == a.m_str.size() && lcp == b.m_str.size()) return a.m_beg < b.m_beg;
+    else return (lcp == a.m_str.size() || (lcp < b.m_str.size() && (std::uint64_t)a.m_str[lcp] < (std::uint64_t)b.m_str[lcp]));
   }
 };
 
 void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
-  typedef std::uint32_t text_offset_type;
-  typedef std::uint8_t char_type;
+  typedef uint40 char_type;
+  typedef uint40 text_offset_type;
 
   char_type *text = new char_type[max_length];
   text_offset_type *sa = new text_offset_type[max_length];
   bool *suf_type = new bool[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
-    if (testid % 100 == 0)
-      fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
+    fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
-    std::uint64_t text_alphabet_size = utils::random_int64(1L, 256L);
+    std::uint64_t text_alphabet_size = utils::random_int64(1L, (1L << 18));
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, (std::int64_t)text_alphabet_size - 1);
-    divsufsort(text, (std::int32_t *)sa, text_length);
+    naive_sufsort(text, text_length, sa);
 
     std::string text_filename = "tmp." + utils::random_string_hash();
     utils::write_to_file(text, text_length, text_filename);
@@ -106,19 +152,21 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       {
         std::vector<text_offset_type> v_correct;
         std::vector<text_offset_type> v_correct_names;
-        std::vector<substring> substrings;
+        typedef substring<char_type> substring_type;
+        std::vector<substring_type> substrings;
         {
           for (std::uint64_t j = 0; j < text_length; ++j) {
             if (j > 0 && suf_type[j] == 0 && suf_type[j - 1] == 1) {
-              std::string s; s = text[j];
+              std::vector<char_type> s;
+              s.push_back(text[j]);
               std::uint64_t end = j + 1;
-              while (end < text_length && suf_type[end] == 0) s += text[end++];
-              while (end < text_length && suf_type[end] == 1) s += text[end++];
-              if (end < text_length) s += text[end++];
-              substrings.push_back(substring(j, s));
+              while (end < text_length && suf_type[end] == 0) s.push_back(text[end++]);
+              while (end < text_length && suf_type[end] == 1) s.push_back(text[end++]);
+              if (end < text_length) s.push_back(text[end++]);
+              substrings.push_back(substring_type(j, s));
             }
           }
-          substring_cmp cmp;
+          substring_cmp<char_type> cmp;
           std::sort(substrings.begin(), substrings.end(), cmp);
           std::uint64_t diff_items_counter = 0;
           for (std::uint64_t j = 0; j < substrings.size(); ++j) {
@@ -147,7 +195,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           fprintf(stderr, "\nError:\n");
           fprintf(stderr, "  text: ");
           for (std::uint64_t i = 0; i < text_length; ++i)
-            fprintf(stderr, "%c", text[i]);
+            fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
           fprintf(stderr, "\n");
           fprintf(stderr, "  SA: ");
           for (std::uint64_t i = 0; i < text_length; ++i)
@@ -186,6 +234,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(1000, max_length);
+    test(50, max_length);
   fprintf(stderr, "All tests passed.\n");
 }

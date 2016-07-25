@@ -71,20 +71,35 @@ im_induce_substrings_small_alphabet(
   std::uint64_t total_block_size = block_size + next_block_size;
   std::uint64_t io_volume = 0;
 
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "\nError: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
     fprintf(stderr, "\nError: char_type in im_induce_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
     fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() * 2UL + 1 < max_block_size) {
+  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2UL) {
     fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
     fprintf(stderr, "\nError: text_offset_type in im_induce_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
@@ -175,19 +190,19 @@ im_induce_substrings_small_alphabet(
 
 
 
+  // Determine whether the first position in the block is of minus star type.
+  bool is_first_minus_star = ((block_beg > 0 && (type_bv[0] & 1UL) && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+
 
 
 
   // Find the leftmost minus-star position in the current block.
   std::uint64_t this_block_leftmost_minus_star_plus = 1;  // plus because it's one index past actual position
-  {
-    bool is_first_minus_star = (block_beg > 0 && (type_bv[0] & 1UL) && block_prec_symbol < block[0]);
-    if (!is_first_minus_star) {
-      while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
-            (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) > 0) ++this_block_leftmost_minus_star_plus;
-      while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
-            (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) == 0) ++this_block_leftmost_minus_star_plus;
-    }
+  if (!is_first_minus_star) {
+    while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+          (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) > 0) ++this_block_leftmost_minus_star_plus;
+    while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+          (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) == 0) ++this_block_leftmost_minus_star_plus;
   }
 
 
@@ -241,22 +256,33 @@ im_induce_substrings_small_alphabet(
 
 
 
-  // Add minus suffixes at the beginning of buckets.
+  // Add minus positions at the beginning of buckets.
   std::uint64_t zero_item_pos = total_bucket_size;
-  if (block_beg > 0 && (type_bv[0] & 1UL) > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) {
-    std::uint64_t head_char = block[0];
-    std::uint64_t ptr = bucket_ptr[head_char];
-    zero_item_pos = ptr++;
-    buckets[zero_item_pos] = 1;
-    bucket_ptr[head_char] = ptr;
-  }
-  for (std::uint64_t i = 1; i < lastpos; ++i) {
-    if ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 && (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0) {
+  for (std::uint64_t i = 0; i < block_size; ++i) {
+    bool is_minus_star = false;
+    if (i == 0) is_minus_star = is_first_minus_star;
+    else is_minus_star = ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 &&
+        (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0);
+
+    if (is_minus_star) {
       std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
       std::uint64_t ptr = bucket_ptr[head_char];
-      buckets[ptr++] = i;
+      if (i == 0) {
+        zero_item_pos = ptr++;
+        buckets[zero_item_pos] = 1;
+      } else buckets[ptr++] = i;
       bucket_ptr[head_char] = ptr;
     }
+  }
+
+  // Separatelly handle position lastpos - 1 if it
+  // was in next block and it was minus star.
+  if (lastpos > block_size && is_lastpos_minus) {
+    std::uint64_t i = lastpos - 1;
+    std::uint64_t head_char = text_accessor->access(block_beg + i);
+    std::uint64_t ptr = bucket_ptr[head_char];
+    buckets[ptr++] = i;
+    bucket_ptr[head_char] = ptr;
   }
 
 
@@ -598,10 +624,6 @@ void im_induce_substrings_small_alphabet(
     im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint40>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-//  else if (max_block_size < (1UL < 47))
-//    im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, uint48>(text_alphabet_size, text_length,
-//        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-//        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   else
     im_induce_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,

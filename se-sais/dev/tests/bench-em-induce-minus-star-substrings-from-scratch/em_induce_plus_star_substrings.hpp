@@ -44,16 +44,26 @@ void em_induce_plus_star_substrings_large_alphabet(
   std::uint64_t is_tail_plus_bit = is_head_plus_bit / 2;
   std::uint64_t io_volume = 0;
 
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (n_blocks == 0) {
+    fprintf(stderr, "\nError: n_blocks = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
     fprintf(stderr, "\nError: text_offset_type in em_induce_plus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() < n_blocks - 1) {
     fprintf(stderr, "\nError: block_id_type in em_induce_plus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() * 4UL + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() < (n_blocks + 2) / 4UL) {
     fprintf(stderr, "\nError: extext_block_id_type in em_induce_plus_star_substrings_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
@@ -165,11 +175,11 @@ void em_induce_plus_star_substrings_large_alphabet(
 
     // Update block count.
     ++block_count[block_id];
-    std::uint8_t head_pos_at_block_beg = (block_count[block_id] ==
+    bool head_pos_at_block_beg = (block_count[block_id] ==
         block_count_target[block_id]);
 
     if (is_head_plus) {
-      --head_char;
+      head_char = (std::uint64_t)head_char - 1;
       bool is_diff = false;
       if (was_extract_min) {
         if (!is_prev_head_plus || is_tail_plus != is_prev_tail_plus ||
@@ -222,7 +232,7 @@ void em_induce_plus_star_substrings_large_alphabet(
       char_type prev_char = symbols_reader->read_from_ith_file(block_id);
       std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
       std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
-      radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), ext_pair_type(new_block_id, head_char));
+      radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), ext_pair_type(new_block_id, (std::uint64_t)head_char));
     }
 
     is_prev_head_plus = is_head_plus;
@@ -315,20 +325,35 @@ void em_induce_plus_star_substrings_small_alphabet(
   std::uint64_t is_head_plus_bit = is_diff_bit / 2;
   std::uint64_t io_volume = 0;
 
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (n_blocks == 0) {
+    fprintf(stderr, "\nError: n_blocks = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "\nError: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
   // Check that all types are sufficiently large.
-  if ((std::uint64_t)std::numeric_limits<char_type>::max() + 1 < text_alphabet_size) {
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
     fprintf(stderr, "\nError: char_type in em_induce_plus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() + 1 < text_length) {
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length - 1) {
     fprintf(stderr, "\nError: text_offset_type in em_induce_plus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<block_id_type>::max() < n_blocks - 1) {
     fprintf(stderr, "\nError: block_id_type in em_induce_plus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() * 4UL + 1 < n_blocks) {
+  if ((std::uint64_t)std::numeric_limits<extext_block_id_type>::max() < (n_blocks + 2) / 4UL) {
     fprintf(stderr, "\nError: extext_block_id_type in em_induce_plus_star_substrings_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
@@ -455,11 +480,10 @@ void em_induce_plus_star_substrings_small_alphabet(
 
     // Update block count.
     ++block_count[block_id];
-    std::uint8_t head_pos_at_block_beg =
-      (block_count[block_id] == block_count_target[block_id]);
+    bool head_pos_at_block_beg = (block_count[block_id] == block_count_target[block_id]);
 
     if (is_head_plus) {
-      --head_char;
+      head_char = (std::uint64_t)head_char - 1;
       // Note the +1 below. This is because we want the item in bucket c from the input to be processed.
       // after the items that were inserted in the line below. One way to do this is to insert items from
       // the input with a key decreased by one. Since we might not be able to always decrease, instead
