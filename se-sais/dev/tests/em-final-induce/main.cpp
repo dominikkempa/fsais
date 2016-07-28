@@ -27,7 +27,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   text_offset_type *sa = new text_offset_type[max_length];
 
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
-//    fprintf(stderr, "\n\nNEWTEST:\n");
     if (testid % 10 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
@@ -47,11 +46,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     for (std::uint64_t j = 0; j < text_length; ++j)
       text[j] = utils::random_int64(0L, (std::int64_t)text_alphabet_size - 1);
 #endif
-
-//    fprintf(stderr, "text: ");
-//    for (std::uint64_t i = 0; i < text_length; ++i)
-//      fprintf(stderr, "%lu ", (std::uint64_t)text[i]);
-//    fprintf(stderr, "\n");
 
     std::uint64_t total_io_volume = 0;
     std::uint64_t ram_use = utils::random_int64(1L, 1024L);

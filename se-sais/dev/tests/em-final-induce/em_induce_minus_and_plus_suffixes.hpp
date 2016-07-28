@@ -443,7 +443,6 @@ void em_induce_minus_and_plus_suffixes(
       std::uint64_t head_pos = head_pos_block_beg + minus_pos_reader->read_from_ith_file(head_pos_block_id);
       bool is_head_pos_star = minus_type_reader->read_from_ith_file(head_pos_block_id);
 
-//      output_writer->write(head_pos);
       // XXX add lookup table.
       {
         std::uint64_t output_block_id = 0;
@@ -469,7 +468,6 @@ void em_induce_minus_and_plus_suffixes(
         std::uint64_t head_pos = plus_pos_reader->read();
         std::uint64_t head_pos_uint64 = head_pos;
 
-//        output_writer->write(head_pos);
         // XXX add lookup table.
         {
           std::uint64_t output_block_id = 0;

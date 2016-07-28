@@ -289,12 +289,6 @@ void em_induce_plus_star_substrings_large_alphabet(
   else if (n_blocks < (1UL << 14))
     em_induce_plus_star_substrings_large_alphabet<char_type, text_offset_type, block_id_type, std::uint16_t>(text_length, max_block_size, ram_use, block_count_target,
     text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 22))
-//    em_induce_plus_star_substrings_large_alphabet<char_type, text_offset_type, block_id_type, uint24>(text_length, max_block_size, ram_use, block_count_target,
-//    text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 30))
-//    em_induce_plus_star_substrings_large_alphabet<char_type, text_offset_type, block_id_type, std::uint32_t>(text_length, max_block_size, ram_use, block_count_target,
-//    text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
   else
     em_induce_plus_star_substrings_large_alphabet<char_type, text_offset_type, block_id_type, std::uint64_t>(text_length, max_block_size, ram_use, block_count_target,
     text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
@@ -588,12 +582,6 @@ void em_induce_plus_star_substrings_small_alphabet(
   else if (n_blocks < (1UL << 14))
     em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type, std::uint16_t>(text_length, max_block_size, text_alphabet_size, ram_use,
         block_count_target, text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 22))
-//    em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type, uint24>(text_length, max_block_size, text_alphabet_size, ram_use,
-//        block_count_target, text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
-//  else if (n_blocks < (1UL << 30))
-//    em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type, std::uint32_t>(text_length, max_block_size, text_alphabet_size, ram_use,
-//        block_count_target, text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
   else
     em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type, std::uint64_t>(text_length, max_block_size, text_alphabet_size, ram_use,
         block_count_target, text_filename, output_pos_filename, output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);

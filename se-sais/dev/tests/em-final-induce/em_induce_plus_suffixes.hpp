@@ -36,7 +36,6 @@ void em_induce_plus_suffixes(
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-//  fprintf(stderr, "em_induce_plus_suffixes:\n");
 
   if (text_length == 0) {
     fprintf(stderr, "\nError: text_length = 0\n");
@@ -86,16 +85,13 @@ void em_induce_plus_suffixes(
   typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
   radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_pos_filename, ram_use);
 
-//  fprintf(stderr, "  initialize readers 1\n");
   // Initialize readers of data associated with minus suffixes.
   typedef async_backward_stream_reader<text_offset_type> minus_count_reader_type;
   typedef async_backward_stream_reader<std::uint16_t> minus_pos_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_pos_filename);
-//  fprintf(stderr, "  size(minus_pos_filename) = %lu\n", utils::file_size(minus_pos_filename));
 
   // Initialize readers of data associated with plus suffixes.
-//  fprintf(stderr, "  initialize readers 2\n");
   typedef async_multi_bit_stream_reader plus_type_reader_type;
   typedef async_multi_stream_reader<text_offset_type> plus_pos_reader_type;
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(n_blocks);
@@ -106,14 +102,12 @@ void em_induce_plus_suffixes(
   }
 
   // Initialize the readers of data associated with both types of suffixes.
-//  fprintf(stderr, "  initialize readers 3\n");
   typedef async_multi_stream_reader<char_type> symbols_reader_type;
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writers.
-//  fprintf(stderr, "  initialize writers\n");
   typedef async_stream_writer<text_offset_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -132,7 +126,6 @@ void em_induce_plus_suffixes(
   std::uint64_t prev_written_head_char = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-//  fprintf(stderr, "  about to start, head_char = %lu\n", head_char);
 
   // Induce plus suffixes.
   while (!radix_heap->empty() || !minus_count_reader->empty()) {
@@ -171,7 +164,6 @@ void em_induce_plus_suffixes(
 
     // Process minus suffixes.
     std::uint64_t minus_sufs_count = minus_count_reader->read();
-//    fprintf(stderr, "  minus_sufs_count = %lu\n", minus_sufs_count);
     for (std::uint64_t i = 0; i < minus_sufs_count; ++i) {
       std::uint64_t head_pos_block_id = minus_pos_reader->read();
       ++block_count[head_pos_block_id];
