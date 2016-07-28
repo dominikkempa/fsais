@@ -141,6 +141,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
             leftmost_minus_star_in_a_block[block_id] = std::min(leftmost_minus_star_in_a_block[block_id], i - block_beg);
           }
         }
+#if 0
         std::vector<std::uint64_t> items_written_for_block(n_blocks, 0UL);
         for (std::uint64_t i = 0; i < text_length; ++i) {
           std::uint64_t s = sa[i];
@@ -156,6 +157,29 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
         }
         for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) delete writers[block_id];
         delete[] writers;
+#else
+        std::vector<std::uint64_t> items_written_for_block(n_blocks, 0UL);
+        std::vector<std::uint64_t> block_leftmost_minus_star(n_blocks, std::numeric_limits<std::uint64_t>::max());
+        for (std::uint64_t i = 0; i < text_length; ++i) {
+          std::uint64_t s = sa[i];
+          if (s > 0 && suf_type[s] == 0 && suf_type[s - 1] == 1) {
+            std::uint64_t block_id = s / max_block_size;
+            std::uint64_t block_beg = block_id * max_block_size;
+            std::uint64_t block_offset = s - block_beg;
+            writers[block_id]->write(block_offset);
+            ++items_written_for_block[block_id];
+            if (block_id > 0 && block_offset < block_leftmost_minus_star[block_id]) {
+              block_leftmost_minus_star[block_id] = block_offset;
+              next_block_leftmost_minus_star_plus_rank[block_id - 1] = items_written_for_block[block_id - 1];
+            }
+//            if (block_id > 0 && leftmost_minus_star_in_a_block[block_id] == block_offset)
+//              next_block_leftmost_minus_star_plus_rank[block_id - 1] = items_written_for_block[block_id - 1];
+          }
+        }
+        for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) delete writers[block_id];
+        delete[] writers;
+
+#endif
       }
       {
         typedef async_stream_writer<text_offset_type> writer_type;
