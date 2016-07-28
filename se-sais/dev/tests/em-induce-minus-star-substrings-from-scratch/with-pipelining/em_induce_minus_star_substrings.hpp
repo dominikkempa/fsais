@@ -33,22 +33,23 @@ template<typename char_type,
   typename block_offset_type,
   typename block_id_type,
   typename ext_block_id_type>
-std::uint64_t                                                  // XXX
+std::uint64_t
 em_induce_minus_star_substrings_large_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,                      // XXX
+    std::uint64_t max_permute_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
-//    std::string output_pos_filename,                         // XXX
-    std::vector<std::string> &output_filenames,                // XXX
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
@@ -105,7 +106,7 @@ em_induce_minus_star_substrings_large_alphabet(
   }
   typedef packed_pair<ext_block_id_type, text_offset_type> ext_pair_type;
   typedef em_radix_heap<char_type, ext_pair_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_filenames[0], ram_use);  // XXX XXX XXX
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_use);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
@@ -132,13 +133,13 @@ em_induce_minus_star_substrings_large_alphabet(
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize the output writers.
-//  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
-//  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
-    output_pos_writer->add_file(output_filenames[permute_block_id]);
+    output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
+  typedef async_stream_writer<text_offset_type> output_count_writer_type;
+  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -146,8 +147,8 @@ em_induce_minus_star_substrings_large_alphabet(
   bool is_prev_tail_minus = 0;
   bool is_prev_tail_name_defined = 0;
   bool was_prev_plus_name = false;
-  char_type prev_head_char = 0;
-  char_type prev_written_head_char = 0;
+  std::uint64_t prev_head_char = 0;
+  std::uint64_t prev_written_head_char = 0;
   std::uint64_t prev_tail_name = 0;
   std::uint64_t diff_str = 0;
   std::uint64_t cur_symbol = 0;
@@ -160,7 +161,7 @@ em_induce_minus_star_substrings_large_alphabet(
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Process minus substrings.
     if (cur_symbol == (std::uint64_t)last_text_symbol) {
-      char_type head_char = cur_symbol;
+      std::uint64_t head_char = cur_symbol;
       std::uint64_t block_id = (text_length - 1) / max_block_size;
       std::uint64_t tail_name = 0;
       bool is_tail_minus = true;
@@ -192,24 +193,24 @@ em_induce_minus_star_substrings_large_alphabet(
           if (empty_output == false) {
             if (head_char == prev_written_head_char) ++cur_bucket_size;
             else {
+              output_count_writer->write(cur_bucket_size);
+              for (std::uint64_t ch = prev_written_head_char + 1; ch < head_char; ++ch)
+                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
           } else {
+            for (std::uint64_t ch = 0; ch < head_char; ++ch)
+              output_count_writer->write(0);
             cur_bucket_size = 1;
             prev_written_head_char = head_char;
           }
 
           empty_output = false;
           std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
-#if 0
-          output_pos_writer->write(head_pos);
-          output_pos_writer->write(diff_items_written - 1);
-#else
           std::uint64_t permute_block_id = head_pos / max_permute_block_size;
           output_pos_writer->write_to_ith_file(permute_block_id, head_pos);
           output_pos_writer->write_to_ith_file(permute_block_id, diff_items_written - 1);
-#endif
           diff_str_snapshot = diff_str;
         }
       }
@@ -221,7 +222,7 @@ em_induce_minus_star_substrings_large_alphabet(
     }
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
       std::pair<char_type, ext_pair_type> p = radix_heap->extract_min();
-      char_type head_char = cur_symbol;
+      std::uint64_t head_char = cur_symbol;
       std::uint64_t block_id = p.second.first;
       std::uint64_t tail_name = p.second.second;
 
@@ -261,24 +262,24 @@ em_induce_minus_star_substrings_large_alphabet(
           if (empty_output == false) {
             if (head_char == prev_written_head_char) ++cur_bucket_size;
             else {
+              output_count_writer->write(cur_bucket_size);
+              for (std::uint64_t ch = prev_written_head_char + 1; ch < head_char; ++ch)
+                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
           } else {
+            for (std::uint64_t ch = 0; ch < head_char; ++ch)
+              output_count_writer->write(0);
             cur_bucket_size = 1;
             prev_written_head_char = head_char;
           }
 
           empty_output = false;
           std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
-#if 0
-          output_pos_writer->write(head_pos);
-          output_pos_writer->write(diff_items_written - 1);
-#else
           std::uint64_t permute_block_id = head_pos / max_permute_block_size;
           output_pos_writer->write_to_ith_file(permute_block_id, head_pos);
           output_pos_writer->write_to_ith_file(permute_block_id, diff_items_written - 1);
-#endif
           diff_str_snapshot = diff_str;
         }
       }
@@ -312,12 +313,15 @@ em_induce_minus_star_substrings_large_alphabet(
     ++cur_symbol;
   }
 
+  if (cur_bucket_size > 0)
+    output_count_writer->write(cur_bucket_size);
+
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_pos_reader->bytes_read() +  plus_count_reader->bytes_read() +
     plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
     minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written();
+    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -329,6 +333,7 @@ em_induce_minus_star_substrings_large_alphabet(
   delete minus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
+  delete output_count_writer;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
@@ -341,36 +346,40 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename block_id_type>
-std::uint64_t                                             // XXX
+std::uint64_t
 em_induce_minus_star_substrings_large_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,                 // XXX
+    std::uint64_t max_permute_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
-//    std::string output_pos_filename,                    // XXX
-    std::vector<std::string> &output_filenames,           // XXX
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 7))
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>
-      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
+       output_count_filename, output_pos_filenames, total_io_volume);
   else if (n_blocks < (1UL << 15))
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>
-      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
+       output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>
-      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+      (text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+       plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
+       output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 // TODO: split the ram_use into radix heap and readers
@@ -381,23 +390,24 @@ template<typename char_type,
   typename block_offset_type,
   typename block_id_type,
   typename ext_block_id_type>
-std::uint64_t                                                // XXX
+std::uint64_t
 em_induce_minus_star_substrings_small_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,                    // XXX
+    std::uint64_t max_permute_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
-//    std::string output_pos_filename,                       // XXX
-    std::vector<std::string> &output_filenames,              // XXX
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
@@ -463,7 +473,7 @@ em_induce_minus_star_substrings_small_alphabet(
     }
   }
   typedef em_radix_heap<char_type, ext_block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_filenames[0], ram_use);  // XXX XXX XXX
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_use);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
@@ -490,19 +500,19 @@ em_induce_minus_star_substrings_small_alphabet(
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize the output writers.
-//  typedef async_stream_writer<text_offset_type> output_pos_writer_type;
-//  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename);
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
-    output_pos_writer->add_file(output_filenames[permute_block_id]);
+    output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
+  typedef async_stream_writer<text_offset_type> output_count_writer_type;
+  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
 
   // Induce minus substrings.
   bool empty_output = true;
   bool was_extract_min = false;
   bool was_plus_subtr = false;
-  char_type prev_written_head_char = 0;
+  std::uint64_t prev_written_head_char = 0;
   std::uint64_t cur_symbol = 0;
   std::uint64_t cur_substring_name_snapshot = 0;
   std::uint64_t diff_items_written = 0;
@@ -517,7 +527,7 @@ em_induce_minus_star_substrings_small_alphabet(
     {
       // Simulate extracting last suffix from the heap.
       if (cur_symbol == (std::uint64_t)last_text_symbol) {
-        char_type head_char = cur_symbol;
+        std::uint64_t head_char = cur_symbol;
         std::uint64_t block_id = (text_length - 1) / max_block_size;
         cur_substring_name += was_extract_min;
         ++current_timestamp;
@@ -549,24 +559,24 @@ em_induce_minus_star_substrings_small_alphabet(
             if (empty_output == false) {
               if (head_char == prev_written_head_char) ++cur_bucket_size;
               else {
+                output_count_writer->write(cur_bucket_size);
+                for (std::uint64_t ch = prev_written_head_char + 1; ch < head_char; ++ch)
+                  output_count_writer->write(0);
                 cur_bucket_size = 1;
                 prev_written_head_char = head_char;
               }
             } else {
+              for (std::uint64_t ch = 0; ch < head_char; ++ch)
+                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
 
             empty_output = false;
             text_offset_type head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
-#if 0
-            output_pos_writer->write(head_pos);
-            output_pos_writer->write(diff_items_written - 1);
-#else
             std::uint64_t permute_block_id = head_pos / max_permute_block_size;
             output_pos_writer->write_to_ith_file(permute_block_id, head_pos);
             output_pos_writer->write_to_ith_file(permute_block_id, diff_items_written - 1);
-#endif
             cur_substring_name_snapshot = cur_substring_name;
           }
         }
@@ -575,7 +585,7 @@ em_induce_minus_star_substrings_small_alphabet(
       // Process minus substrings.
       while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
         std::pair<char_type, ext_block_id_type> p = radix_heap->extract_min();
-        char_type head_char = p.first;
+        std::uint64_t head_char = p.first;
         std::uint64_t block_id = p.second;
         bool is_substr_different_from_prev_extracted_from_heap = false;
         if (block_id & msb_bit) {
@@ -614,24 +624,24 @@ em_induce_minus_star_substrings_small_alphabet(
             if (empty_output == false) {
               if (head_char == prev_written_head_char) ++cur_bucket_size;
               else {
+                output_count_writer->write(cur_bucket_size);
+                for (std::uint64_t ch = prev_written_head_char + 1; ch < head_char; ++ch)
+                  output_count_writer->write(0);
                 cur_bucket_size = 1;
                 prev_written_head_char = head_char;
               }
             } else {
+              for (std::uint64_t ch = 0; ch < head_char; ++ch)
+                output_count_writer->write(0);
               cur_bucket_size = 1;
               prev_written_head_char = head_char;
             }
 
             empty_output = false;
             std::uint64_t head_pos = block_id * max_block_size + minus_pos_reader->read_from_ith_file(block_id);
-#if 0
-            output_pos_writer->write(head_pos);
-            output_pos_writer->write(diff_items_written - 1);
-#else
             std::uint64_t permute_block_id = head_pos / max_permute_block_size;
             output_pos_writer->write_to_ith_file(permute_block_id, head_pos);
             output_pos_writer->write_to_ith_file(permute_block_id, diff_items_written - 1);
-#endif
             cur_substring_name_snapshot = cur_substring_name;
           }
         }
@@ -669,12 +679,15 @@ em_induce_minus_star_substrings_small_alphabet(
     ++cur_symbol;
   }
 
+  if (cur_bucket_size > 0)
+    output_count_writer->write(cur_bucket_size);
+
   // Update I/O volume.
   io_volume += radix_heap->io_volume() +
     plus_pos_reader->bytes_read() + plus_count_reader->bytes_read() +
     plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
     minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written();
+    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -686,6 +699,7 @@ em_induce_minus_star_substrings_small_alphabet(
   delete minus_pos_reader;
   delete symbols_reader;
   delete output_pos_writer;
+  delete output_count_writer;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "    time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
@@ -698,86 +712,94 @@ template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename block_id_type>
-std::uint64_t                                          // XXX
+std::uint64_t
 em_induce_minus_star_substrings_small_alphabet(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,              // XXX
+    std::uint64_t max_permute_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
-//    std::string output_pos_filename,                 // XXX
-    std::vector<std::string> &output_filenames,        // XXX
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 7))
-    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>(text_length,
-        max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>(
+        text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else if (n_blocks < (1UL << 15))
-    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(text_length,
-        max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(
+        text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
-    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(text_length,
-        max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(
+        text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename block_id_type>
-std::uint64_t                                                // XXX
+std::uint64_t
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,                    // XXX
+    std::uint64_t max_permute_block_size,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
-//    std::string output_pos_filename,                       // XXX
-    std::vector<std::string> &output_filenames,              // XXX
     std::string plus_pos_filename,
     std::string plus_count_filename,
     std::string plus_diff_filename,
     std::vector<std::string> &minus_type_filenames,
     std::vector<std::string> &minus_pos_filenames,
     std::vector<std::string> &symbols_filenames,
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   // TODO more sophisticated criterion
   if (text_alphabet_size <= 2000000)
-    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(text_length,
-        max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames,
-        plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+    return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
+        text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
-    return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(text_length,
-        max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, output_filenames, plus_pos_filename,
-        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, total_io_volume);
+    return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
+        text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
+        output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
   typename block_id_type>
-std::uint64_t                                       // XXX
+std::uint64_t
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t text_alphabet_size,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,           // XXX
+    std::uint64_t max_permute_block_size,
     std::string text_filename,
-//    std::string output_filename,                  // XXX
-    std::vector<std::string> &output_filenames,     // XXX
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
@@ -794,11 +816,11 @@ em_induce_minus_star_substrings(
   std::vector<std::string> minus_symbols_filenames(n_blocks);
   std::vector<std::string> minus_type_filenames(n_blocks);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
-    plus_symbols_filenames[block_id] = output_filenames[0] + ".tmp" + utils::random_string_hash();  // XXX XXX XXX
-    plus_type_filenames[block_id] = output_filenames[0] + ".tmp" + utils::random_string_hash();     // XXX XXX XXX
-    minus_pos_filenames[block_id] = output_filenames[0] + ".tmp" + utils::random_string_hash();     // XXX XXX XXX
-    minus_symbols_filenames[block_id] = output_filenames[0] + ".tmp" + utils::random_string_hash(); // XXX XXX XXX
-    minus_type_filenames[block_id] = output_filenames[0] + ".tmp" + utils::random_string_hash();    // XXX XXX XXX
+    plus_symbols_filenames[block_id] = tempfile_basename + ".tmp" + utils::random_string_hash();
+    plus_type_filenames[block_id] = tempfile_basename + ".tmp" + utils::random_string_hash();
+    minus_pos_filenames[block_id] = tempfile_basename + ".tmp" + utils::random_string_hash();
+    minus_symbols_filenames[block_id] = tempfile_basename + ".tmp" + utils::random_string_hash();
+    minus_type_filenames[block_id] = tempfile_basename + ".tmp" + utils::random_string_hash();
   }
 
   // Internal memory preprocessing of blocks.
@@ -819,9 +841,9 @@ em_induce_minus_star_substrings(
         total_io_volume);
 
   // Induce plus star substrings.
-  std::string plus_count_filename = output_filenames[0] + ".tmp" + utils::random_string_hash();  // XXX XXX XXX
-  std::string plus_pos_filename = output_filenames[0] + ".tmp" + utils::random_string_hash();    // XXX XXX XXX
-  std::string plus_diff_filename = output_filenames[0] + ".tmp" + utils::random_string_hash();   // XXX XXX XXX
+  std::string plus_count_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
+  std::string plus_pos_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
+  std::string plus_diff_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
   em_induce_plus_star_substrings<
     char_type,
     text_offset_type,
@@ -849,9 +871,6 @@ em_induce_minus_star_substrings(
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
 
-  // Delete the text.
-  utils::file_delete(text_filename);
-
   // Induce minus star substrings.
   std::uint64_t n_names = em_induce_minus_star_substrings<
     char_type,
@@ -865,13 +884,15 @@ em_induce_minus_star_substrings(
       max_permute_block_size,
       last_text_symbol,
       minus_block_count_targets,
-      output_filenames,
       plus_pos_filename,
       plus_count_filename,
       plus_diff_filename,
       minus_type_filenames,
       minus_pos_filenames,
       minus_symbols_filenames,
+      tempfile_basename,
+      output_count_filename,
+      output_pos_filenames,
       total_io_volume);
 
   // Delete input files.
@@ -890,70 +911,73 @@ em_induce_minus_star_substrings(
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type>
-std::uint64_t                                    // XXX
+std::uint64_t
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t text_alphabet_size,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,        // XXX
+    std::uint64_t max_permute_block_size,
     std::string text_filename,
-//    std::string output_filename,               // XXX
-    std::vector<std::string> &output_filenames,  // XXX
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8))
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint8_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       output_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else if (n_blocks < (1UL << 16))
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint16_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       output_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint64_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       output_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type>
-std::uint64_t                                    // XXX
+std::uint64_t
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t text_alphabet_size,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,        // XXX
+    std::uint64_t max_permute_block_size,
     std::string text_filename,
-//    std::string output_filename,               // XXX
-    std::vector<std::string> &output_filenames,  // XXX
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   if (max_block_size < (1UL << 32))
     return em_induce_minus_star_substrings<char_type, text_offset_type, std::uint32_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        output_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else if (max_block_size < (1UL << 40))
     return em_induce_minus_star_substrings<char_type, text_offset_type, uint40>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        output_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings<char_type, text_offset_type, std::uint64_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        output_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type>
-std::uint64_t                                      // XXX
+std::uint64_t
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,          // XXX
+    std::uint64_t max_permute_block_size,
     std::string text_filename,
-//    std::string output_filename,                 // XXX
-    std::vector<std::uint64_t> &output_filenames,  // XXX
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::uint64_t> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   // Binary search for the largest block size that
   // can be processed using the given ram_budget.
@@ -983,24 +1007,27 @@ em_induce_minus_star_substrings(
   }
 
   std::uint64_t max_block_size = low;
-  return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
-      max_block_size, ram_use, max_permute_block_size, text_filename, output_filenames, total_io_volume);
+  return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
+      text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
+      tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 template<typename char_type,
   typename text_offset_type>
-std::uint64_t  // return the number of different names. // XXX
+std::uint64_t  // return the number of different names
 em_induce_minus_star_substrings(
     std::uint64_t text_length,
     std::uint64_t ram_use,
-    std::uint64_t max_permute_block_size,               // XXX
+    std::uint64_t max_permute_block_size,
     std::string text_filename,
-//    std::string output_filename,                      // XXX
-    std::vector<std::string> &output_filenames,         // XXX
+    std::string tempfile_basename,
+    std::string output_count_filename,
+    std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t text_alphabet_size = (std::uint64_t)std::numeric_limits<char_type>::max() + 1;
-  return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
-      ram_use, max_permute_block_size, text_filename, output_filenames, total_io_volume);
+  return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
+      text_alphabet_size, ram_use, max_permute_block_size, text_filename, tempfile_basename,
+      output_count_filename, output_pos_filenames, total_io_volume);
 }
 
 

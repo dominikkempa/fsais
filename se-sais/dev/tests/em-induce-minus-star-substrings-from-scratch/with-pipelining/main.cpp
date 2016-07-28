@@ -119,9 +119,12 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
       n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
     } while (n_permute_blocks > (1UL << 16));
 
-    std::vector<std::string> output_filenames(n_permute_blocks);
+
+    std::vector<std::string> output_pos_filenames(n_permute_blocks);
     for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
-      output_filenames[permute_block_id] = std::string("tmp.") + utils::random_string_hash();
+      output_pos_filenames[permute_block_id] = std::string("tmp.") + utils::random_string_hash();
+    std::string tempfile_basename = "tmp";
+    std::string output_count_filename = "tmp." + utils::random_string_hash();
 
     std::uint64_t ram_use = utils::random_int64(1L, 1024L);
     std::uint64_t io_volume = 0;
@@ -143,7 +146,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           ram_use,
           max_permute_block_size,
           text_filename,
-          output_filenames,
+          tempfile_basename,
+          output_count_filename,
+          output_pos_filenames,
           io_volume);
 
     // Restore stderr.
@@ -201,12 +206,56 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           fprintf(stderr, "  n_names(computed) = %lu\n", n_names);
           std::exit(EXIT_FAILURE);
         }
+        
+        std::vector<std::pair<std::uint64_t, std::uint64_t> > v_computed_count;
+        {
+          typedef async_stream_reader<text_offset_type> reader_type;
+          reader_type *reader = new reader_type(output_count_filename);
+          std::uint64_t cur_sym = 0;
+          while (reader->empty() == false) {
+            std::uint64_t count = reader->read();
+            if (count > 0)
+              v_computed_count.push_back(std::make_pair(cur_sym, count));
+            ++cur_sym;
+          }
+          delete reader;
+        }
+
+        std::vector<std::pair<std::uint64_t, std::uint64_t> > v_correct_count;
+        {
+          std::map<std::uint64_t, std::uint64_t> m;
+          for (std::uint64_t j = 0; j < text_length; ++j) {
+            std::uint64_t s = sa[j];
+            if (suf_type[s] == 0 && s > 0 && suf_type[s - 1] == 1)
+              m[text[s]] += 1;
+          }
+          for (std::map<std::uint64_t, std::uint64_t>::iterator it = m.begin(); it != m.end(); ++it)
+            v_correct_count.push_back(std::make_pair(it->first, it->second));
+        }
+
+        if (v_computed_count.size() != v_correct_count.size() ||
+            std::equal(v_computed_count.begin(), v_computed_count.end(), v_correct_count.begin()) == false) {
+          fprintf(stderr, "Error: counts do not match!\n");
+          fprintf(stderr, "  text = ");
+          for (std::uint64_t j = 0; j < text_length; ++j)
+            fprintf(stderr, "%lu ", (std::uint64_t)text[j]);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  v_computed_count: ");
+          for (std::uint64_t j = 0; j < v_computed_count.size(); ++j)
+            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_computed_count[j].first, (std::uint64_t)v_computed_count[j].second);
+          fprintf(stderr, "\n");
+          fprintf(stderr, "  v_correct_count: ");
+          for (std::uint64_t j = 0; j < v_correct_count.size(); ++j)
+            fprintf(stderr, "(%lu, %lu) ", (std::uint64_t)v_correct_count[j].first, (std::uint64_t)v_correct_count[j].second);
+          fprintf(stderr, "\n");
+          std::exit(EXIT_FAILURE);
+        }
 
         for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id) {
           std::vector<pair_type> v_computed;
           {
             typedef async_stream_reader<text_offset_type> reader_type;
-            reader_type *reader = new reader_type(output_filenames[permute_block_id]);
+            reader_type *reader = new reader_type(output_pos_filenames[permute_block_id]);
             while (!reader->empty()) {
               text_offset_type pos = reader->read();
               text_offset_type name = reader->read();
@@ -230,7 +279,9 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     }
 
     for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
-      utils::file_delete(output_filenames[permute_block_id]);
+      utils::file_delete(output_pos_filenames[permute_block_id]);
+    utils::file_delete(text_filename);
+    utils::file_delete(output_count_filename);
   }
 
   delete[] text;
@@ -241,6 +292,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 14); max_length *= 2)
-    test(200, max_length);
+    test(100, max_length);
   fprintf(stderr, "All tests passed.\n");
 }
