@@ -20,8 +20,8 @@
 void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   fprintf(stderr, "TEST, n_testcases=%lu, max_length=%lu\n", n_testcases, max_length);
 
-  typedef std::uint8_t char_type;
-  typedef uint40 text_offset_type;
+  typedef uint24 char_type;
+  typedef uint48 text_offset_type;
 
   char_type *text = new char_type[max_length];
   text_offset_type *sa = new text_offset_type[max_length];
@@ -32,20 +32,14 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     std::uint64_t text_length = utils::random_int64(1L, (std::int64_t)max_length);
 
     // Generate text.
-#if 1
     if (utils::random_int64(0L, 1L)) {
       for (std::uint64_t j = 0; j < text_length; ++j)
-        text[j] = utils::random_int64(0L, 255L);
+        text[j] = utils::random_int64(0L, (1L << /*8*/10) - 1);
     } else {
       for (std::uint64_t j = 0; j < text_length; ++j)
         text[j] = 'a' + utils::random_int64(0L, 5L);
     }
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
-#else
-    std::uint64_t text_alphabet_size = utils::random_int64(1L, (1UL << 8));
-    for (std::uint64_t j = 0; j < text_length; ++j)
-      text[j] = utils::random_int64(0L, (std::int64_t)text_alphabet_size - 1);
-#endif
 
     std::uint64_t total_io_volume = 0;
     std::uint64_t ram_use = utils::random_int64(1L, 1024L);

@@ -77,7 +77,7 @@ std::uint64_t create_recursive_text(
       for (std::uint64_t i = 0; i < permute_block_size; ++i) {
         if (used_bv[i >> 6] & (1UL << (i & 63))) {
           pos_writer->write(i);
-          text_writer->write(names[i]);
+          text_writer->write((std::uint64_t)names[i]);
           ++new_text_length;
         }
       }
@@ -298,6 +298,10 @@ void compute_sa(
 #if 0
   std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
+  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
+    fprintf(stderr, "\nError: insufficient RAM\n");
+    std::exit(EXIT_FAILURE);
+  }
   std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
   std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -340,10 +344,78 @@ void compute_sa(
     lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
   }
 
-  //if (n_names < (1UL << 16))
+  if (n_names < (1UL << 16))
   {
-    //typedef std::uint64_t recursive_char_type;
+    typedef std::uint16_t recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else if (n_names < (1UL << 24)) {
+    typedef uint24 recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else if (n_names < (1UL << 32)) {
     typedef std::uint32_t recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else {
+    typedef std::uint64_t recursive_char_type;
 
     // Permute substrings of the normal string from lex to text order
     // and at the same time create the recursive string
@@ -405,6 +477,10 @@ void em_compute_sa(
 #if 0
   std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
+  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
+    fprintf(stderr, "\nError: insufficient RAM\n");
+    std::exit(EXIT_FAILURE);
+  }
   std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
   std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
@@ -447,10 +523,77 @@ void em_compute_sa(
     lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id] = output_filename + "tmp." + utils::random_string_hash();
   }
 
-  //if (n_names < (1UL << 16))
-  {
-    //typedef std::uint64_t recursive_char_type;
+  if (n_names < (1UL << 16)) {
+    typedef std::uint16_t recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else if (n_names < (1UL << 24)) {
+    typedef uint24 recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else if (n_names < (1UL << 32)) {
     typedef std::uint32_t recursive_char_type;
+
+    // Permute substrings of the normal string from lex to text order
+    // and at the same time create the recursive string
+    std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
+    std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
+        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
+
+    // Sort suffixes of the recursive string. The output is distributed
+    // into permute blocks and also a sequence of permute block IDs
+    // This function should delete the recursive_text upon exit.
+    if (new_text_length <= 1)
+      temp_compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+    else
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+        ram_use, n_names, block_count, output_filename, recursive_text_filename,
+        lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+  } else {
+    typedef std::uint64_t recursive_char_type;
 
     // Permute substrings of the normal string from lex to text order
     // and at the same time create the recursive string
