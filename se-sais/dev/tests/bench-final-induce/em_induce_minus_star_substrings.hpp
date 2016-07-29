@@ -780,7 +780,7 @@ em_induce_minus_star_substrings(
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   // TODO more sophisticated criterion
-  if (text_alphabet_size <= 30000000)  // XXX
+  if (text_alphabet_size <= 100000000)  // XXX
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
         text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,

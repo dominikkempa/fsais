@@ -637,7 +637,7 @@ void im_induce_substrings(
     std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (text_alphabet_size <= 30000000) {  // XXX
+  if (text_alphabet_size <= 100000000) {  // XXX
     im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);

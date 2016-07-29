@@ -605,7 +605,7 @@ void em_induce_plus_star_substrings(
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
   // TODO more sophisticated criterion
-  if (text_alphabet_size <= 30000000)  // XXX
+  if (text_alphabet_size <= 100000000)  // XXX
     em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type>(text_length,
         max_block_size, text_alphabet_size, ram_use, block_count_target, text_filename, output_pos_filename,
         output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);

@@ -141,7 +141,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   // Allocate array with positions of minus star suffixes for normal string.
   text_offset_type *text_sorted_suffixes_for_normal_string = new text_offset_type[max_permute_block_size];
 
-#if 1  // debug
+#if 0  // debug
   std::uint64_t bufsize = utils::random_int64(1L, 20L);
   std::uint64_t *inbuf = new std::uint64_t[bufsize];
   text_offset_type *outbuf = new text_offset_type[bufsize];
