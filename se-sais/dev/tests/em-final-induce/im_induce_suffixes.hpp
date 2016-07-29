@@ -67,8 +67,8 @@ im_induce_suffixes_small_alphabet(
   std::uint64_t total_block_size = block_size + next_block_size;
   std::uint64_t io_volume = 0;
 
-  if (text_length == 0) {
-    fprintf(stderr, "\nError: text_length = 0\n");
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "\nError: text_alphabet_size = 0\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -77,8 +77,8 @@ im_induce_suffixes_small_alphabet(
     std::exit(EXIT_FAILURE);
   }
 
-  if (text_alphabet_size == 0) {
-    fprintf(stderr, "Error: text_alphabet_size = 0\n");
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -314,13 +314,14 @@ im_induce_suffixes_small_alphabet(
 
 
 
-  std::uint64_t local_minus_block_count_target = 0;
-  bool seen_block_beg = false;
+
 
 
 
 
   // Induce plus suffixes.
+  std::uint64_t local_minus_block_count_target = 0;
+  bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
@@ -397,7 +398,6 @@ im_induce_suffixes_small_alphabet(
   }
   if (!seen_block_beg)
     local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
-
 
 
 
@@ -627,7 +627,7 @@ void im_induce_suffixes(
     std::vector<std::string> &output_minus_symbols_filenames,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (text_alphabet_size <= 30000000) {  // XXX
+  if (text_alphabet_size <= 100000000) {  // XXX
     im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,

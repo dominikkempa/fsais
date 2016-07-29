@@ -203,6 +203,9 @@ im_induce_substrings_small_alphabet(
 
 
 
+
+
+
   // Compute bucket sizes.
   ext_block_offset_type *bucket_ptr = new ext_block_offset_type[text_alphabet_size];
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
