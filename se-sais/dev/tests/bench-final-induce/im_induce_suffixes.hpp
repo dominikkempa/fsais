@@ -627,7 +627,7 @@ void im_induce_suffixes(
     std::vector<std::string> &output_minus_symbols_filenames,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (text_alphabet_size <= 2000000) {
+  if (text_alphabet_size <= 30000000) {  // XXX
     im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,

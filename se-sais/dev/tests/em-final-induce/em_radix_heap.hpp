@@ -301,11 +301,13 @@ class em_queue {
     }
 
     void reset_file() {
-      std::fclose(m_file);
-      utils::file_delete(m_filename);
-      m_file = utils::file_open(m_filename, "a+");
-      m_file_size = 0;
-      m_file_head = 0;
+      if (m_file_size > 0) {
+        std::fclose(m_file);
+        utils::file_delete(m_filename);
+        m_file = utils::file_open(m_filename, "a+");
+        m_file_size = 0;
+        m_file_head = 0;
+      }
     }
 
     void reset_buffers() {
@@ -726,14 +728,6 @@ class em_radix_heap {
         // operation on one of the queues we check, whether m_full_ram_queues
         // just became non-empty, and if yes, the push returns true, which
         // causes the update of m_get_empty_ram_queue_ptr.
-
-        for (std::uint64_t j = m_get_empty_ram_queue_ptr + 1; j < m_em_queue_count; ++j) {
-          if (m_queues[j]->full_ram_queue_available()) {
-            fprintf(stderr, "\nError: m_get_empty_ram_queue_ptr incorrect!\n");
-            std::exit(EXIT_FAILURE);
-          }
-        }
-
         while (!m_queues[m_get_empty_ram_queue_ptr]->full_ram_queue_available())
           --m_get_empty_ram_queue_ptr;
         m_empty_ram_queues.push_back(m_queues[m_get_empty_ram_queue_ptr]->flush_front_ram_queue());

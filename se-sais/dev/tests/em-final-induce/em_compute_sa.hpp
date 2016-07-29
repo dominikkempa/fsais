@@ -35,6 +35,9 @@ std::uint64_t create_recursive_text(
   std::uint64_t io_volume = 0;
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size; 
 
+  fprintf(stderr, "Create recursive text: ");
+  long double start = utils::wclock();
+
   // Allocate array with names and `used' bitvector.
   std::uint64_t used_bv_size = (max_permute_block_size + 63) / 64;
   std::uint64_t *used_bv = new std::uint64_t[used_bv_size];
@@ -100,6 +103,11 @@ std::uint64_t create_recursive_text(
   delete[] used_bv;
   delete[] names;
 
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
+
   // Return result.
   return new_text_length;
 }
@@ -122,6 +130,9 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
+
+  fprintf(stderr, "Permute minus star suffixes from text to lex order: ");
+  long double start = utils::wclock();
 
   std::vector<std::string> temp_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
@@ -183,7 +194,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   // Initialize the writer of lex sorted minus star suffixes of normal string (distributed into blocks of size max_block_size).
   typedef async_multi_stream_writer<text_offset_type> lex_sorted_minus_star_suffixes_for_normal_string_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_writer
-    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type(n_blocks);
+    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type();
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     std::string filename = lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id];
     lex_sorted_minus_star_suffixes_for_normal_string_writer->add_file(filename);
@@ -228,6 +239,11 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   utils::file_delete(lex_sorted_suffixes_for_recursive_string_block_ids_filename);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     utils::file_delete(temp_filenames[permute_block_id]);
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
 }
 
 template<typename char_type,
@@ -253,7 +269,7 @@ void temp_compute_sa(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(n_permute_blocks);
+  pos_writer_type *pos_writer = new pos_writer_type();
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     pos_writer->add_file(lex_sorted_suffixes_filenames[permute_block_id]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
@@ -294,7 +310,8 @@ void compute_sa(
     std::string text_filename,
     std::string input_lex_sorted_suffixes_block_ids_filename,
     std::vector<std::string> &input_lex_sorted_suffixes_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    std::uint64_t recursion_level = 1) {
 #if 0
   std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
@@ -320,6 +337,12 @@ void compute_sa(
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
 #endif
+
+  fprintf(stderr, "=== Entering recursion level %lu ===\n", recursion_level);
+  fprintf(stderr, "Text length = %lu\n", text_length);
+  fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "Max block size = %lu\n", max_block_size);
+  fprintf(stderr, "sizeof(char_type) = %lu\n", sizeof(char_type));
 
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
@@ -367,7 +390,8 @@ void compute_sa(
       compute_sa<recursive_char_type, text_offset_type>(new_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
-        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
+        recursion_level + 1);
   } else if (n_names < (1UL << 24)) {
     typedef uint24 recursive_char_type;
 
@@ -390,7 +414,8 @@ void compute_sa(
       compute_sa<recursive_char_type, text_offset_type>(new_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
-        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
+        recursion_level + 1);
   } else if (n_names < (1UL << 32)) {
     typedef std::uint32_t recursive_char_type;
 
@@ -413,7 +438,8 @@ void compute_sa(
       compute_sa<recursive_char_type, text_offset_type>(new_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
-        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
+        recursion_level + 1);
   } else {
     typedef std::uint64_t recursive_char_type;
 
@@ -436,7 +462,8 @@ void compute_sa(
       compute_sa<recursive_char_type, text_offset_type>(new_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
-        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
+        lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
+        recursion_level + 1);
   }
 
   // Note: text sorted minus star substrings for normal text is
@@ -463,6 +490,8 @@ void compute_sa(
       minus_star_suffixes_count_filename, lex_sorted_minus_star_suffixes_for_normal_string_filenames,
       input_block_count, input_lex_sorted_suffixes_block_ids_filename,
       input_lex_sorted_suffixes_filenames, total_io_volume);
+
+  fprintf(stderr, "=== Exiting recursion level %lu ==\n", recursion_level);
 }
 
 template<typename char_type,
@@ -499,6 +528,16 @@ void em_compute_sa(
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
 #endif
+
+  fprintf(stderr, "Text length = %lu\n", text_length);
+  fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "Text filename = %s\n", text_filename.c_str());
+  fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
+  fprintf(stderr, "RAM use = %lu (%.2LfMiB)\n", ram_use, (1.L * ram_use) / (1L << 20));
+  fprintf(stderr, "Max block size = %lu\n", max_block_size);
+  fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
+
+  long double start = utils::wclock();
 
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
@@ -641,6 +680,13 @@ void em_compute_sa(
       minus_star_suffixes_count_filename, output_filename,
       lex_sorted_minus_star_suffixes_for_normal_string_filenames,
       total_io_volume);
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "\n\nComputation finished. Summary:\n");
+  fprintf(stderr, "  Total time = %.2Lfs\n", total_time);
+  fprintf(stderr, "  Relative runtime = %.2Lfs/MiB\n", (1.L * total_time) / (text_length / (1L << 20)));
+  fprintf(stderr, "  I/O volume = %.2Lfn bytes\n", (1.L * total_io_volume) / text_length);
 }
 
 #endif  // __EM_COMPUTE_SA_HPP_INCULUDED

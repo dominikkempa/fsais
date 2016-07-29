@@ -185,6 +185,7 @@ void em_induce_minus_and_plus_suffixes(
   delete symbols_reader;
   delete output_writer;
 
+  // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
@@ -208,6 +209,8 @@ void induce_minus_and_plus_suffixes(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   fprintf(stderr, "EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "  sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
@@ -221,12 +224,12 @@ void induce_minus_and_plus_suffixes(
   std::vector<std::string> minus_pos_filenames(n_blocks);
   std::vector<std::uint64_t> block_count_target(n_blocks, std::numeric_limits<std::uint64_t>::max());
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
-    plus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
-    plus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
-    plus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
+    plus_pos_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
+    plus_symbols_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
+    plus_type_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
+    minus_pos_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
+    minus_type_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
+    minus_symbols_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
   }
 
   im_induce_suffixes_small_alphabet<
@@ -247,9 +250,9 @@ void induce_minus_and_plus_suffixes(
         block_count_target,
         total_io_volume);
 
-  std::string plus_type_filename = "tmp." + utils::random_string_hash();
-  std::string plus_count_filename = "tmp." + utils::random_string_hash();
-  std::string plus_pos_filename = "tmp." + utils::random_string_hash();
+  std::string plus_type_filename = output_filename + "tmp." + utils::random_string_hash();
+  std::string plus_count_filename = output_filename + "tmp." + utils::random_string_hash();
+  std::string plus_pos_filename = output_filename + "tmp." + utils::random_string_hash();
 
   em_induce_plus_suffixes<
     char_type,
@@ -440,7 +443,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Initialize output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(block_count.size());
+  pos_writer_type *pos_writer = new pos_writer_type();
   for (std::uint64_t i = 0; i < block_count.size(); ++i)
     pos_writer->add_file(input_lex_sorted_suffixes_filenames[i]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
@@ -527,6 +530,7 @@ void em_induce_minus_and_plus_suffixes(
   delete block_id_writer;
   delete pos_writer;
 
+  // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
@@ -554,6 +558,8 @@ void induce_minus_and_plus_suffixes(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   fprintf(stderr, "EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "  sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
@@ -567,12 +573,12 @@ void induce_minus_and_plus_suffixes(
   std::vector<std::string> minus_pos_filenames(n_blocks);
   std::vector<std::uint64_t> block_count_target(n_blocks, std::numeric_limits<std::uint64_t>::max());
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
-    plus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
-    plus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
-    plus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_pos_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_type_filenames[block_id] = "tmp." + utils::random_string_hash();
-    minus_symbols_filenames[block_id] = "tmp." + utils::random_string_hash();
+    plus_pos_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
+    plus_symbols_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
+    plus_type_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
+    minus_pos_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
+    minus_type_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
+    minus_symbols_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
   }
 
   im_induce_suffixes_small_alphabet<
@@ -595,9 +601,9 @@ void induce_minus_and_plus_suffixes(
 
   utils::file_delete(text_filename);
 
-  std::string plus_type_filename = "tmp." + utils::random_string_hash();
-  std::string plus_count_filename = "tmp." + utils::random_string_hash();
-  std::string plus_pos_filename = "tmp." + utils::random_string_hash();
+  std::string plus_type_filename = tempfile_basename + "tmp." + utils::random_string_hash();
+  std::string plus_count_filename = tempfile_basename + "tmp." + utils::random_string_hash();
+  std::string plus_pos_filename = tempfile_basename + "tmp." + utils::random_string_hash();
 
   em_induce_plus_suffixes<
     char_type,

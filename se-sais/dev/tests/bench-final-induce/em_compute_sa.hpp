@@ -103,7 +103,7 @@ std::uint64_t create_recursive_text(
   delete[] used_bv;
   delete[] names;
 
-  // print summary.
+  // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
       (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
@@ -194,7 +194,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   // Initialize the writer of lex sorted minus star suffixes of normal string (distributed into blocks of size max_block_size).
   typedef async_multi_stream_writer<text_offset_type> lex_sorted_minus_star_suffixes_for_normal_string_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_writer
-    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type(n_blocks);
+    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type();
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     std::string filename = lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id];
     lex_sorted_minus_star_suffixes_for_normal_string_writer->add_file(filename);
@@ -240,9 +240,9 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     utils::file_delete(temp_filenames[permute_block_id]);
 
-  // print summary.
+  // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/I = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
       (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
 }
 
@@ -269,7 +269,7 @@ void temp_compute_sa(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(n_permute_blocks);
+  pos_writer_type *pos_writer = new pos_writer_type();
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     pos_writer->add_file(lex_sorted_suffixes_filenames[permute_block_id]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;

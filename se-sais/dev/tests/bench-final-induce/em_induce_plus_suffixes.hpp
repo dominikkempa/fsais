@@ -206,6 +206,7 @@ void em_induce_plus_suffixes(
   delete output_type_writer;
   delete output_count_writer;
 
+  // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);

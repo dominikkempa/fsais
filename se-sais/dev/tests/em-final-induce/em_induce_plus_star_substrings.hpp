@@ -428,8 +428,8 @@ void em_induce_plus_star_substrings_small_alphabet(
     delete reader;
   }
 
-  char_type prev_head_char = 0;
-  char_type prev_written_head_char = 0;
+  std::uint64_t prev_head_char = 0;
+  std::uint64_t prev_written_head_char = 0;
   bool empty_output = true;
   bool was_extract_min = false;
   bool was_prev_head_minus = false;
@@ -439,10 +439,11 @@ void em_induce_plus_star_substrings_small_alphabet(
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
   std::vector<text_offset_type> symbol_timestamps(text_alphabet_size, (text_offset_type)0);
+  std::uint64_t max_char = (std::uint64_t)std::numeric_limits<char_type>::max();
 
   while (!radix_heap->empty()) {
     std::pair<char_type, extext_block_id_type> p = radix_heap->extract_min();
-    char_type head_char = std::numeric_limits<char_type>::max() - p.first;
+    std::uint64_t head_char = max_char - (std::uint64_t)p.first;
     std::uint64_t block_id = p.second;
 
     // Unpack flags from block id.
@@ -512,21 +513,21 @@ void em_induce_plus_star_substrings_small_alphabet(
         empty_output = false;
         cur_substring_name_snapshot = cur_substring_name;
       } else if (block_id > 0 || head_pos_at_block_beg == false) {
-        char_type prev_char = symbols_reader->read_from_ith_file(block_id);
+        std::uint64_t prev_char = symbols_reader->read_from_ith_file(block_id);
         std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
         std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
         if ((std::uint64_t)symbol_timestamps[prev_char] != current_timestamp)
           new_block_id |= is_diff_bit;
-        radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), new_block_id);
+        radix_heap->push(max_char - (prev_char + 1), new_block_id);
         symbol_timestamps[prev_char] = current_timestamp;
       }
     } else {
-      char_type prev_char = symbols_reader->read_from_ith_file(block_id);
+      std::uint64_t prev_char = symbols_reader->read_from_ith_file(block_id);
       std::uint64_t prev_pos_block_idx = block_id - head_pos_at_block_beg;
       std::uint64_t new_block_id = (prev_pos_block_idx | is_head_plus_bit);
       if ((std::uint64_t)symbol_timestamps[prev_char] != current_timestamp)
         new_block_id |= is_diff_bit;
-      radix_heap->push(std::numeric_limits<char_type>::max() - (prev_char + 1), new_block_id);
+      radix_heap->push(max_char - (prev_char + 1), new_block_id);
       symbol_timestamps[prev_char] = current_timestamp;
     }
 
@@ -604,7 +605,7 @@ void em_induce_plus_star_substrings(
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
   // TODO more sophisticated criterion
-  if (text_alphabet_size <= 2000000)
+  if (text_alphabet_size <= 30000000)  // XXX
     em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type>(text_length,
         max_block_size, text_alphabet_size, ram_use, block_count_target, text_filename, output_pos_filename,
         output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);

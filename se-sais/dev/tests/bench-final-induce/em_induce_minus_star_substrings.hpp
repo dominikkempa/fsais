@@ -135,7 +135,7 @@ em_induce_minus_star_substrings_large_alphabet(
   // Initialize the output writers.
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type();
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -460,6 +460,13 @@ em_induce_minus_star_substrings_small_alphabet(
   long double start = utils::wclock();
   fprintf(stderr, "  EM induce minus substrings (small alphabet):\n");
   fprintf(stderr, "    sizeof(ext_block_id_type) = %lu\n", sizeof(ext_block_id_type));
+  fprintf(stderr, "    sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
+  fprintf(stderr, "    sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "    text_length = %lu\n", text_length);
+  fprintf(stderr, "    ram_use = %lu\n", ram_use);
+  fprintf(stderr, "    text_alphabet_size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "    max_block_size = %lu\n", max_block_size);
+  fprintf(stderr, "    max_permute_block_size = %lu\n", max_permute_block_size);
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -502,7 +509,7 @@ em_induce_minus_star_substrings_small_alphabet(
   // Initialize the output writers.
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type();
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -773,7 +780,7 @@ em_induce_minus_star_substrings(
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   // TODO more sophisticated criterion
-  if (text_alphabet_size <= 2000000)
+  if (text_alphabet_size <= 30000000)  // XXX
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
         text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
