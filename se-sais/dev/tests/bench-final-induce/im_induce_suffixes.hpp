@@ -50,6 +50,11 @@ struct local_buf_item_2 {
   bool m_is_prev_pos_minus;
 };
 
+struct local_buf_item_3 {
+  std::uint64_t m_pos;
+  std::uint64_t m_char;
+};
+
 template<typename char_type,
   typename text_offset_type>
 std::pair<std::uint64_t, bool>
@@ -265,7 +270,8 @@ im_induce_suffixes_small_alphabet(
     typedef async_stream_reader<text_offset_type> reader_type;
     reader_type *reader = new reader_type(minus_pos_filename);
     std::uint64_t rank = 0;
-
+#if 0
+    // Unubuffered version left for readability.
     while (!reader->empty()) {
       if (next_block_leftmost_minus_star_plus_rank == rank) {
         // Separatelly handle position lastpos - 1 if it
@@ -289,6 +295,58 @@ im_induce_suffixes_small_alphabet(
         bucket_ptr[head_char] = ptr;
       }
     }
+#else
+#if 1  // production
+    static const std::uint64_t local_bufsize = (1L << 15);
+#else  // debug
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#endif
+    local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
+    text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
+    std::uint64_t items_left = utils::file_size(minus_pos_filename) / sizeof(text_offset_type);
+    while (items_left > 0) {
+      // Compute buffer.
+      std::uint64_t filled = std::min(local_bufsize, items_left);
+      reader->read(local_buf_pos, filled);
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = (std::uint64_t)local_buf_pos[t];
+        if (pos >= block_size) pos = 0;
+        local_buf[t].m_pos = pos;
+      }
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = local_buf[t].m_pos;
+        local_buf[t].m_char = block[pos];
+      }
+
+      // Process buffer.
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        if (next_block_leftmost_minus_star_plus_rank == rank) {
+          // Separatelly handle position lastpos - 1 if it
+          // was in next block and it was minus star.
+          std::uint64_t ii = lastpos - 1;
+          std::uint64_t head_char = text_accessor->access(block_beg + ii);
+          std::uint64_t ptr = bucket_ptr[head_char];
+          buckets[ptr++] = ii;
+          bucket_ptr[head_char] = ptr;
+        }
+        ++rank;
+        std::uint64_t i = local_buf_pos[t];
+        std::uint64_t head_char = local_buf[t].m_char;
+        if (i >= block_size) head_char = text_accessor->access(block_beg + i);
+        std::uint64_t ptr = bucket_ptr[head_char];
+        if (i == 0) {
+          zero_item_pos = ptr++;
+          buckets[zero_item_pos] = 1;
+        } else buckets[ptr++] = i;
+        bucket_ptr[head_char] = ptr;
+      }
+
+      // Update items_left.
+      items_left -= filled;
+    }
+    delete[] local_buf;
+    delete[] local_buf_pos;
+#endif
 
     if (next_block_leftmost_minus_star_plus_rank == rank) {
       // Separatelly handle position lastpos - 1 if it
