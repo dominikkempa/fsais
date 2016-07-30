@@ -40,6 +40,16 @@
 // - reduce the RAM usage for integer array.
 //=============================================================================
 
+struct local_buf_item_2 {
+  local_buf_item_2() {}
+  std::uint64_t m_head_pos;
+  std::uint64_t m_prev_pos_head_char;
+  std::uint64_t m_idx_1;
+  std::uint64_t m_idx_2;
+  bool m_is_head_minus;
+  bool m_is_prev_pos_minus;
+};
+
 template<typename char_type,
   typename text_offset_type>
 std::pair<std::uint64_t, bool>
@@ -249,6 +259,7 @@ im_induce_suffixes_small_alphabet(
 
 
   // Add minus positions at the beginning of buckets.
+  // XXX add buffering.
   std::uint64_t zero_item_pos = total_bucket_size;
   {
     typedef async_stream_reader<text_offset_type> reader_type;
@@ -333,14 +344,19 @@ im_induce_suffixes_small_alphabet(
     } else buckets[--ptr] = i;
     bucket_ptr[head_char] = ptr;
   }
+#if 0
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
     std::uint64_t i = iplus - 1;
     if ((std::uint64_t)buckets[i] == 0) continue;
-    std::uint64_t head_pos = buckets[i];
-    if (i == zero_item_pos)
-      head_pos = 0;
 
+    std::uint64_t head_pos = buckets[i];
+    if (i == zero_item_pos) head_pos = 0;
+    std::uint64_t prev_pos = head_pos - 1;
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
+    std::uint64_t idx = (0 < head_pos && prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
+
     if (is_head_minus) {
       // Erase the item (minus substring) from bucket.
       buckets[i] = 0;
@@ -348,24 +364,20 @@ im_induce_suffixes_small_alphabet(
         zero_item_pos = total_bucket_size;
 
       if (head_pos < block_size) {
-        bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
-            (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
-        if (is_star) {
+        bool is_head_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+        if (is_head_star) {
           // Here we visit all minus star suffixes staring in a block in min-rev order.
           // A good opportunity to update block_count_target.
-          if (is_star) {
-            if (!seen_block_beg)
-              ++local_minus_block_count_target;
-            if (head_pos == 0) seen_block_beg = true;
-          }
+          if (!seen_block_beg)
+            ++local_minus_block_count_target;
+          if (head_pos == 0) seen_block_beg = true;
         }
       }
     } else if (head_pos < block_size) {
       output_plus_pos_writer->write(head_pos);
-      bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) > 0) ||
-          (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
-      output_plus_type_writer->write(is_star);
-      if (!is_star) {
+      bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+      output_plus_type_writer->write(is_head_star);
+      if (!is_head_star) {
         // Erase the item (non-star plus substring) from the bucket.
         buckets[i] = 0;
         if (i == zero_item_pos)
@@ -374,10 +386,10 @@ im_induce_suffixes_small_alphabet(
     }
 
     if (head_pos > 0) {
-      std::uint64_t prev_pos = head_pos - 1;
-      bool is_prev_pos_minus = (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
       if (!is_prev_pos_minus) {
-        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : text_accessor->access(block_beg + prev_pos);
+        // Correct the value of prev_pos_char.
+        if (prev_pos >= block_size)
+          prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
         std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
         if (prev_pos == 0) {
           zero_item_pos = --ptr;
@@ -389,13 +401,99 @@ im_induce_suffixes_small_alphabet(
           output_plus_symbols_writer->write(prev_pos_head_char);
       }
     } else if (block_beg > 0) {
-      bool is_minus = (type_bv[0] & 1UL);
-      bool is_star = is_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
-        ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
-      if (is_minus == is_star)
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_head_minus == is_head_star)
         output_plus_symbols_writer->write(block_prec_symbol);
     }
   }
+#else
+  {
+#if 0  // production
+    static const std::uint64_t local_bufsize = (1UL << 15);
+#else  // production
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#endif
+    local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
+    std::uint64_t iplus = total_bucket_size;
+    while (iplus > 0) {
+      // Skip empty positions.
+      while (iplus > 0 && (std::uint64_t)buckets[iplus - 1] == 0) --iplus;
+
+      // Compute buffer.
+      std::uint64_t local_buf_filled = 0;
+      while (local_buf_filled < local_bufsize && iplus > 0 && (std::uint64_t)buckets[iplus - 1] != 0) {
+        --iplus;
+        std::uint64_t head_pos = buckets[iplus];
+        if (iplus == zero_item_pos) head_pos = 0;
+        std::uint64_t prev_pos = head_pos - 1;
+        local_buf[local_buf_filled].m_head_pos = head_pos;
+        local_buf[local_buf_filled].m_idx_1 = (0 < head_pos && prev_pos < block_size) ? prev_pos : 0;
+        local_buf[local_buf_filled].m_idx_2 = (0 < head_pos) ? prev_pos : 0;
+        ++local_buf_filled;
+      }
+      for (std::uint64_t j = 0; j < local_buf_filled; ++j) {
+        std::uint64_t idx_1 = local_buf[j].m_idx_1;
+        std::uint64_t idx_2 = local_buf[j].m_idx_2;
+        std::uint64_t head_pos = local_buf[j].m_head_pos;
+        local_buf[j].m_prev_pos_head_char = block[idx_1];
+        local_buf[j].m_is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+        local_buf[j].m_is_prev_pos_minus = (type_bv[idx_2 >> 6] & (1UL << (idx_2 & 63)));
+      }
+
+      // Process buffer.
+      for (std::uint64_t j = 0; j < local_buf_filled; ++j) {
+        std::uint64_t i = iplus + (local_buf_filled - j - 1);
+        std::uint64_t head_pos = local_buf[j].m_head_pos;
+        std::uint64_t prev_pos = head_pos - 1;
+        std::uint64_t prev_pos_head_char = local_buf[j].m_prev_pos_head_char;
+        bool is_head_minus = local_buf[j].m_is_head_minus;
+        bool is_prev_pos_minus = local_buf[j].m_is_prev_pos_minus;
+
+        if (is_head_minus) {
+          buckets[i] = 0;  // erase the item
+          if (i == zero_item_pos)
+            zero_item_pos = total_bucket_size;
+          if (head_pos < block_size) {
+            bool is_head_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+            if (is_head_star) {  // here we visi all minus star substrings so we can update block_count_target
+              if (!seen_block_beg)
+                ++local_minus_block_count_target;
+              if (head_pos == 0) seen_block_beg = true;
+            }
+          }
+        } else if (head_pos < block_size) {
+          output_plus_pos_writer->write(head_pos);
+          bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+          output_plus_type_writer->write(is_head_star);
+          if (!is_head_star) {
+            buckets[i] = 0;  // erase the non-star plus substring
+            if (i == zero_item_pos)
+              zero_item_pos = total_bucket_size;
+          }
+        }
+        if (head_pos > 0) {
+          if (!is_prev_pos_minus) {
+            if (prev_pos >= block_size)
+              prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+            std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
+            if (prev_pos == 0) {
+              zero_item_pos = --ptr;
+              buckets[zero_item_pos] = 1;
+            } else buckets[--ptr] = prev_pos;
+            bucket_ptr[prev_pos_head_char] = ptr;
+            if (head_pos < block_size)
+              output_plus_symbols_writer->write(prev_pos_head_char);
+          }
+        } else if (block_beg > 0) {
+          bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+          if (is_head_minus == is_head_star)
+            output_plus_symbols_writer->write(block_prec_symbol);
+        }
+      }
+    }
+    delete[] local_buf;
+  }
+#endif
   if (!seen_block_beg)
     local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
@@ -449,44 +547,112 @@ im_induce_suffixes_small_alphabet(
     } else buckets[ptr++] = i;
     bucket_ptr[head_char] = ptr;
   }
+#if 0
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
     if ((std::uint64_t)buckets[i] == 0) continue;
     std::uint64_t head_pos = buckets[i];
-    if (i == zero_item_pos)
-      head_pos = 0;
+    if (i == zero_item_pos) head_pos = 0;
+    std::uint64_t prev_pos = head_pos - 1;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
+    std::uint64_t idx = (prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
+
     if (is_head_minus && head_pos < block_size) {
-      bool is_star = ((head_pos > 0 && (type_bv[(head_pos - 1) >> 6] & (1UL << ((head_pos - 1) & 63))) == 0) ||
-          (head_pos == 0 && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+      bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
       output_minus_type_writer->write(is_star);
       output_minus_pos_writer->write(head_pos);
     }
-
     if (head_pos > 0) {
-      std::uint64_t prev_pos = head_pos - 1;
-      bool is_prev_pos_minus = (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
       if (is_prev_pos_minus) {
-        std::uint64_t prev_pos_head_char = (prev_pos < block_size) ? block[prev_pos] : text_accessor->access(block_beg + prev_pos);
+        if (prev_pos >= block_size)
+          prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
         std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
         if (prev_pos == 0) {
           zero_item_pos = ptr++;
           buckets[zero_item_pos] = 1;
         } else buckets[ptr++] = prev_pos;
         bucket_ptr[prev_pos_head_char] = ptr;
-
         if (head_pos < block_size)
           output_minus_symbols_writer->write(prev_pos_head_char);
       }
     } else if (block_beg > 0) {
-      bool is_minus = (type_bv[0] & 1UL);
-      bool is_star = is_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
-        ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
-      if (is_minus ^ is_star)
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_head_minus ^ is_head_star)
         output_minus_symbols_writer->write(block_prec_symbol);
     }
   }
+#else
+  {
+#if 0  // production
+    static const std::uint64_t local_bufsize = (1UL << 15);
+#else  // debug
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#endif
+    local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
+    std::uint64_t i = 0;
+    while (i < total_bucket_size) {
+      // Skip empty positions.
+      while (i < total_bucket_size && (std::uint64_t)buckets[i] == 0) ++i;
 
+      // Compute buffer.
+      std::uint64_t local_buf_filled = 0;
+      while (local_buf_filled < local_bufsize && i < total_bucket_size && (std::uint64_t)buckets[i] != 0) {
+        std::uint64_t head_pos = buckets[i];
+        if (i == zero_item_pos) head_pos = 0;
+        ++i;
+        std::uint64_t prev_pos = head_pos - 1;
+        local_buf[local_buf_filled].m_head_pos = head_pos;
+        local_buf[local_buf_filled].m_idx_1 = (0 < head_pos && prev_pos < block_size) ? prev_pos : 0;
+        local_buf[local_buf_filled].m_idx_2 = (0 < head_pos) ? prev_pos : 0;
+        ++local_buf_filled;
+      }
+      for (std::uint64_t j = 0; j < local_buf_filled; ++j) {
+        std::uint64_t idx_1 = local_buf[j].m_idx_1;
+        std::uint64_t idx_2 = local_buf[j].m_idx_2;
+        std::uint64_t head_pos = local_buf[j].m_head_pos;
+        local_buf[j].m_prev_pos_head_char = block[idx_1];
+        local_buf[j].m_is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+        local_buf[j].m_is_prev_pos_minus = (type_bv[idx_2 >> 6] & (1UL << (idx_2 & 63)));
+      }
+
+      // Process buffer.
+      for (std::uint64_t j = 0; j < local_buf_filled; ++j) {
+        std::uint64_t head_pos = local_buf[j].m_head_pos;
+        std::uint64_t prev_pos = head_pos - 1;
+        std::uint64_t prev_pos_head_char = local_buf[j].m_prev_pos_head_char;
+        bool is_head_minus = local_buf[j].m_is_head_minus;
+        bool is_prev_pos_minus = local_buf[j].m_is_prev_pos_minus;
+
+        if (is_head_minus && head_pos < block_size) {
+          bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+          output_minus_type_writer->write(is_star);
+          output_minus_pos_writer->write(head_pos);
+        }
+        if (head_pos > 0) {
+          if (is_prev_pos_minus) {
+            if (prev_pos >= block_size)
+              prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+            std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
+            if (prev_pos == 0) {
+              zero_item_pos = ptr++;
+              buckets[zero_item_pos] = 1;
+            } else buckets[ptr++] = prev_pos;
+            bucket_ptr[prev_pos_head_char] = ptr;
+            if (head_pos < block_size)
+              output_minus_symbols_writer->write(prev_pos_head_char);
+          }
+        } else if (block_beg > 0) {
+          bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+          if (is_head_minus ^ is_head_star)
+            output_minus_symbols_writer->write(block_prec_symbol);
+        }
+      }
+    }
+    delete[] local_buf;
+  }
+#endif
 
 
 
