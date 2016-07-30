@@ -393,7 +393,11 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
+#if 0  // production
     static const std::uint64_t local_bufsize = (1UL << 15);
+#else  // debug
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#endif
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
     while (iplus > 0) {
@@ -570,7 +574,11 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
+#if 0  // production
     static const std::uint64_t local_bufsize = (1UL << 15);
+#else  // debug
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#endif
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t i = 0;
     while (i < total_bucket_size) {
