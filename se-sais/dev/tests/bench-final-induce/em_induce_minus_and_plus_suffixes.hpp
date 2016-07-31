@@ -232,7 +232,7 @@ void induce_minus_and_plus_suffixes(
     minus_symbols_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
   }
 
-  im_induce_suffixes_small_alphabet<
+  im_induce_suffixes<
     char_type,
     text_offset_type>(
         text_alphabet_size,
