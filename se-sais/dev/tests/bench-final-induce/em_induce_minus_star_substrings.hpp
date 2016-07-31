@@ -807,7 +807,8 @@ em_induce_minus_star_substrings(
     std::string tempfile_basename,
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   fprintf(stderr, "EM induce substrings:\n");
@@ -845,7 +846,8 @@ em_induce_minus_star_substrings(
         minus_symbols_filenames,
         plus_block_count_targets,
         minus_block_count_targets,
-        total_io_volume);
+        total_io_volume,
+        is_small_alphabet);
 
   // Induce plus star substrings.
   std::string plus_count_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
@@ -929,20 +931,21 @@ em_induce_minus_star_substrings(
     std::string tempfile_basename,
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8))
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint8_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
   else if (n_blocks < (1UL << 16))
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint16_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
   else
     return em_induce_minus_star_substrings<char_type, text_offset_type, block_offset_type, std::uint64_t>
       (text_length, text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
 }
 
 template<typename char_type,
@@ -958,19 +961,20 @@ em_induce_minus_star_substrings(
     std::string tempfile_basename,
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   if (max_block_size < (1UL << 32))
     return em_induce_minus_star_substrings<char_type, text_offset_type, std::uint32_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
   else if (max_block_size < (1UL << 40))
     return em_induce_minus_star_substrings<char_type, text_offset_type, uint40>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
   else
     return em_induce_minus_star_substrings<char_type, text_offset_type, std::uint64_t>(text_length,
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
 }
 
 template<typename char_type,
@@ -986,31 +990,67 @@ em_induce_minus_star_substrings(
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
-  // Binary search for the largest block size that
-  // can be processed using the given ram_budget.
-  std::uint64_t low = 1, high = text_length + 1;
-  while (high - low > 1) {
-    std::uint64_t mid = (low + high) / 2;
-
-    // Compute RAM usage assuming max block size is equal to mid.
-    // TODO take buffers for I/O streamers into account.
-    std::uint64_t ext_max_block_size_sizeof = 0;
-    if (2 * mid < (1UL << 32)) ext_max_block_size_sizeof = 4;
-    else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
-    else ext_max_block_size_sizeof = 8;
-    // XXX this is not entirely correct, but true in practice.
-//    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) + (text_alphabet_size + /*2UL **/ mid) * ext_max_block_size_sizeof;
-    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) + 2UL * mid * (sizeof(char_type) + ext_max_block_size_sizeof);
-
-    // Update bounds.
-    if (required_ram <= ram_use) low = mid;
-    else high = mid;
-  }
-
-  std::uint64_t max_block_size = low;
+#ifdef SAIS_DEBUG
+  std::uint64_t max_block_size = 0;
+  std::uint64_t n_blocks = 0;
+  do {
+    max_block_size = utils::random_int64(1L, (std::int64_t)text_length);
+    n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  } while (n_blocks >= (1UL << 8));
+  bool is_small_alphabet = false;
+  if (utils::random_int64(0L, 1L)) is_small_alphabet = true;
   return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
       text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
-      tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
+      tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
+#else
+  if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 2) {
+    // Binary search for the largest block size that
+    // can be processed using the given ram_budget.
+    std::uint64_t low = 1, high = text_length + 1;
+    while (high - low > 1) {
+      std::uint64_t mid = (low + high) / 2;
+
+      // Compute RAM usage assuming max block size is equal to mid.
+      std::uint64_t ext_max_block_size_sizeof = 0;
+      if (2 * mid < (1UL << 32)) ext_max_block_size_sizeof = 4;
+      else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
+      else ext_max_block_size_sizeof = 8;
+      std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) + (text_alphabet_size + /*2UL **/ mid) * ext_max_block_size_sizeof;
+
+      // Update bounds.
+      if (required_ram <= ram_use) low = mid;
+      else high = mid;
+    }
+
+    std::uint64_t max_block_size = low;
+    return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
+        text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, true);
+  } else {
+    // Binary search for the largest block size that
+    // can be processed using the given ram_budget.
+    std::uint64_t low = 1, high = text_length + 1;
+    while (high - low > 1) {
+      std::uint64_t mid = (low + high) / 2;
+
+      // Compute RAM usage assuming max block size is equal to mid.
+      std::uint64_t ext_max_block_size_sizeof = 0;
+      if (2 * mid < (1UL << 32)) ext_max_block_size_sizeof = 4;
+      else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
+      else ext_max_block_size_sizeof = 8;
+      std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
+        2UL * mid * (sizeof(char_type) + ext_max_block_size_sizeof);
+
+      // Update bounds.
+      if (required_ram <= ram_use) low = mid;
+      else high = mid;
+    }
+    std::uint64_t max_block_size = low;
+    return em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
+        text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
+        tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, false);
+  }
+#endif
 }
 
 template<typename char_type,

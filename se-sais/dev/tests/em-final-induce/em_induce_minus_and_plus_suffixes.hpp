@@ -205,7 +205,8 @@ void induce_minus_and_plus_suffixes(
     std::string minus_count_filename,
     std::string output_filename,
     std::vector<std::string> &init_minus_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   fprintf(stderr, "EM induce minus and plus suffixes:\n");
@@ -248,7 +249,8 @@ void induce_minus_and_plus_suffixes(
         minus_type_filenames,
         minus_symbols_filenames,
         block_count_target,
-        total_io_volume);
+        total_io_volume,
+        is_small_alphabet);
 
   std::string plus_type_filename = output_filename + "tmp." + utils::random_string_hash();
   std::string plus_count_filename = output_filename + "tmp." + utils::random_string_hash();
@@ -322,24 +324,25 @@ void induce_minus_and_plus_suffixes(
     std::string minus_count_filename,
     std::string output_filename,
     std::vector<std::string> &init_minus_pos_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint8_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
-        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume);
+        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 16)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint16_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
-        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume);
+        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 24)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, uint24>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
-        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume);
+        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
-        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume);
+        minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   }
 }
 
@@ -554,7 +557,8 @@ void induce_minus_and_plus_suffixes(
     std::vector<std::uint64_t> &block_count,
     std::string input_lex_sorted_suffixes_block_ids_filename,
     std::vector<std::string> &input_lex_sorted_suffixes_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
   fprintf(stderr, "EM induce minus and plus suffixes:\n");
@@ -597,7 +601,8 @@ void induce_minus_and_plus_suffixes(
         minus_type_filenames,
         minus_symbols_filenames,
         block_count_target,
-        total_io_volume);
+        total_io_volume,
+        is_small_alphabet);
 
   utils::file_delete(text_filename);
 
@@ -679,28 +684,29 @@ void induce_minus_and_plus_suffixes(
     std::vector<std::uint64_t> &block_count,
     std::string input_lex_sorted_suffixes_block_ids_filename,
     std::vector<std::string> &input_lex_sorted_suffixes_filenames,
-    std::uint64_t &total_io_volume) {
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint8_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
-        input_lex_sorted_suffixes_filenames, total_io_volume);
+        input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 16)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint16_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
-        input_lex_sorted_suffixes_filenames, total_io_volume);
+        input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 24)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, uint24>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
-        input_lex_sorted_suffixes_filenames, total_io_volume);
+        input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint64_t>(text_alphabet_size, text_length,
         max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
-        input_lex_sorted_suffixes_filenames, total_io_volume);
+        input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   }
 }
 

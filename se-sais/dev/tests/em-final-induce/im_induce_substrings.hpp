@@ -760,8 +760,6 @@ im_induce_substrings_small_alphabet(
 
 
 
-
-
   // Add minus positions at the beginning of buckets.
   std::uint64_t zero_item_pos = total_bucket_size;
   for (std::uint64_t i = 0; i < block_size; ++i) {
@@ -1325,8 +1323,9 @@ void im_induce_substrings(
     std::vector<std::string> &output_minus_symbols_filenames,
     std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
-    std::uint64_t &total_io_volume) {
-  if (false) {  // XXX
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
+  if (is_small_alphabet) {
     im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);

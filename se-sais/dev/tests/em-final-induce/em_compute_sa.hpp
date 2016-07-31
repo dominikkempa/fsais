@@ -344,16 +344,20 @@ void compute_sa(
     max_block_size = utils::random_int64(1L, text_length);
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
+  bool is_small_alphabet = false;
+  if (utils::random_int64(0L, 1L))
+    is_small_alphabet = true;
 #else
   std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
-  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
-    fprintf(stderr, "\nError: insufficient RAM\n");
-    std::exit(EXIT_FAILURE);
-  }
-//  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
-//  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
-  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(ram_use / (3UL * sizeof(char_type) + 2UL * sizeof(text_offset_type) + 0.25L)));
+
+  bool is_small_alphabet = false;
+  std::uint64_t max_block_size = 0;
+  if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 2) {
+    std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
+    max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+    is_small_alphabet = true;
+  } else max_block_size = std::max(1UL, (std::uint64_t)(ram_use / (3UL * sizeof(char_type) + 2UL * sizeof(text_offset_type) + 0.25L)));
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
@@ -555,7 +559,7 @@ void compute_sa(
       tempfile_basename, text_filename, lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename,
       minus_star_suffixes_count_filename, lex_sorted_minus_star_suffixes_for_normal_string_filenames,
       input_block_count, input_lex_sorted_suffixes_block_ids_filename,
-      input_lex_sorted_suffixes_filenames, total_io_volume);
+      input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
 
   fprintf(stderr, "=== Exiting recursion level %lu ==\n", recursion_level);
 }
@@ -582,15 +586,20 @@ void em_compute_sa(
     max_block_size = utils::random_int64(1L, text_length);
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
+  bool is_small_alphabet = false;
+  if (utils::random_int64(0L, 1L))
+    is_small_alphabet = true;
 #else
   std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
-  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
-    fprintf(stderr, "\nError: insufficient RAM\n");
-    std::exit(EXIT_FAILURE);
-  }
-  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
-  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+
+  bool is_small_alphabet = false;
+  std::uint64_t max_block_size = 0;
+  if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 2) {
+    std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
+    max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+    is_small_alphabet = true;
+  } else max_block_size = std::max(1UL, (std::uint64_t)(ram_use / (3UL * sizeof(char_type) + 2UL * sizeof(text_offset_type) + 0.25L)));
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
@@ -790,7 +799,7 @@ void em_compute_sa(
       text_filename, lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename,
       minus_star_suffixes_count_filename, output_filename,
       lex_sorted_minus_star_suffixes_for_normal_string_filenames,
-      total_io_volume);
+      total_io_volume, is_small_alphabet);
 
   // Print summary.
   long double total_time = utils::wclock() - start;
