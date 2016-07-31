@@ -351,8 +351,9 @@ void compute_sa(
     fprintf(stderr, "\nError: insufficient RAM\n");
     std::exit(EXIT_FAILURE);
   }
-  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
-  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+//  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
+//  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(ram_use / (3UL * sizeof(char_type) + 2UL * sizeof(text_offset_type) + 0.25L)));
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
