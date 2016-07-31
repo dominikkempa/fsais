@@ -244,6 +244,21 @@ class async_backward_stream_reader {
       return m_cur_buffer->m_content[--m_cur_buffer_pos];
     }
 
+    void read(value_type *dest, std::uint64_t howmany) {
+      while (howmany > 0) {
+        if (m_cur_buffer_pos == 0)
+          receive_new_buffer();
+
+        std::uint64_t cur_buf_left = m_cur_buffer_pos;
+        std::uint64_t tocopy = std::min(howmany, cur_buf_left);
+        for (std::uint64_t i = 0; i < tocopy; ++i)
+          dest[i] = m_cur_buffer->m_content[m_cur_buffer_pos - 1 - i];
+        m_cur_buffer_pos -= tocopy;
+        dest += tocopy;
+        howmany -= tocopy;
+      }
+    }
+
     inline value_type peek() {
       if (m_cur_buffer_pos == 0)
         receive_new_buffer();

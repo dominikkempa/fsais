@@ -277,7 +277,8 @@ im_induce_substrings_large_alphabet(
 
 
 
-  std::vector<std::pair<char_type, ext_block_offset_type> > vec2;
+  typedef packed_pair<char_type, ext_block_offset_type> pair_type;
+  std::vector<pair_type> vec2;
 
 
 
@@ -310,7 +311,7 @@ im_induce_substrings_large_alphabet(
     if (!is_head_minus) {
       bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
       if (head_pos < block_size) output_plus_type_writer->write(is_head_star);
-      if (is_head_star) vec2.push_back(std::make_pair((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
+      if (is_head_star) vec2.push_back(pair_type((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
     }
     if (head_pos > 0) {
       if (!is_prev_pos_minus) {
@@ -335,7 +336,7 @@ im_induce_substrings_large_alphabet(
     heap2->push(vec2[t].first, vec2[t].second);
   {
     // Deallocate vec2.
-    std::vector<std::pair<char_type, ext_block_offset_type> > v;
+    std::vector<pair_type> v;
     vec2.clear();
     vec2.swap(v);
   }
