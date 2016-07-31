@@ -141,11 +141,11 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   // Allocate array with positions of minus star suffixes for normal string.
   text_offset_type *text_sorted_suffixes_for_normal_string = new text_offset_type[max_permute_block_size];
 
-#if 1  // debug
+#ifdef SAIS_DEBUG
   std::uint64_t bufsize = utils::random_int64(1L, 20L);
   std::uint64_t *inbuf = new std::uint64_t[bufsize];
   text_offset_type *outbuf = new text_offset_type[bufsize];
-#else  // production
+#else
   static const std::uint64_t bufsize = (1UL << 20);
   std::uint64_t *inbuf = new std::uint64_t[bufsize];
   text_offset_type *outbuf = new text_offset_type[bufsize];
@@ -169,12 +169,6 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
       = new lex_sorted_suffixes_for_recursive_string_reader_type(
         lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id]);
 
-#if 0
-    while (!lex_sorted_suffixes_for_recursive_string_reader->empty()) {
-      std::uint64_t pos = lex_sorted_suffixes_for_recursive_string_reader->read();
-      lex_sorted_minus_star_suffixes_for_normal_string_writer->write(text_sorted_suffixes_for_normal_string[pos]);
-    }
-#else
     std::uint64_t items_left = utils::file_size(lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id]) / sizeof(text_offset_type);
     while (items_left > 0) {
       std::uint64_t filled = std::min(items_left, bufsize);
@@ -187,7 +181,6 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
       lex_sorted_minus_star_suffixes_for_normal_string_writer->write(outbuf, filled);
       items_left -= filled;
     }
-#endif
 
     // Update I/O volume.
     io_volume += lex_sorted_suffixes_for_recursive_string_reader->bytes_read()
@@ -338,18 +331,7 @@ void compute_sa(
     std::vector<std::string> &input_lex_sorted_suffixes_filenames,
     std::uint64_t &total_io_volume,
     std::uint64_t recursion_level = 1) {
-#if 0
-  std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
-  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
-  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
-    fprintf(stderr, "\nError: insufficient RAM\n");
-    std::exit(EXIT_FAILURE);
-  }
-  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
-  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-#else
-  // Testing:
+#ifdef SAIS_DEBUG
   std::uint64_t max_permute_block_size = 0;
   std::uint64_t n_permute_blocks = 0;
   std::uint64_t max_block_size = 0;
@@ -362,6 +344,16 @@ void compute_sa(
     max_block_size = utils::random_int64(1L, text_length);
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
+#else
+  std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
+  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
+  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
+    fprintf(stderr, "\nError: insufficient RAM\n");
+    std::exit(EXIT_FAILURE);
+  }
+  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
+  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
   fprintf(stderr, "=== Entering recursion level %lu ===\n", recursion_level);
@@ -576,18 +568,7 @@ void em_compute_sa(
     std::string text_filename,
     std::string output_filename,
     std::uint64_t &total_io_volume) {
-#if 0
-  std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
-  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
-  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
-    fprintf(stderr, "\nError: insufficient RAM\n");
-    std::exit(EXIT_FAILURE);
-  }
-  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
-  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
-  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
-#else
-  // Testing:
+#ifdef SAIS_DEBUG
   std::uint64_t max_permute_block_size = 0;
   std::uint64_t n_permute_blocks = 0;
   std::uint64_t max_block_size = 0;
@@ -600,6 +581,16 @@ void em_compute_sa(
     max_block_size = utils::random_int64(1L, text_length);
     n_blocks = (text_length + max_block_size - 1) / max_block_size;
   } while (n_blocks > (1UL << 8));
+#else
+  std::uint64_t max_permute_block_size = std::max(1UL, (std::uint64_t)(ram_use / (sizeof(text_offset_type) + 0.125L)));
+  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
+  if (ram_use < text_alphabet_size * sizeof(text_offset_type)) {
+    fprintf(stderr, "\nError: insufficient RAM\n");
+    std::exit(EXIT_FAILURE);
+  }
+  std::uint64_t mbs_temp = ram_use - text_alphabet_size * sizeof(text_offset_type);
+  std::uint64_t max_block_size = std::max(1UL, (std::uint64_t)(mbs_temp / (sizeof(text_offset_type) + sizeof(char_type) + 0.25L)));
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
   fprintf(stderr, "Text length = %lu\n", text_length);

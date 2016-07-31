@@ -16,6 +16,7 @@
 #include "io/async_bit_stream_writer.hpp"
 #include "io/simple_accessor.hpp"
 
+#include "radix_heap.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
 #include "utils.hpp"
@@ -53,6 +54,499 @@ struct local_buf_item {
   bool m_is_head_minus;
   bool m_is_prev_pos_minus;
 };
+
+template<typename char_type,
+  typename block_offset_type,
+  typename ext_block_offset_type>
+std::pair<std::uint64_t, bool>
+im_induce_substrings_large_alphabet(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::uint64_t block_beg,
+    std::uint64_t next_block_leftmost_minus_star_plus,
+    bool is_last_minus,
+    std::string text_filename,
+    std::string output_plus_symbols_filename,
+    std::string output_plus_type_filename,
+    std::string output_minus_pos_filename,
+    std::string output_minus_type_filename,
+    std::string output_minus_symbols_filename,
+    std::uint64_t &plus_block_count_target,
+    std::uint64_t &minus_block_count_target,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
+  std::uint64_t block_size = block_end - block_beg;
+  std::uint64_t next_block_size = std::min(max_block_size, text_length - block_end);
+  std::uint64_t total_block_size = block_size + next_block_size;
+  std::uint64_t io_volume = 0;
+
+  if (text_alphabet_size == 0) {
+    fprintf(stderr, "\nError: text_alphabet_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (max_block_size == 0) {
+    fprintf(stderr, "\nError: max_block_size = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  if (text_length == 0) {
+    fprintf(stderr, "\nError: text_length = 0\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+  // Check that all types are sufficiently large.
+  if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
+    fprintf(stderr, "\nError: char_type in im_induce_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
+    fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2UL) {
+    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_large_alphabet too small!\n");
+    std::exit(EXIT_FAILURE);
+  }
+
+
+
+
+
+  // Start the timer.
+  long double start = utils::wclock();
+  fprintf(stderr, "    Process block [%lu..%lu): ", block_beg, block_end);
+
+
+
+
+  // Read block into RAM.
+  char_type *block = new char_type[block_size];
+  utils::read_at_offset(block, block_beg, block_size, text_filename);
+  io_volume += block_size * sizeof(char_type);
+
+
+
+
+
+
+  // Initialize text accessor.
+  typedef simple_accessor<char_type> accessor_type;
+  accessor_type *text_accessor = new accessor_type(text_filename);
+
+
+
+
+
+
+
+  // Read the symbol preceding block.
+  char_type block_prec_symbol = 0;
+  if (block_beg > 0)
+    block_prec_symbol = text_accessor->access(block_beg - 1);
+
+
+
+
+
+
+
+
+  // Initialize output writers.
+  typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
+  typedef async_bit_stream_writer output_plus_type_writer_type;
+  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
+  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+
+
+
+
+
+
+
+  // Compute type_bv that stores whether each of the
+  // position is a minus position (true) or not (false).
+  std::uint64_t bv_size = (total_block_size + 63) / 64;
+  std::uint64_t *type_bv = new std::uint64_t[bv_size];
+  std::fill(type_bv, type_bv + bv_size, 0UL);
+  {
+    if (is_last_minus) {
+      std::uint64_t i = total_block_size - 1;
+      type_bv[i >> 6] |= (1UL << (i & 63));
+    }
+    bool is_next_minus = is_last_minus;
+    std::uint64_t next_char = (next_block_size == 0) ? block[block_size - 1] : text_accessor->access(block_end + next_block_size - 1);
+    for (std::uint64_t iplus = total_block_size - 1; iplus > 0; --iplus) {
+      std::uint64_t i = iplus - 1;
+      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+      bool is_minus = (head_char == next_char) ? is_next_minus : (head_char > next_char);
+      if (is_minus)
+        type_bv[i >> 6] |= (1UL << (i & 63));
+      is_next_minus = is_minus;
+      next_char = head_char;
+    }
+  }
+
+
+
+  // Determine whether the first position in the block is of minus star type.
+  bool is_first_minus_star = ((block_beg > 0 && (type_bv[0] & 1UL) && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+
+
+
+
+  // Find the leftmost minus-star position in the current block.
+  std::uint64_t this_block_leftmost_minus_star_plus = 1;  // plus because it's one index past actual position
+  if (!is_first_minus_star) {
+    while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+          (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) > 0) ++this_block_leftmost_minus_star_plus;
+    while (this_block_leftmost_minus_star_plus < block_size && (type_bv[(this_block_leftmost_minus_star_plus - 1) >> 6] &
+          (1UL << ((this_block_leftmost_minus_star_plus - 1) & 63))) == 0) ++this_block_leftmost_minus_star_plus;
+  }
+
+
+
+
+
+
+
+  std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
+  bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
+
+
+
+
+
+
+
+  std::uint64_t max_char = (std::uint64_t)std::numeric_limits<char_type>::max();
+  std::vector<std::uint64_t> radix_logs;
+  {
+    std::uint64_t target_sum = 8UL * sizeof(char_type);
+    std::uint64_t cur_sum = 0;
+    while (cur_sum < target_sum) {
+      std::uint64_t radix_log = std::min(8UL, target_sum - cur_sum);
+      radix_logs.push_back(radix_log);
+      cur_sum += radix_log;
+    }
+  }
+  typedef radix_heap<char_type, ext_block_offset_type> heap_type;
+  heap_type *heap = new heap_type(radix_logs);
+  heap_type *heap2 = new heap_type(radix_logs);
+
+
+
+
+
+
+
+
+  // Separatelly handle position lastpos - 1 if it
+  // was in next block and it was minus star.
+  if (lastpos > block_size && is_lastpos_minus) {
+    std::uint64_t i = lastpos - 1;
+    std::uint64_t head_char = text_accessor->access(block_beg + i);
+    heap->push(max_char - head_char, i);
+  }
+
+  for (std::uint64_t iplus = block_size; iplus > 0; iplus--) {
+    std::uint64_t i = iplus - 1;
+    bool is_minus_star = false;
+    if (i == 0) is_minus_star = is_first_minus_star;
+    else is_minus_star = ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 &&
+        (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0);
+
+    if (is_minus_star) {
+      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+      heap->push(max_char - head_char, i);
+    }
+  }
+
+
+
+
+
+
+
+
+
+  std::vector<std::pair<char_type, ext_block_offset_type> > vec2;
+
+
+
+
+
+
+  // Induce plus suffixes.
+  std::uint64_t local_plus_block_count_target = 0;
+  bool seen_block_beg = false;
+  if (!is_lastpos_minus) {
+    // Add the last suffix if it was a plus type.
+    std::uint64_t i = lastpos - 1;
+    std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+    heap->push(max_char - (head_char + 1), i);
+  }
+  while (!heap->empty()) {
+    std::pair<char_type, ext_block_offset_type> pp = heap->extract_min();
+    char_type head_char = max_char - (std::uint64_t)pp.first;
+    std::uint64_t head_pos = pp.second;
+    std::uint64_t prev_pos = head_pos - 1;
+
+    bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
+    std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && !is_prev_pos_minus) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[temp_idx];
+
+    if (!is_head_minus) head_char = (std::uint64_t)head_char - 1;
+    if (!seen_block_beg && head_pos < block_size) ++local_plus_block_count_target;
+    if (head_pos == 0) seen_block_beg = true;
+    if (!is_head_minus) {
+      bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+      if (head_pos < block_size) output_plus_type_writer->write(is_head_star);
+      if (is_head_star) vec2.push_back(std::make_pair((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
+    }
+    if (head_pos > 0) {
+      if (!is_prev_pos_minus) {
+        if (prev_pos >= block_size) prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+        heap->push(max_char - (prev_pos_head_char + 1), prev_pos);
+        if (head_pos < block_size) output_plus_symbols_writer->write(prev_pos_head_char);
+      }
+    } else if (block_beg > 0) {
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_head_minus == is_head_star)
+        output_plus_symbols_writer->write(block_prec_symbol);
+    }
+  }
+  delete heap;
+  if (!seen_block_beg)
+    local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+
+
+
+  std::reverse(vec2.begin(), vec2.end());
+  for (std::uint64_t t = 0; t < vec2.size(); ++t)
+    heap2->push(vec2[t].first, vec2[t].second);
+  {
+    // Deallocate vec2.
+    std::vector<std::pair<char_type, ext_block_offset_type> > v;
+    vec2.clear();
+    vec2.swap(v);
+  }
+
+
+  // Update I/O volume.
+  io_volume += output_plus_symbols_writer->bytes_written() + 
+    output_plus_type_writer->bytes_written();
+
+
+
+  // Clean up.
+  delete output_plus_symbols_writer;
+  delete output_plus_type_writer;
+
+
+
+
+
+  // Induce minus suffixes.
+  std::uint64_t local_minus_block_count_target = 0;
+  seen_block_beg = false;
+  if (is_lastpos_minus) {
+    // Add the last suffix if it was a minus type.
+    std::uint64_t i = lastpos - 1;
+    std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+    heap2->push(head_char, i);
+  }
+  while (!heap2->empty()) {
+    std::pair<char_type, ext_block_offset_type> pp = heap2->extract_min();
+    std::uint64_t head_char = pp.first;
+    std::uint64_t head_pos = pp.second;
+    std::uint64_t prev_pos = head_pos - 1;
+
+    bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
+    std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && is_prev_pos_minus) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[temp_idx];
+
+    if (!is_head_minus) --head_char;
+    if (!seen_block_beg && head_pos < block_size) ++local_minus_block_count_target;
+    if (head_pos == 0) seen_block_beg = true;
+    if (is_head_minus && head_pos < block_size) {
+      bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+      output_minus_type_writer->write(is_star);
+      if (is_star) output_minus_pos_writer->write(head_pos);
+    }
+    if (head_pos > 0) {
+      if (is_prev_pos_minus) {
+        if (prev_pos >= block_size) prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+        heap2->push(prev_pos_head_char, prev_pos);
+        if (head_pos < block_size) output_minus_symbols_writer->write(prev_pos_head_char);
+      }
+    } else if (block_beg > 0) {
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_head_minus ^ is_head_star) output_minus_symbols_writer->write(block_prec_symbol);
+    }
+  }
+  delete heap2;
+  if (!seen_block_beg)
+    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+
+
+
+
+  // Update reference variables.
+  plus_block_count_target = local_plus_block_count_target;
+  minus_block_count_target = local_minus_block_count_target;
+
+
+
+
+
+  // Update I/O volume.
+  io_volume += output_minus_pos_writer->bytes_written() +
+    output_minus_type_writer->bytes_written() +
+    output_minus_symbols_writer->bytes_written() +
+    text_accessor->bytes_read();
+
+
+
+
+
+  // Update total I/O volume.
+  total_io_volume += io_volume;
+
+
+
+
+  // Store result.
+  bool result = (type_bv[(block_size - 1) >> 6] & (1UL << ((block_size - 1) & 63)));
+
+
+
+
+
+  // Clean up.
+  delete output_minus_pos_writer;
+  delete output_minus_type_writer;
+  delete output_minus_symbols_writer;
+  delete text_accessor;
+  delete[] type_bv;
+  delete[] block;
+
+
+
+
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time);
+
+
+
+
+  // Return result.
+  return std::make_pair(this_block_leftmost_minus_star_plus, result);
+}
+
+template<typename char_type,
+  typename block_offset_type,
+  typename ext_block_offset_type>
+void im_induce_substrings_large_alphabet(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::vector<std::string> &output_plus_symbols_filenames,
+    std::vector<std::string> &output_plus_type_filenames,
+    std::vector<std::string> &output_minus_pos_filenames,
+    std::vector<std::string> &output_minus_type_filenames,
+    std::vector<std::string> &output_minus_symbols_filenames,
+    std::vector<std::uint64_t> &plus_block_count_targets,
+    std::vector<std::uint64_t> &minus_block_count_targets,
+    std::uint64_t &total_io_volume) {
+  std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t io_volume = 0;
+
+  fprintf(stderr, "  IM induce substrings (large alphabet):\n");
+  fprintf(stderr, "    sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
+  long double start = utils::wclock();
+
+  bool is_last_minus = true;
+  std::uint64_t next_block_leftmost_minus_star = 0;
+  for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
+    std::uint64_t block_id = block_id_plus - 1;
+    std::uint64_t block_beg = block_id * max_block_size;
+
+    std::pair<std::uint64_t, bool > ret;
+    ret = im_induce_substrings_large_alphabet<
+      char_type,
+      block_offset_type,
+      ext_block_offset_type>(
+          text_alphabet_size,
+          text_length,
+          max_block_size,
+          block_beg,
+          next_block_leftmost_minus_star,
+          is_last_minus,
+          text_filename,
+          output_plus_symbols_filenames[block_id],
+          output_plus_type_filenames[block_id],
+          output_minus_pos_filenames[block_id],
+          output_minus_type_filenames[block_id],
+          output_minus_symbols_filenames[block_id],
+          plus_block_count_targets[block_id],
+          minus_block_count_targets[block_id],
+          io_volume);
+
+    next_block_leftmost_minus_star = ret.first;
+    is_last_minus = ret.second;
+  }
+
+  // Update I/O volume.
+  total_io_volume += io_volume;
+
+  // Print summary.
+  long double total_time = utils::wclock() - start;
+  fprintf(stderr, "    Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+}
+
+template<typename char_type,
+  typename block_offset_type>
+void im_induce_substrings_large_alphabet(
+    std::uint64_t text_alphabet_size,
+    std::uint64_t text_length,
+    std::uint64_t max_block_size,
+    std::string text_filename,
+    std::vector<std::string> &output_plus_symbols_filenames,
+    std::vector<std::string> &output_plus_type_filenames,
+    std::vector<std::string> &output_minus_pos_filenames,
+    std::vector<std::string> &output_minus_type_filenames,
+    std::vector<std::string> &output_minus_symbols_filenames,
+    std::vector<std::uint64_t> &plus_block_count_targets,
+    std::vector<std::uint64_t> &minus_block_count_targets,
+    std::uint64_t &total_io_volume) {
+  if (max_block_size < (1UL << 31))
+    im_induce_substrings_large_alphabet<char_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+  else if (max_block_size < (1UL < 39))
+    im_induce_substrings_large_alphabet<char_type, block_offset_type, uint40>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+  else
+    im_induce_substrings_large_alphabet<char_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+}
 
 template<typename char_type,
   typename block_offset_type,
@@ -393,10 +887,10 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
-#if 1  // production
-    static const std::uint64_t local_bufsize = (1UL << 15);
-#else  // debug
+#ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
@@ -574,10 +1068,10 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
-#if 1  // production
-    static const std::uint64_t local_bufsize = (1UL << 15);
-#else  // debug
+#ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t i = 0;
@@ -818,14 +1312,14 @@ void im_induce_substrings(
     std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (text_alphabet_size <= 100000000) {  // XXX
+  if (/*text_alphabet_size <= 100000000*/false) {
     im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   } else {
-    fprintf(stderr, "\nError: im_induce_substrings_large_alphabet not implemented yet (text_alphabet_size = %lu)!\n", text_alphabet_size);
-    fprintf(stderr, "Try increasing the threshold in im_induce_substrings if text_alphabet_size does significantly exceed 2000000.\n");
-    std::exit(EXIT_FAILURE);
+    im_induce_substrings_large_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
+        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
+        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   }
 }
 

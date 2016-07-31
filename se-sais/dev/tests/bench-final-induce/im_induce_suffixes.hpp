@@ -264,7 +264,6 @@ im_induce_suffixes_small_alphabet(
 
 
   // Add minus positions at the beginning of buckets.
-  // XXX add buffering.
   std::uint64_t zero_item_pos = total_bucket_size;
   {
     typedef async_stream_reader<text_offset_type> reader_type;
@@ -296,10 +295,10 @@ im_induce_suffixes_small_alphabet(
       }
     }
 #else
-#if 1  // production
-    static const std::uint64_t local_bufsize = (1L << 15);
-#else  // debug
+#ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1L << 15);
 #endif
     local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
     text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
@@ -466,10 +465,10 @@ im_induce_suffixes_small_alphabet(
   }
 #else
   {
-#if 1  // production
-    static const std::uint64_t local_bufsize = (1UL << 15);
-#else  // production
+#ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
     local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
@@ -643,10 +642,10 @@ im_induce_suffixes_small_alphabet(
   }
 #else
   {
-#if 1  // production
-    static const std::uint64_t local_bufsize = (1UL << 15);
-#else  // debug
+#ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
     local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t i = 0;

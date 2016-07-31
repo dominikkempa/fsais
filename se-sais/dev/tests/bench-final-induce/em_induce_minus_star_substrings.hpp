@@ -998,14 +998,9 @@ em_induce_minus_star_substrings(
     if (2 * mid < (1UL << 32)) ext_max_block_size_sizeof = 4;
     else if (2 * mid < (1UL << 40)) ext_max_block_size_sizeof = 5;
     else ext_max_block_size_sizeof = 8;
-#if 0
-    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
-      (text_alphabet_size + 2UL * mid) * ext_max_block_size_sizeof;
-#else
     // XXX this is not entirely correct, but true in practice.
-    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) +
-      (text_alphabet_size + mid) * ext_max_block_size_sizeof;
-#endif
+//    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) + (text_alphabet_size + /*2UL **/ mid) * ext_max_block_size_sizeof;
+    std::uint64_t required_ram = mid / 4UL + mid * sizeof(char_type) + 2UL * mid * (sizeof(char_type) + ext_max_block_size_sizeof);
 
     // Update bounds.
     if (required_ram <= ram_use) low = mid;

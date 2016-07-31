@@ -6,7 +6,7 @@ CFLAGS = -Wall -Wextra -pedantic -Wshadow -funroll-loops -DNDEBUG -O3 -march=nat
 all: test
 
 test:
-	$(CC) $(CFLAGS) -o test main.cpp utils.cpp -fopenmp
+	$(CC) $(CFLAGS) -o test main.cpp utils.cpp -fopenmp -DSAIS_DEBUG
 
 clean:
 	/bin/rm -f *.o
