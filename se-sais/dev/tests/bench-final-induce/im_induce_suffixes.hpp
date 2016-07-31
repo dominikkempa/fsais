@@ -155,15 +155,9 @@ im_induce_suffixes_large_alphabet(
   typedef async_stream_writer<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  typedef async_stream_writer<text_offset_type> output_minus_pos_writer_type;
-  typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
   output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
   output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
 
 
 
@@ -227,7 +221,6 @@ im_induce_suffixes_large_alphabet(
   }
   typedef radix_heap<char_type, text_offset_type> heap_type;
   heap_type *heap = new heap_type(radix_logs);
-  heap_type *heap2 = new heap_type(radix_logs);
 
 
 
@@ -425,9 +418,21 @@ im_induce_suffixes_large_alphabet(
 
 
 
+  // Initialize output writers.
+  typedef async_stream_writer<text_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
 
 
 
+
+
+
+
+  heap_type *heap2 = new heap_type(radix_logs);
   std::reverse(temp_storage.begin(), temp_storage.end());
   for (std::uint64_t t = 0; t < temp_storage.size(); ++t)
     heap2->push(temp_storage[t].first, temp_storage[t].second);
@@ -699,15 +704,9 @@ im_induce_suffixes_small_alphabet(
   typedef async_stream_writer<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  typedef async_stream_writer<text_offset_type> output_minus_pos_writer_type;
-  typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
   output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
   output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
 
 
 
@@ -1119,6 +1118,22 @@ im_induce_suffixes_small_alphabet(
 
 
 
+  // Initialize output writers.
+  typedef async_stream_writer<text_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+
+
+
+
+
+
+
+
+
   // Move pointers at the beginning of each buckets.
   for (std::uint64_t ch_plus = text_alphabet_size; ch_plus > 0; --ch_plus) {
     std::uint64_t ch = ch_plus - 1;
@@ -1395,7 +1410,7 @@ void im_induce_suffixes(
     std::vector<std::string> &output_minus_symbols_filenames,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (/*text_alphabet_size <= 100000000*/false) {
+  if (false) {  // XXX
     im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,

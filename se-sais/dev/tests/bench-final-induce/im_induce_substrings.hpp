@@ -156,14 +156,8 @@ im_induce_substrings_large_alphabet(
   // Initialize output writers.
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
-  typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
   output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
 
 
 
@@ -239,7 +233,6 @@ im_induce_substrings_large_alphabet(
   }
   typedef radix_heap<char_type, ext_block_offset_type> heap_type;
   heap_type *heap = new heap_type(radix_logs);
-  heap_type *heap2 = new heap_type(radix_logs);
 
 
 
@@ -331,6 +324,7 @@ im_induce_substrings_large_alphabet(
 
 
 
+  heap_type *heap2 = new heap_type(radix_logs);
   std::reverse(vec2.begin(), vec2.end());
   for (std::uint64_t t = 0; t < vec2.size(); ++t)
     heap2->push(vec2[t].first, vec2[t].second);
@@ -351,6 +345,21 @@ im_induce_substrings_large_alphabet(
   // Clean up.
   delete output_plus_symbols_writer;
   delete output_plus_type_writer;
+
+
+
+
+
+
+  // Initialize output writers.
+  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+
+
 
 
 
@@ -647,17 +656,11 @@ im_induce_substrings_small_alphabet(
 
 
 
-  // Initialize output writers.
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
-  typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
   output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+
 
 
 
@@ -803,10 +806,6 @@ im_induce_substrings_small_alphabet(
       ++this_bucket_end;
     bucket_ptr[ch] = this_bucket_end;
   }
-
-
-
-
 
 
 
@@ -1001,6 +1000,20 @@ im_induce_substrings_small_alphabet(
       --this_bucket_beg;
     bucket_ptr[ch] = this_bucket_beg;
   }
+
+
+
+
+
+
+  // Initialize output writers.
+  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+
 
 
 
@@ -1313,7 +1326,7 @@ void im_induce_substrings(
     std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
-  if (/*text_alphabet_size <= 100000000*/false) {
+  if (false) {  // XXX
     im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length,
         max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
