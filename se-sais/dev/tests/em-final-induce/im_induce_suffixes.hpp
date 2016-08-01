@@ -902,6 +902,10 @@ im_induce_suffixes_small_alphabet(
       bucket_ptr[head_char] = ptr;
     }
 
+    // Update I/O volume.
+    io_volume += reader->bytes_read();
+
+    // Clean up.
     delete reader;
     utils::file_delete(minus_pos_filename);
   }
