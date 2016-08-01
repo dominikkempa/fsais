@@ -796,6 +796,11 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
   }
 
+  fprintf(stderr, "  Text length = %lu\n", text_length);
+  fprintf(stderr, "  Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "  Max block size = %lu\n", max_block_size);
+
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
   std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());

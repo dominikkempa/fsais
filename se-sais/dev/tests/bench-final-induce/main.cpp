@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
   typedef uint40 text_offset_type;
 
   std::uint64_t text_alphabet_size = 256;
-  std::uint64_t ram_use = /*(3584UL << 20)*/(1L << 28);
+  std::uint64_t ram_use = (3584UL << 20);
   std::uint64_t io_volume = 0;
 
   em_compute_sa<
