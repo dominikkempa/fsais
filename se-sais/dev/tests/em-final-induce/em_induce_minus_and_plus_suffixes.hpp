@@ -492,6 +492,36 @@ void em_induce_minus_and_plus_suffixes(
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
   block_id_writer_type *block_id_writer = new block_id_writer_type(input_lex_sorted_suffixes_block_ids_filename, 4UL * computed_buf_size, 4UL);
 
+  // Compute sum of prev blocks for block_count.
+  std::vector<std::uint64_t> sum_of_prev_blocks(block_count.size());
+  for (std::uint64_t i = 0, S = 0; i < block_count.size(); ++i) {
+    sum_of_prev_blocks[i] = S;
+    S += block_count[i];
+  }
+
+  // Compute lookup table to speed up computing block IDs.
+  // Limit the size of lookup table to at most 8k elems.
+  std::uint64_t lookup_block_size = 1UL;
+  std::uint64_t lookup_block_size_log = 0UL;
+  std::uint64_t n_lookup_size = (text_length / lookup_block_size) + 1;
+  while (n_lookup_size > (8UL << 10)) {
+    lookup_block_size <<= 1;
+    ++lookup_block_size_log;
+    n_lookup_size = (text_length / lookup_block_size) + 1;
+  }
+
+  fprintf(stderr, "      Lookup block size = %lu\n", lookup_block_size);
+  std::vector<std::uint64_t> lookup_table(n_lookup_size, 0UL);
+  {
+    std::uint64_t block_id = 0;
+    for (std::uint64_t j = 0; j < n_lookup_size; ++j) {
+      std::uint64_t lookup_block_size_beg = j * lookup_block_size;
+      while (block_id < block_count.size() && sum_of_prev_blocks[block_id] + block_count[block_id] <= lookup_block_size_beg)
+        ++block_id;
+      lookup_table[j] = block_id;
+    }
+  }
+
   // Induce minus suffixes.
   radix_heap->push(last_text_symbol, (text_length - 1) / max_block_size);
   std::uint64_t cur_symbol = 0;
@@ -504,13 +534,11 @@ void em_induce_minus_and_plus_suffixes(
       std::uint64_t head_pos = head_pos_block_beg + minus_pos_reader->read_from_ith_file(head_pos_block_id);
       bool is_head_pos_star = minus_type_reader->read_from_ith_file(head_pos_block_id);
 
-      // XXX add lookup table.
       {
-        std::uint64_t output_block_id = 0;
-        std::uint64_t prev_blocks_sum = 0;
-        while (output_block_id < block_count.size() && prev_blocks_sum + block_count[output_block_id] <= head_pos)
-          prev_blocks_sum += block_count[output_block_id++];
-        std::uint64_t block_offset = head_pos - prev_blocks_sum;
+        std::uint64_t output_block_id = lookup_table[head_pos >> lookup_block_size_log];
+        while (output_block_id < block_count.size() && sum_of_prev_blocks[output_block_id] + block_count[output_block_id] <= head_pos)
+          ++output_block_id;
+        std::uint64_t block_offset = head_pos - sum_of_prev_blocks[output_block_id];
         block_id_writer->write(output_block_id);
         pos_writer->write_to_ith_file(output_block_id, block_offset);
       }
@@ -529,13 +557,11 @@ void em_induce_minus_and_plus_suffixes(
         std::uint64_t head_pos = plus_pos_reader->read();
         std::uint64_t head_pos_uint64 = head_pos;
 
-        // XXX add lookup table.
         {
-          std::uint64_t output_block_id = 0;
-          std::uint64_t prev_blocks_sum = 0;
-          while (output_block_id < block_count.size() && prev_blocks_sum + block_count[output_block_id] <= head_pos)
-            prev_blocks_sum += block_count[output_block_id++];
-          std::uint64_t block_offset = head_pos - prev_blocks_sum;
+          std::uint64_t output_block_id = lookup_table[head_pos >> lookup_block_size_log];
+          while (output_block_id < block_count.size() && sum_of_prev_blocks[output_block_id] + block_count[output_block_id] <= head_pos)
+            ++output_block_id;
+          std::uint64_t block_offset = head_pos - sum_of_prev_blocks[output_block_id];
           block_id_writer->write(output_block_id);
           pos_writer->write_to_ith_file(output_block_id, block_offset);
         }
