@@ -70,17 +70,18 @@ void em_induce_plus_star_substrings_large_alphabet(
   }
 
   // Decide on the RAM budget allocation.
-  std::uint64_t opt_buf_size = (2UL << 20);
+  std::uint64_t opt_buf_size = (1UL << 20);
   std::uint64_t computed_buf_size = 0;
   std::uint64_t n_buffers = 2 * n_blocks + 12;
   std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
   if (opt_buf_size * n_buffers <= ram_use / 2) {
     computed_buf_size = opt_buf_size;
-    std::uint64_t ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_buffers = computed_buf_size * n_buffers;
     ram_for_radix_heap = ram_use - ram_for_buffers;
   } else {
     ram_for_radix_heap = ram_use / 2;
-    std::uint64_t ram_for_buffers = ram_use - ram_for_radix_heap;
+    ram_for_buffers = ram_use - ram_for_radix_heap;
     computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
   }
 
@@ -89,6 +90,7 @@ void em_induce_plus_star_substrings_large_alphabet(
   fprintf(stderr, "    EM induce plus substrings (large alphabet):\n");
   fprintf(stderr, "      sizeof(extext_block_id_type) = %lu\n", sizeof(extext_block_id_type));
   fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
   fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
 
   // Initialize radix heap.
@@ -381,17 +383,18 @@ void em_induce_plus_star_substrings_small_alphabet(
   // Decide on the RAM budget allocation.
   std::uint64_t ram_for_timestamps = text_alphabet_size * sizeof(text_offset_type);
   std::uint64_t ram_for_buffers_and_radix_heap = std::max((std::int64_t)1, (std::int64_t)ram_use - (std::int64_t)ram_for_timestamps);
-  std::uint64_t opt_buf_size = (2UL << 20);
+  std::uint64_t opt_buf_size = (1UL << 20);
   std::uint64_t computed_buf_size = 0;
   std::uint64_t n_buffers = 2 * n_blocks + 12;
   std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
   if (ram_for_buffers_and_radix_heap >= ram_use / 3 + opt_buf_size * n_buffers) {
     computed_buf_size = opt_buf_size;
-    std::uint64_t ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_buffers = computed_buf_size * n_buffers;
     ram_for_radix_heap = ram_for_buffers_and_radix_heap - ram_for_buffers;
   } else {
     ram_for_radix_heap = ram_use / 3;
-    std::uint64_t ram_for_buffers = std::max((std::int64_t)1, (std::int64_t)ram_for_buffers_and_radix_heap - (std::int64_t)ram_for_radix_heap);
+    ram_for_buffers = std::max((std::int64_t)1, (std::int64_t)ram_for_buffers_and_radix_heap - (std::int64_t)ram_for_radix_heap);
     computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
   }
 
@@ -400,6 +403,7 @@ void em_induce_plus_star_substrings_small_alphabet(
   fprintf(stderr, "    EM induce plus substrings (small alphabet):\n");
   fprintf(stderr, "      sizeof(extext_block_id_type) = %lu\n", sizeof(extext_block_id_type));
   fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
   fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
   fprintf(stderr, "      Timestamps RAM budget = %lu (%.1LfMiB)\n", ram_for_timestamps, (1.L * ram_for_timestamps) / (1L << 20));
 

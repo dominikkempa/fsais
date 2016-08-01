@@ -23,9 +23,6 @@
 #include "em_induce_plus_star_substrings.hpp"
 
 
-// TODO: split the ram_use into radix heap and readers
-// Right now radix_heap uses all the ram, and I/O readers
-// (non-contant number of them!) use the space beyond that.
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
@@ -51,6 +48,7 @@ em_induce_minus_star_substrings_large_alphabet(
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   std::uint64_t is_tail_minus_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
@@ -87,10 +85,29 @@ em_induce_minus_star_substrings_large_alphabet(
     std::exit(EXIT_FAILURE);
   }
 
+  // Decide on the RAM budget allocation.
+  std::uint64_t opt_buf_size = (1UL << 20);
+  std::uint64_t computed_buf_size = 0;
+  std::uint64_t n_buffers = 3UL * n_blocks + n_permute_blocks + 20;
+  std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
+  if (opt_buf_size * n_buffers <= ram_use / 2) {
+    computed_buf_size = opt_buf_size;
+    ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_radix_heap = ram_use - ram_for_buffers;
+  } else {
+    ram_for_radix_heap = ram_use / 2;
+    ram_for_buffers = ram_use - ram_for_radix_heap;
+    computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
+  }
+
   // Start the timer.
   long double start = utils::wclock();
   fprintf(stderr, "    EM induce minus substrings (large alphabet):\n");
   fprintf(stderr, "      sizeof(ext_block_id_type) = %lu\n", sizeof(ext_block_id_type));
+  fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
+  fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -105,21 +122,21 @@ em_induce_minus_star_substrings_large_alphabet(
   }
   typedef packed_pair<ext_block_id_type, text_offset_type> ext_pair_type;
   typedef em_radix_heap<char_type, ext_pair_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_use);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_for_radix_heap);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
   typedef async_backward_bit_stream_reader plus_diff_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename);
-  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
-  plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
+  plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
   typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
-  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
-  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
+  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
+  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     minus_type_reader->add_file(minus_type_filenames[block_id]);
     minus_pos_reader->add_file(minus_pos_filenames[block_id]);
@@ -127,18 +144,17 @@ em_induce_minus_star_substrings_large_alphabet(
 
   // Initialize the reading of data associated with both types of suffixes.
   typedef async_multi_stream_reader<char_type> symbols_reader_type;
-  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
+  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize the output writers.
-  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type();
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
-  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
+  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -382,9 +398,6 @@ em_induce_minus_star_substrings_large_alphabet(
        output_count_filename, output_pos_filenames, total_io_volume);
 }
 
-// TODO: split the ram_use into radix heap and readers
-// Right now radix_heap uses all the ram, and I/O readers
-// (non-contant number of them!) use the space beyond that.
 template<typename char_type,
   typename text_offset_type,
   typename block_offset_type,
@@ -411,6 +424,7 @@ em_induce_minus_star_substrings_small_alphabet(
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
+  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   std::uint64_t msb_bit = ((std::uint64_t)std::numeric_limits<ext_block_id_type>::max() + 1) / 2;
   std::uint64_t io_volume = 0;
 
@@ -457,11 +471,32 @@ em_induce_minus_star_substrings_small_alphabet(
     std::exit(EXIT_FAILURE);
   }
 
+  // Decide on the RAM budget allocation.
+  std::uint64_t ram_for_timestamps = text_alphabet_size * sizeof(text_offset_type);
+  std::uint64_t ram_for_buffers_and_radix_heap = std::max((std::int64_t)1, (std::int64_t)ram_use - (std::int64_t)ram_for_timestamps);
+  std::uint64_t opt_buf_size = (1UL << 20);
+  std::uint64_t computed_buf_size = 0;
+  std::uint64_t n_buffers = 3UL * n_blocks + n_permute_blocks + 20;
+  std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
+  if (ram_for_buffers_and_radix_heap >= ram_use / 3 + opt_buf_size * n_buffers) {
+    computed_buf_size = opt_buf_size;
+    ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_radix_heap = ram_for_buffers_and_radix_heap - ram_for_buffers;
+  } else {
+    ram_for_radix_heap = ram_use / 3;
+    ram_for_buffers = std::max((std::int64_t)1, (std::int64_t)ram_for_buffers_and_radix_heap - (std::int64_t)ram_for_radix_heap);
+    computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
+  }
+
   // Start the timer.
   long double start = utils::wclock();
   fprintf(stderr, "    EM induce minus substrings (small alphabet):\n");
   fprintf(stderr, "      sizeof(ext_block_id_type) = %lu\n", sizeof(ext_block_id_type));
-  fprintf(stderr, "      Max permute block size = %lu\n", max_permute_block_size);
+  fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
+  fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
+  fprintf(stderr, "      Timestamps RAM budget = %lu (%.1LfMiB)\n", ram_for_timestamps, (1.L * ram_for_timestamps) / (1L << 20));
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -475,21 +510,21 @@ em_induce_minus_star_substrings_small_alphabet(
     }
   }
   typedef em_radix_heap<char_type, ext_block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_use);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_for_radix_heap);
 
   // Initialize the readers of data associated with plus suffixes.
   typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
   typedef async_backward_bit_stream_reader plus_diff_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename);
-  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
-  plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
+  plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
   typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
-  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
-  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
+  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
+  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     minus_type_reader->add_file(minus_type_filenames[block_id]);
     minus_pos_reader->add_file(minus_pos_filenames[block_id]);
@@ -497,18 +532,17 @@ em_induce_minus_star_substrings_small_alphabet(
 
   // Initialize readers of data associated with both types of suffixes.
   typedef async_multi_stream_reader<char_type> symbols_reader_type;
-  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
+  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize the output writers.
-  std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size;
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type();
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
-  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename);
+  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -775,9 +809,9 @@ em_induce_minus_star_substrings(
     std::string tempfile_basename,
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
-    std::uint64_t &total_io_volume) {
-  // TODO more sophisticated criterion
-  if (text_alphabet_size <= 100000000)  // XXX
+    std::uint64_t &total_io_volume,
+    bool is_small_alphabet) {
+  if (is_small_alphabet)
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
         text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
@@ -812,7 +846,8 @@ em_induce_minus_star_substrings(
   fprintf(stderr, "  EM induce substrings:\n");
   fprintf(stderr, "    sizeof(block_offset_type) = %lu\n", sizeof(block_offset_type));
   fprintf(stderr, "    sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
-  fprintf(stderr, "    Max block size = %lu (%.2LfMiB)\n", max_block_size, (1.L * max_block_size) / (1L << 20));
+  fprintf(stderr, "    Max block size = %lu\n", max_block_size);
+  fprintf(stderr, "    Max permute block size = %lu\n", max_permute_block_size);
 
   std::vector<std::uint64_t> plus_block_count_targets(n_blocks, 0UL);
   std::vector<std::uint64_t> minus_block_count_targets(n_blocks, 0UL);
@@ -903,7 +938,8 @@ em_induce_minus_star_substrings(
       tempfile_basename,
       output_count_filename,
       output_pos_filenames,
-      total_io_volume);
+      total_io_volume,
+      is_small_alphabet);
 
   // Delete input files.
   utils::file_delete(plus_pos_filename);
@@ -994,6 +1030,7 @@ em_induce_minus_star_substrings(
     std::string output_count_filename,
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
+  ram_use = std::max(3UL, ram_use);
 #ifdef SAIS_DEBUG
   std::uint64_t max_block_size = 0;
   std::uint64_t n_blocks = 0;
@@ -1007,7 +1044,7 @@ em_induce_minus_star_substrings(
       text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
 #else
-  if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 2) {
+  if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 3) {
     // Binary search for the largest block size that
     // can be processed using the given ram_budget.
     std::uint64_t low = 1, high = text_length + 1;

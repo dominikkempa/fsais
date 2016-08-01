@@ -23,8 +23,11 @@ class async_backward_bit_stream_reader {
     bool m_is_filled;
 
   public:
-    async_backward_bit_stream_reader(std::string filename) {
-      m_internal_reader = new internal_reader_type(filename);
+    async_backward_bit_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_items = (8UL << 20),
+        std::uint64_t n_buffers = 4) {
+      m_internal_reader = new internal_reader_type(filename,
+          total_buf_size_items, n_buffers);
       m_data = 0;
       m_pos = 0;
       m_is_filled = false;
