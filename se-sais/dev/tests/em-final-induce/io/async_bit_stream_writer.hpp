@@ -60,7 +60,9 @@ class async_bit_stream_writer {
     }
 
   public:
-    async_bit_stream_writer(std::string filename, std::uint64_t bufsize = (4UL << 20)) {
+    async_bit_stream_writer(std::string filename,
+        std::uint64_t bufsize, std::uint64_t n_buffers) {
+      (void)n_buffers;  // unused now.
       m_file = utils::file_open(filename.c_str(), "w");
 
       // Initialize buffers.

@@ -138,7 +138,7 @@ void em_induce_plus_suffixes(
   typedef async_bit_stream_writer output_type_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename, 4UL * computed_buf_size, 4UL);
-  output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename, 4UL * computed_buf_size);
+  output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename, 4UL * computed_buf_size, 4UL);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
   bool empty_output = true;

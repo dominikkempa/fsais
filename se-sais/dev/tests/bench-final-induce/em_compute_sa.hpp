@@ -46,7 +46,7 @@ std::uint64_t create_recursive_text(
 
   // Initialize the writer of text.
   typedef async_stream_writer<name_type> text_writer_type;
-  text_writer_type *text_writer = new text_writer_type(recursive_text_output_filename);
+  text_writer_type *text_writer = new text_writer_type(recursive_text_output_filename, (2UL << 20), 4UL);
 
   // Process permute blocks left to right.
   std::uint64_t new_text_length = 0;
@@ -59,7 +59,8 @@ std::uint64_t create_recursive_text(
     // Read names.
     {
       typedef async_stream_reader<text_offset_type> reader_type;
-      reader_type *reader = new reader_type(lex_sorted_minus_star_substrings_for_normal_string_input_filenames[permute_block_id]);
+      reader_type *reader = new reader_type(
+          lex_sorted_minus_star_substrings_for_normal_string_input_filenames[permute_block_id], (2UL << 20), 4UL);
       while (!reader->empty()) {
         std::uint64_t pos = (std::uint64_t)reader->read() - permute_block_beg;
         text_offset_type name = reader->read();
@@ -77,7 +78,8 @@ std::uint64_t create_recursive_text(
     // Write positions and append name.
     {
       typedef async_stream_writer<text_offset_type> pos_writer_type;
-      pos_writer_type *pos_writer = new pos_writer_type(text_sorted_minus_star_substrings_for_normal_string_output_filenames[permute_block_id]);
+      pos_writer_type *pos_writer = new pos_writer_type(
+          text_sorted_minus_star_substrings_for_normal_string_output_filenames[permute_block_id], (2UL << 20), 4UL);
       for (std::uint64_t i = 0; i < permute_block_size; ++i) {
         if (used_bv[i >> 6] & (1UL << (i & 63))) {
           pos_writer->write(i);

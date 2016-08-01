@@ -160,7 +160,7 @@ void em_induce_plus_star_substrings_large_alphabet(
   typedef async_bit_stream_writer output_diff_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename, 4UL * computed_buf_size, 4UL);
-  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename, 4UL * computed_buf_size);
+  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename, 4UL * computed_buf_size, 4UL);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
 
@@ -473,7 +473,7 @@ void em_induce_plus_star_substrings_small_alphabet(
   typedef async_bit_stream_writer output_diff_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
   output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename, 4UL * computed_buf_size, 4UL);
-  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename, 4UL * computed_buf_size);
+  output_diff_writer_type *output_diff_writer = new output_diff_writer_type(output_diff_filename, 4UL * computed_buf_size, 4UL);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
   std::uint64_t prev_head_char = 0;

@@ -131,7 +131,7 @@ im_induce_substrings_large_alphabet(
 
   // Initialize text accessor.
   typedef simple_accessor<char_type> accessor_type;
-  accessor_type *text_accessor = new accessor_type(text_filename);
+  accessor_type *text_accessor = new accessor_type(text_filename, (2UL << 20));
 
 
 
@@ -154,8 +154,8 @@ im_induce_substrings_large_alphabet(
   // Initialize output writers.
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
-  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, (2UL << 20), 4UL);
+  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
 
 
 
@@ -353,9 +353,9 @@ im_induce_substrings_large_alphabet(
   typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, (2UL << 20), 4UL);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, (2UL << 20), 4UL);
 
 
 
@@ -636,7 +636,7 @@ im_induce_substrings_small_alphabet(
 
   // Initialize text accessor.
   typedef simple_accessor<char_type> accessor_type;
-  accessor_type *text_accessor = new accessor_type(text_filename);
+  accessor_type *text_accessor = new accessor_type(text_filename, (2UL << 20));
 
 
 
@@ -658,8 +658,8 @@ im_induce_substrings_small_alphabet(
 
   typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename);
-  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, (2UL << 20), 4UL);
+  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
 
 
 
@@ -1008,9 +1008,9 @@ im_induce_substrings_small_alphabet(
   typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename);
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, (2UL << 20), 4UL);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, (2UL << 20), 4UL);
 
 
 

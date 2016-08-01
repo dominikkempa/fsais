@@ -23,7 +23,7 @@ class simple_accessor {
     std::FILE *m_file;
 
   public:
-    simple_accessor(std::string filename, std::uint64_t bufsize = (1UL << 20)) {
+    simple_accessor(std::string filename, std::uint64_t bufsize = (2UL << 20)) {
       m_items_per_buf = std::max(2UL, bufsize / sizeof(value_type));
       m_file_items = utils::file_size(filename) / sizeof(value_type);
       m_file = utils::file_open(filename, "r");
