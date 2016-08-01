@@ -8,13 +8,14 @@
 #include <string>
 #include <algorithm>
 
-#include "utils.hpp"
-#include "em_radix_heap.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_bit_stream_writer.hpp"
+
+#include "utils.hpp"
+#include "em_radix_heap.hpp"
 
 
 template<typename char_type,
@@ -23,6 +24,7 @@ template<typename char_type,
 void em_induce_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::vector<std::uint64_t> &block_count_target,
@@ -73,7 +75,7 @@ void em_induce_plus_suffixes(
 
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "  EM induce plus suffixes: ");
+  fprintf(stderr, "    EM induce plus suffixes: ");
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -208,8 +210,8 @@ void em_induce_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 #endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

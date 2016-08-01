@@ -164,12 +164,12 @@ class async_multi_stream_writer {
     }
 
   public:
-    async_multi_stream_writer(std::uint64_t buf_size_bytes = (1UL << 20),
+    async_multi_stream_writer(std::uint64_t bufsize_per_file_in_bytes = (1UL << 20),
         std::uint64_t n_free_buffers = 4UL) {
       // Initialize basic parameters.
       // Works even with n_free_buffers == 0.
       m_bytes_written = 0;
-      m_items_per_buf = std::max(1UL, buf_size_bytes / sizeof(value_type));
+      m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / sizeof(value_type));
       for (std::uint64_t j = 0; j < n_free_buffers; ++j)
         m_free_buffers.add(new buffer_type(m_items_per_buf));
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);

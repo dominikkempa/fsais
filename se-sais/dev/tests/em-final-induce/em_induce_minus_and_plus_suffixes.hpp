@@ -7,13 +7,7 @@
 #include <string>
 #include <algorithm>
 
-#include "im_induce_suffixes.hpp"
-#include "em_induce_plus_suffixes.hpp"
-
-#include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
-#include "io/async_bit_stream_reader.hpp"
-#include "io/async_vbyte_stream_reader.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_stream_writer.hpp"
@@ -26,6 +20,9 @@
 #include "uint40.hpp"
 #include "uint48.hpp"
 
+#include "im_induce_suffixes.hpp"
+#include "em_induce_plus_suffixes.hpp"
+
 
 template<typename char_type,
   typename text_offset_type,
@@ -33,6 +30,7 @@ template<typename char_type,
 void em_induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     char_type last_text_symbol,
@@ -82,7 +80,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "  EM induce minus and plus suffixes: ");
+  fprintf(stderr, "    EM induce minus and plus suffixes: ");
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -187,8 +185,8 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -197,6 +195,7 @@ template<typename char_type,
 void induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
@@ -209,10 +208,8 @@ void induce_minus_and_plus_suffixes(
     bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-  fprintf(stderr, "EM induce minus and plus suffixes:\n");
-  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
-  fprintf(stderr, "  sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
-  fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
+  fprintf(stderr, "  EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "    sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
@@ -238,6 +235,7 @@ void induce_minus_and_plus_suffixes(
     text_offset_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         next_block_leftmost_minus_star_plus_rank,
         text_filename,
@@ -262,6 +260,7 @@ void induce_minus_and_plus_suffixes(
     block_id_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         ram_use,
         block_count_target,
@@ -289,6 +288,7 @@ void induce_minus_and_plus_suffixes(
     block_id_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         ram_use,
         last_text_symbol,
@@ -316,6 +316,7 @@ template<typename char_type,
 void induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
@@ -329,19 +330,19 @@ void induce_minus_and_plus_suffixes(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint8_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
         minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 16)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint16_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
         minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 24)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, uint24>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
         minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   } else {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint64_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filename,
         minus_count_filename, output_filename, init_minus_pos_filenames, total_io_volume, is_small_alphabet);
   }
 }
@@ -352,6 +353,7 @@ template<typename char_type,
 void em_induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     char_type last_text_symbol,
@@ -404,7 +406,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "  EM induce minus and plus suffixes: ");
+  fprintf(stderr, "    EM induce minus and plus suffixes: ");
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -535,8 +537,8 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 
@@ -546,6 +548,7 @@ template<typename char_type,
 void induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
@@ -561,10 +564,8 @@ void induce_minus_and_plus_suffixes(
     bool is_small_alphabet) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 
-  fprintf(stderr, "EM induce minus and plus suffixes:\n");
-  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
-  fprintf(stderr, "  sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
-  fprintf(stderr, "  sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
+  fprintf(stderr, "  EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "    sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
@@ -590,6 +591,7 @@ void induce_minus_and_plus_suffixes(
     text_offset_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         next_block_leftmost_minus_star_plus_rank,
         text_filename,
@@ -616,6 +618,7 @@ void induce_minus_and_plus_suffixes(
     block_id_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         ram_use,
         block_count_target,
@@ -643,6 +646,7 @@ void induce_minus_and_plus_suffixes(
     block_id_type>(
         text_alphabet_size,
         text_length,
+        initial_text_length,
         max_block_size,
         ram_use,
         last_text_symbol,
@@ -673,6 +677,7 @@ template<typename char_type,
 void induce_minus_and_plus_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
@@ -689,22 +694,22 @@ void induce_minus_and_plus_suffixes(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 8)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint8_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
         input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 16)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint16_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
         input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else if (n_blocks < (1UL << 24)) {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, uint24>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
         input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   } else {
     induce_minus_and_plus_suffixes<char_type, text_offset_type, std::uint64_t>(text_alphabet_size, text_length,
-        max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
+        initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank, tempfile_basename, text_filename, minus_pos_filename,
         minus_count_filename, init_minus_pos_filenames, block_count, input_lex_sorted_suffixes_block_ids_filename,
         input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
   }

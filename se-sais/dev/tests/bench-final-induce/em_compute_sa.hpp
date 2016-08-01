@@ -27,6 +27,7 @@ template<typename name_type,
   typename text_offset_type>
 std::uint64_t create_recursive_text(
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_permute_block_size,
     std::vector<std::string> &lex_sorted_minus_star_substrings_for_normal_string_input_filenames,
     std::vector<std::string> &text_sorted_minus_star_substrings_for_normal_string_output_filenames,
@@ -35,7 +36,7 @@ std::uint64_t create_recursive_text(
   std::uint64_t io_volume = 0;
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size; 
 
-  fprintf(stderr, "Create recursive text: ");
+  fprintf(stderr, "  Create recursive text: ");
   long double start = utils::wclock();
 
   // Allocate array with names and `used' bitvector.
@@ -105,8 +106,8 @@ std::uint64_t create_recursive_text(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
+      (1.l * io_volume / (1l << 20)) / total_time, (1.L *total_io_volume) / initial_text_length);
 
   // Return result.
   return new_text_length;
@@ -117,6 +118,7 @@ std::uint64_t create_recursive_text(
 template<typename text_offset_type>
 void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t max_permute_block_size,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
@@ -131,7 +133,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "Permute minus star suffixes from text to lex order: ");
+  fprintf(stderr, "  Permute minus star suffixes from text to lex order: ");
   long double start = utils::wclock();
 
   std::vector<std::string> temp_filenames(n_permute_blocks);
@@ -261,8 +263,8 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.l * io_volume / (1l << 20)) / total_time, (1.l * total_io_volume) / text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
+      (1.l * io_volume / (1l << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -322,6 +324,7 @@ template<typename char_type,
   typename text_offset_type>
 void compute_sa(
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t ram_use,
     std::uint64_t text_alphabet_size,
     std::vector<std::uint64_t> &input_block_count,
@@ -361,20 +364,19 @@ void compute_sa(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
-  fprintf(stderr, "=== Entering recursion level %lu ===\n", recursion_level);
-  fprintf(stderr, "Text length = %lu\n", text_length);
-  fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
-  fprintf(stderr, "Max block size = %lu\n", max_block_size);
-  fprintf(stderr, "sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "Entering recursion level %lu\n", recursion_level);
+  fprintf(stderr, "  Text length = %lu\n", text_length);
+  fprintf(stderr, "  Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
 
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     lex_sorted_minus_star_substrings_for_normal_string_filenames[permute_block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
   std::string minus_star_suffixes_count_filename = tempfile_basename + "tmp." + utils::random_string_hash();
-  std::uint64_t n_names = em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
-      ram_use, max_permute_block_size, text_filename, tempfile_basename, minus_star_suffixes_count_filename,
-      lex_sorted_minus_star_substrings_for_normal_string_filenames, total_io_volume);
+  std::uint64_t n_names = em_induce_minus_star_substrings<char_type, text_offset_type>(text_length,
+      initial_text_length, text_alphabet_size, ram_use, max_permute_block_size, text_filename, tempfile_basename,
+      minus_star_suffixes_count_filename, lex_sorted_minus_star_substrings_for_normal_string_filenames, total_io_volume);
 
   std::vector<std::uint64_t> block_count(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id) {
@@ -397,7 +399,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -409,7 +411,7 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
@@ -421,7 +423,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -433,7 +435,7 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
@@ -445,7 +447,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -457,7 +459,7 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
@@ -469,7 +471,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -481,7 +483,7 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
@@ -493,7 +495,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -505,7 +507,7 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
@@ -517,7 +519,7 @@ void compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = tempfile_basename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, initial_text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -529,12 +531,17 @@ void compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, initial_text_length,
         ram_use, n_names, block_count, tempfile_basename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume,
         recursion_level + 1);
   }
+
+  fprintf(stderr, "  Text length = %lu\n", text_length);
+  fprintf(stderr, "  Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
+  fprintf(stderr, "  Max block size = %lu\n", max_block_size);
 
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
@@ -544,7 +551,7 @@ void compute_sa(
     lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
   std::string lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename = tempfile_basename + "tmp." + utils::random_string_hash();
   permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order<text_offset_type>(
-      text_length, max_block_size, max_permute_block_size,
+      text_length, initial_text_length, max_block_size, max_permute_block_size,
       next_block_leftmost_minus_star_plus_rank, tempfile_basename,
       lex_sorted_suffixes_for_recursive_string_filenames,
       lex_sorted_suffixes_for_recursive_string_block_ids_filename,
@@ -555,13 +562,13 @@ void compute_sa(
 
   // Compute the write the final SA to disk.
   induce_minus_and_plus_suffixes<char_type, text_offset_type>(text_alphabet_size,
-      text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank,
+      text_length, initial_text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank,
       tempfile_basename, text_filename, lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename,
       minus_star_suffixes_count_filename, lex_sorted_minus_star_suffixes_for_normal_string_filenames,
       input_block_count, input_lex_sorted_suffixes_block_ids_filename,
       input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
 
-  fprintf(stderr, "=== Exiting recursion level %lu ==\n", recursion_level);
+  fprintf(stderr, "Exiting recursion level %lu\n", recursion_level);
 }
 
 template<typename char_type,
@@ -603,24 +610,25 @@ void em_compute_sa(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
-  fprintf(stderr, "Text length = %lu\n", text_length);
-  fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
   fprintf(stderr, "Text filename = %s\n", text_filename.c_str());
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
+  fprintf(stderr, "Text length = %lu\n", text_length);
   fprintf(stderr, "RAM use = %lu (%.2LfMiB)\n", ram_use, (1.L * ram_use) / (1L << 20));
-  fprintf(stderr, "Max block size = %lu\n", max_block_size);
+  fprintf(stderr, "Text alphabet size = %lu\n\n", text_alphabet_size);
   fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
+  fprintf(stderr, "sizeof(char_type) = %lu\n\n\n", sizeof(char_type));
 
   long double start = utils::wclock();
+  fprintf(stderr, "Entering recursion level 0\n");
 
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     lex_sorted_minus_star_substrings_for_normal_string_filenames[permute_block_id] = output_filename + "tmp." + utils::random_string_hash();
   std::string minus_star_suffixes_count_filename = output_filename + "tmp." + utils::random_string_hash();
-  std::uint64_t n_names = em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_alphabet_size,
-      ram_use, max_permute_block_size, text_filename, output_filename, minus_star_suffixes_count_filename,
-      lex_sorted_minus_star_substrings_for_normal_string_filenames, total_io_volume);
+  std::uint64_t n_names = em_induce_minus_star_substrings<char_type, text_offset_type>(text_length, text_length,
+      text_alphabet_size, ram_use, max_permute_block_size, text_filename, output_filename,
+      minus_star_suffixes_count_filename, lex_sorted_minus_star_substrings_for_normal_string_filenames, total_io_volume);
 
   std::vector<std::uint64_t> block_count(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id) {
@@ -643,7 +651,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -655,7 +663,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -666,7 +674,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -678,7 +686,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -689,7 +697,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -701,7 +709,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -712,7 +720,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -724,7 +732,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -735,7 +743,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -747,7 +755,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -758,7 +766,7 @@ void em_compute_sa(
     // and at the same time create the recursive string
     std::string recursive_text_filename = output_filename + "tmp." + utils::random_string_hash();
     std::uint64_t new_text_length = create_recursive_text<recursive_char_type, text_offset_type>(
-        text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
+        text_length, text_length, max_permute_block_size, lex_sorted_minus_star_substrings_for_normal_string_filenames,
         text_sorted_minus_star_substrings_for_normal_string_filenames, recursive_text_filename, total_io_volume);
 
     // Sort suffixes of the recursive string. The output is distributed
@@ -770,7 +778,7 @@ void em_compute_sa(
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
     else
-      compute_sa<recursive_char_type, text_offset_type>(new_text_length,
+      compute_sa<recursive_char_type, text_offset_type>(new_text_length, text_length,
         ram_use, n_names, block_count, output_filename, recursive_text_filename,
         lex_sorted_suffixes_for_recursive_string_block_ids_filename,
         lex_sorted_suffixes_for_recursive_string_filenames, total_io_volume);
@@ -784,7 +792,7 @@ void em_compute_sa(
     lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
   std::string lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename = output_filename + "tmp." + utils::random_string_hash();
   permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order<text_offset_type>(
-      text_length, max_block_size, max_permute_block_size,
+      text_length, text_length, max_block_size, max_permute_block_size,
       next_block_leftmost_minus_star_plus_rank, output_filename,
       lex_sorted_suffixes_for_recursive_string_filenames,
       lex_sorted_suffixes_for_recursive_string_block_ids_filename,
@@ -795,7 +803,7 @@ void em_compute_sa(
 
   // Compute the write the final SA to disk.
   induce_minus_and_plus_suffixes<char_type, text_offset_type>(text_alphabet_size,
-      text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank,
+      text_length, text_length, max_block_size, ram_use, next_block_leftmost_minus_star_plus_rank,
       text_filename, lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename,
       minus_star_suffixes_count_filename, output_filename,
       lex_sorted_minus_star_suffixes_for_normal_string_filenames,
@@ -806,7 +814,7 @@ void em_compute_sa(
   fprintf(stderr, "\n\nComputation finished. Summary:\n");
   fprintf(stderr, "  Total time = %.2Lfs\n", total_time);
   fprintf(stderr, "  Relative runtime = %.2Lfs/MiB\n", (1.L * total_time) / (text_length / (1L << 20)));
-  fprintf(stderr, "  I/O volume = %.2Lfn bytes\n", (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "  I/O volume = %.1Lf bytes/symbol\n", (1.L * total_io_volume) / text_length);
 }
 
 #endif  // __EM_COMPUTE_SA_HPP_INCULUDED

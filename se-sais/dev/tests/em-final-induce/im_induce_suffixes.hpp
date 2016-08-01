@@ -9,13 +9,13 @@
 #include <queue>
 #include <algorithm>
 
-#include "packed_pair.hpp"
 #include "io/async_backward_stream_reader.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_bit_stream_writer.hpp"
 #include "io/simple_accessor.hpp"
 
+#include "packed_pair.hpp"
 #include "radix_heap.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -114,7 +114,7 @@ im_induce_suffixes_large_alphabet(
 
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "    Process block [%lu..%lu): ", block_beg, block_end);
+  fprintf(stderr, "      Process block [%lu..%lu): ", block_beg, block_end);
 
 
 
@@ -546,6 +546,7 @@ template<typename char_type,
 void im_induce_suffixes_large_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
@@ -561,7 +562,7 @@ void im_induce_suffixes_large_alphabet(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "  IM induce suffixes (large alphabet):\n");
+  fprintf(stderr, "    IM induce suffixes (large alphabet):\n");
   long double start = utils::wclock();
 
   bool is_last_minus = true;
@@ -601,8 +602,8 @@ void im_induce_suffixes_large_alphabet(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "    Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -663,7 +664,7 @@ im_induce_suffixes_small_alphabet(
 
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "    Process block [%lu..%lu): ", block_beg, block_end);
+  fprintf(stderr, "      Process block [%lu..%lu): ", block_beg, block_end);
 
 
 
@@ -1334,6 +1335,7 @@ template<typename char_type,
 void im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
@@ -1349,7 +1351,7 @@ void im_induce_suffixes_small_alphabet(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "  IM induce suffixes (small alphabet):\n");
+  fprintf(stderr, "    IM induce suffixes (small alphabet):\n");
   long double start = utils::wclock();
 
   bool is_last_minus = true;
@@ -1389,8 +1391,8 @@ void im_induce_suffixes_small_alphabet(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "    Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
+      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -1398,6 +1400,7 @@ template<typename char_type,
 void im_induce_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
+    std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
@@ -1412,12 +1415,12 @@ void im_induce_suffixes(
     std::uint64_t &total_io_volume,
     bool is_small_alphabet) {
   if (is_small_alphabet) {
-    im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length,
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length, initial_text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   } else {
-    im_induce_suffixes_large_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length,
+    im_induce_suffixes_large_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length, initial_text_length,
         max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
         output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);

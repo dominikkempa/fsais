@@ -157,12 +157,12 @@ class async_multi_stream_reader {
 
   public:
     async_multi_stream_reader(std::uint64_t number_of_files,
-        std::uint64_t buf_size_bytes = (1UL << 19)) {
+        std::uint64_t bufsize_per_file_in_bytes = (1UL << 20)) {
       // Initialize basic parameters.
       n_files = number_of_files;
       m_files_added = 0;
       m_bytes_read = 0;
-      m_items_per_buf = std::max(1UL, buf_size_bytes / sizeof(value_type));
+      m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / (2UL * sizeof(value_type)));
 
       m_mutexes = new std::mutex[n_files];
       m_cvs = new std::condition_variable[n_files];

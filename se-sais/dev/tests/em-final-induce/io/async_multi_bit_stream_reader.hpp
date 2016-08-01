@@ -33,8 +33,9 @@ class async_multi_bit_stream_reader {
     std::vector<bit_buffer> m_buffers;
 
   public:
-    async_multi_bit_stream_reader(std::uint64_t number_of_files) {
-      m_internal_reader = new internal_reader_type(number_of_files);
+    async_multi_bit_stream_reader(std::uint64_t number_of_files,
+        std::uint64_t bufsize_per_file_in_bytes = (1UL << 20)) {
+      m_internal_reader = new internal_reader_type(number_of_files, bufsize_per_file_in_bytes);
       m_buffers = std::vector<bit_buffer>(number_of_files);
     }
 
