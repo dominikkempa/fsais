@@ -78,9 +78,28 @@ void em_induce_minus_and_plus_suffixes(
     std::exit(EXIT_FAILURE);
   }
 
+  // Decide on the RAM budget allocation.
+  std::uint64_t opt_buf_size = (1UL << 20);
+  std::uint64_t computed_buf_size = 0;
+  std::uint64_t n_buffers = 3 * n_blocks + 16;
+  std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
+  if (opt_buf_size * n_buffers <= ram_use / 2) {
+    computed_buf_size = opt_buf_size;
+    ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_radix_heap = ram_use - ram_for_buffers;
+  } else {
+    ram_for_radix_heap = ram_use / 2;
+    ram_for_buffers = ram_use - ram_for_radix_heap;
+    computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
+  }
+
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "    EM induce minus and plus suffixes: ");
+  fprintf(stderr, "    EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
+  fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -94,21 +113,21 @@ void em_induce_minus_and_plus_suffixes(
     }
   }
   typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_filename, ram_use);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, output_filename, ram_for_radix_heap);
 
   // Initialize the readers for plus suffixes.
   typedef async_backward_stream_reader<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename);
-  plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename);
-  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
+  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers and writers for minus suffixes.
   typedef async_multi_stream_reader<text_offset_type> minus_pos_reader_type;
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
-  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
+  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
+  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     minus_pos_reader->add_file(minus_pos_filenames[block_id]);
     minus_type_reader->add_file(minus_type_filenames[block_id]);
@@ -116,13 +135,13 @@ void em_induce_minus_and_plus_suffixes(
 
   // Initialize the readers of data associated with both types of suffixes.
   typedef async_multi_stream_reader<char_type> symbols_reader_type;
-  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
+  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writer.
   typedef async_stream_writer<text_offset_type> output_writer_type;
-  output_writer_type *output_writer = new output_writer_type(output_filename);
+  output_writer_type *output_writer = new output_writer_type(output_filename, 4UL * computed_buf_size, 4UL);
 
   // Induce minus suffixes.
   radix_heap->push(last_text_symbol, (text_length - 1) / max_block_size);
@@ -185,7 +204,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
@@ -404,9 +423,28 @@ void em_induce_minus_and_plus_suffixes(
     std::exit(EXIT_FAILURE);
   }
 
+  // Decide on the RAM budget allocation.
+  std::uint64_t opt_buf_size = (1UL << 20);
+  std::uint64_t computed_buf_size = 0;
+  std::uint64_t n_buffers = 3 * n_blocks + block_count.size() + 20;
+  std::uint64_t ram_for_radix_heap = 0;
+  std::uint64_t ram_for_buffers = 0;
+  if (opt_buf_size * n_buffers <= ram_use / 2) {
+    computed_buf_size = opt_buf_size;
+    ram_for_buffers = computed_buf_size * n_buffers;
+    ram_for_radix_heap = ram_use - ram_for_buffers;
+  } else {
+    ram_for_radix_heap = ram_use / 2;
+    ram_for_buffers = ram_use - ram_for_radix_heap;
+    computed_buf_size = std::max(1UL, ram_for_buffers / n_buffers);
+  }
+
   // Start the timer.
   long double start = utils::wclock();
-  fprintf(stderr, "    EM induce minus and plus suffixes: ");
+  fprintf(stderr, "    EM induce minus and plus suffixes:\n");
+  fprintf(stderr, "      Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "      All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
+  fprintf(stderr, "      Radix heap RAM budget = %lu (%.1LfMiB)\n", ram_for_radix_heap, (1.L * ram_for_radix_heap) / (1L << 20));
 
   // Initialize radix heap.
   std::vector<std::uint64_t> radix_logs;
@@ -420,21 +458,21 @@ void em_induce_minus_and_plus_suffixes(
     }
   }
   typedef em_radix_heap<char_type, block_id_type> radix_heap_type;
-  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_use);
+  radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_for_radix_heap);
 
   // Initialize the readers for plus suffixes.
   typedef async_backward_stream_reader<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename);
-  plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename);
-  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
+  plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers and writers for minus suffixes.
   typedef async_multi_stream_reader<text_offset_type> minus_pos_reader_type;
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks);
-  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks);
+  minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
+  minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     minus_pos_reader->add_file(minus_pos_filenames[block_id]);
     minus_type_reader->add_file(minus_type_filenames[block_id]);
@@ -442,17 +480,17 @@ void em_induce_minus_and_plus_suffixes(
 
   // Initialize the readers of data associated with both types of suffixes.
   typedef async_multi_stream_reader<char_type> symbols_reader_type;
-  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks);
+  symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type();
+  pos_writer_type *pos_writer = new pos_writer_type(computed_buf_size, 4UL);
   for (std::uint64_t i = 0; i < block_count.size(); ++i)
     pos_writer->add_file(input_lex_sorted_suffixes_filenames[i]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
-  block_id_writer_type *block_id_writer = new block_id_writer_type(input_lex_sorted_suffixes_block_ids_filename);
+  block_id_writer_type *block_id_writer = new block_id_writer_type(input_lex_sorted_suffixes_block_ids_filename, 4UL * computed_buf_size, 4UL);
 
   // Induce minus suffixes.
   radix_heap->push(last_text_symbol, (text_length - 1) / max_block_size);
@@ -537,7 +575,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
