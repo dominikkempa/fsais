@@ -123,6 +123,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
     std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
     std::uint64_t max_permute_block_size,
+    std::uint64_t ram_use,
     std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string tempfile_basename,
     std::vector<std::string> &lex_sorted_suffixes_for_recursive_string_filenames,
@@ -135,7 +136,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "  Permute minus star suffixes from text to lex order: ");
+  fprintf(stderr, "  Permute minus star suffixes from text to lex order:\n");
   long double start = utils::wclock();
 
   std::vector<std::string> temp_filenames(n_permute_blocks);
@@ -150,7 +151,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   std::uint64_t *inbuf = new std::uint64_t[bufsize];
   text_offset_type *outbuf = new text_offset_type[bufsize];
 #else
-  static const std::uint64_t bufsize = (1UL << 20);
+  static const std::uint64_t bufsize = (1UL << 15);
   std::uint64_t *inbuf = new std::uint64_t[bufsize];
   text_offset_type *outbuf = new text_offset_type[bufsize];
 #endif
@@ -165,13 +166,13 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
     // Initialize the writer of permuted positions.
     typedef async_stream_writer<text_offset_type> lex_sorted_minus_star_suffixes_for_normal_string_writer_type;
     lex_sorted_minus_star_suffixes_for_normal_string_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_writer
-      = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type(temp_filenames[permute_block_id]);
+      = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type(temp_filenames[permute_block_id], (2UL << 20), 4UL);
 
     // Initialize the reader of lex sorted minus star suffixes for recursive string.
     typedef async_stream_reader<text_offset_type> lex_sorted_suffixes_for_recursive_string_reader_type;
     lex_sorted_suffixes_for_recursive_string_reader_type *lex_sorted_suffixes_for_recursive_string_reader
       = new lex_sorted_suffixes_for_recursive_string_reader_type(
-        lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id]);
+        lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id], (2UL << 20), 4UL);
 
     std::uint64_t items_left = utils::file_size(lex_sorted_suffixes_for_recursive_string_filenames[permute_block_id]) / sizeof(text_offset_type);
     while (items_left > 0) {
@@ -202,22 +203,30 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   delete[] outbuf;
   delete[] text_sorted_suffixes_for_normal_string;
 
+  std::uint64_t n_buffers = 12 + n_permute_blocks + n_blocks;
+  std::uint64_t computed_buf_size = std::max(1UL, ram_use / n_buffers);
+  std::uint64_t ram_for_buffers = n_buffers * computed_buf_size;
+
+  fprintf(stderr, "    Single buffer size = %lu (%.1LfMiB)\n", computed_buf_size, (1.L * computed_buf_size) / (1L << 20));
+  fprintf(stderr, "    All buffers RAM budget = %lu (%.1LfMiB)\n", ram_for_buffers, (1.L * ram_for_buffers) / (1L << 20));
+
   // Initialize the reader of block IDs.
   typedef async_stream_reader<std::uint16_t> lex_sorted_suffixes_for_recursive_string_block_ids_reader_type;
   lex_sorted_suffixes_for_recursive_string_block_ids_reader_type *lex_sorted_suffixes_for_recursive_string_block_ids_reader
-    = new lex_sorted_suffixes_for_recursive_string_block_ids_reader_type(lex_sorted_suffixes_for_recursive_string_block_ids_filename);
+    = new lex_sorted_suffixes_for_recursive_string_block_ids_reader_type(lex_sorted_suffixes_for_recursive_string_block_ids_filename,
+        4UL * computed_buf_size, 4UL);
 
   // Initialize the reader of lex sorted minus star suffixes of normal string (distributed into blocks of size max_permute_block_size).
   typedef async_multi_stream_reader<text_offset_type> lex_sorted_minus_star_suffixes_for_normal_string_reader_type;
   lex_sorted_minus_star_suffixes_for_normal_string_reader_type *lex_sorted_minus_star_suffixes_for_normal_string_reader
-    = new lex_sorted_minus_star_suffixes_for_normal_string_reader_type(n_permute_blocks);
+    = new lex_sorted_minus_star_suffixes_for_normal_string_reader_type(n_permute_blocks, computed_buf_size);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     lex_sorted_minus_star_suffixes_for_normal_string_reader->add_file(temp_filenames[permute_block_id]);
 
   // Initialize the writer of lex sorted minus star suffixes of normal string (distributed into blocks of size max_block_size).
   typedef async_multi_stream_writer<text_offset_type> lex_sorted_minus_star_suffixes_for_normal_string_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_writer
-    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type();
+    = new lex_sorted_minus_star_suffixes_for_normal_string_writer_type(computed_buf_size, 4UL);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
     std::string filename = lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id];
     lex_sorted_minus_star_suffixes_for_normal_string_writer->add_file(filename);
@@ -226,7 +235,8 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   // Initialize the writer of the block IDs (of size max_block_size) for lex sorted minus star suffixes of the normal string.
   typedef async_stream_writer<std::uint16_t> lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer
-    = new lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type(lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename);
+    = new lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type(
+        lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename, 4UL * computed_buf_size, 4UL);
 
   std::vector<std::uint64_t> leftmost_item_in_block(n_blocks, std::numeric_limits<std::uint64_t>::max());
   std::vector<std::uint64_t> items_written_to_block(n_blocks, 0UL);
@@ -265,7 +275,7 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
+  fprintf(stderr, "    Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
       (1.l * io_volume / (1l << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 }
 
@@ -553,7 +563,7 @@ void compute_sa(
     lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
   std::string lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename = tempfile_basename + "tmp." + utils::random_string_hash();
   permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order<text_offset_type>(
-      text_length, initial_text_length, max_block_size, max_permute_block_size,
+      text_length, initial_text_length, max_block_size, max_permute_block_size, ram_use,
       next_block_leftmost_minus_star_plus_rank, tempfile_basename,
       lex_sorted_suffixes_for_recursive_string_filenames,
       lex_sorted_suffixes_for_recursive_string_block_ids_filename,
@@ -794,7 +804,7 @@ void em_compute_sa(
     lex_sorted_minus_star_suffixes_for_normal_string_filenames[block_id] = output_filename + "tmp." + utils::random_string_hash();
   std::string lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename = output_filename + "tmp." + utils::random_string_hash();
   permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order<text_offset_type>(
-      text_length, text_length, max_block_size, max_permute_block_size,
+      text_length, text_length, max_block_size, max_permute_block_size, ram_use,
       next_block_leftmost_minus_star_plus_rank, output_filename,
       lex_sorted_suffixes_for_recursive_string_filenames,
       lex_sorted_suffixes_for_recursive_string_block_ids_filename,
