@@ -32,8 +32,21 @@ std::FILE *file_open(std::string filename, std::string mode) {
   return f;
 }
 
+std::FILE *file_open_nobuf(std::string filename, std::string mode) {
+  std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
+  if (f == NULL) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  if(std::setvbuf(f, NULL, _IONBF, 0) != 0) {
+    perror("setvbuf failed");
+    std::exit(EXIT_FAILURE);
+  }
+  return f;
+}
+
 std::uint64_t file_size(std::string filename) {
-  std::FILE *f = file_open(filename, "r");
+  std::FILE *f = file_open_nobuf(filename, "r");
   std::fseek(f, 0, SEEK_END);
   long size = std::ftell(f);
   if (size < 0) {

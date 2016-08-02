@@ -154,7 +154,7 @@ class async_stream_writer {
         std::uint64_t n_buffers = 4UL,
         std::string write_mode = std::string("w")) {
       if (filename.empty()) m_file = stdout;
-      else m_file = utils::file_open(filename.c_str(), write_mode);
+      else m_file = utils::file_open_nobuf(filename.c_str(), write_mode);
 
       // Allocate buffers.
       std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);

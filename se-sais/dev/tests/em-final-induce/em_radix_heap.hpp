@@ -178,7 +178,7 @@ class em_queue {
 
       // Initialize file.
       m_filename = filename;
-      m_file = utils::file_open(m_filename, "a+");
+      m_file = utils::file_open_nobuf(m_filename, "a+");
       m_file_size = 0;
       m_file_head = 0;
 
@@ -304,7 +304,7 @@ class em_queue {
       if (m_file_size > 0) {
         std::fclose(m_file);
         utils::file_delete(m_filename);
-        m_file = utils::file_open(m_filename, "a+");
+        m_file = utils::file_open_nobuf(m_filename, "a+");
         m_file_size = 0;
         m_file_head = 0;
       }

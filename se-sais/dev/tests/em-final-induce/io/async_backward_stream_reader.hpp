@@ -197,7 +197,7 @@ class async_backward_stream_reader {
 
     void init(std::string filename, std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers, std::uint64_t n_skip_bytes) {
-      m_file = utils::file_open(filename.c_str(), "r");
+      m_file = utils::file_open_nobuf(filename.c_str(), "r");
       std::fseek(m_file, 0, SEEK_END);
       if (n_skip_bytes > 0)
         std::fseek(m_file, -1UL * n_skip_bytes, SEEK_CUR);

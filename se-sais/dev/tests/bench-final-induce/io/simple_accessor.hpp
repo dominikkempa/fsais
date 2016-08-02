@@ -26,7 +26,7 @@ class simple_accessor {
     simple_accessor(std::string filename, std::uint64_t bufsize = (2UL << 20)) {
       m_items_per_buf = std::max(2UL, bufsize / sizeof(value_type));
       m_file_items = utils::file_size(filename) / sizeof(value_type);
-      m_file = utils::file_open(filename, "r");
+      m_file = utils::file_open_nobuf(filename, "r");
 
       m_buf = new value_type[m_items_per_buf];
       m_buf_filled = 0;

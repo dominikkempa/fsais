@@ -179,7 +179,7 @@ class async_multi_stream_writer {
     void add_file(std::string filename, std::string write_mode =
         std::string("w")) {
       m_buffers.push_back(new buffer_type(m_items_per_buf));
-      m_files.push_back(utils::file_open(filename, write_mode));
+      m_files.push_back(utils::file_open_nobuf(filename, write_mode));
     }
 
     // Write value to i-th file.

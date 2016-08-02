@@ -63,7 +63,7 @@ class async_bit_stream_writer {
     async_bit_stream_writer(std::string filename,
         std::uint64_t bufsize, std::uint64_t n_buffers) {
       (void)n_buffers;  // unused now.
-      m_file = utils::file_open(filename.c_str(), "w");
+      m_file = utils::file_open_nobuf(filename.c_str(), "w");
 
       // Initialize buffers.
       m_buf_size = std::max(1UL, bufsize / (2UL * sizeof(std::uint64_t)));

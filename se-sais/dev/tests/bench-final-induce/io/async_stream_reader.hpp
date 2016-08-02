@@ -181,7 +181,7 @@ class async_stream_reader {
         std::uint64_t n_buffers = 4UL,
         std::uint64_t n_skip_bytes = 0UL) {
       if (filename.empty()) m_file = stdin;
-      else m_file = utils::file_open(filename.c_str(), "r");
+      else m_file = utils::file_open_nobuf(filename.c_str(), "r");
 
       if (m_file != stdin && n_skip_bytes > 0)
         std::fseek(m_file, n_skip_bytes, SEEK_SET);

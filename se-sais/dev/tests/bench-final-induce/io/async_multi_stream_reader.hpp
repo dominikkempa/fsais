@@ -182,7 +182,7 @@ class async_multi_stream_reader {
 
     // The added file gets the next available ID (file IDs start from 0).
     void add_file(std::string filename) {
-      m_files[m_files_added] = utils::file_open(filename, "r");
+      m_files[m_files_added] = utils::file_open_nobuf(filename, "r");
       issue_read_request(m_files_added);
       ++m_files_added;
     }
