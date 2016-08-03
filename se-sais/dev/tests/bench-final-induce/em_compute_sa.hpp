@@ -41,8 +41,12 @@ std::uint64_t create_recursive_text(
 
   // Allocate array with names and `used' bitvector.
   std::uint64_t used_bv_size = (max_permute_block_size + 63) / 64;
-  std::uint64_t *used_bv = new std::uint64_t[used_bv_size];
-  text_offset_type *names = new text_offset_type[max_permute_block_size];
+  std::uint64_t *used_bv = (std::uint64_t *)malloc(used_bv_size * sizeof(std::uint64_t));
+//  std::uint64_t *used_bv = new std::uint64_t[used_bv_size];
+  std::fill(used_bv, used_bv + used_bv_size, (std::uint64_t)0);
+//  text_offset_type *names = new text_offset_type[max_permute_block_size];
+  text_offset_type *names = (text_offset_type *)malloc(max_permute_block_size * sizeof(text_offset_type));
+  std::fill(names, names + max_permute_block_size, (text_offset_type)0);
 
   // Initialize the writer of text.
   typedef async_stream_writer<name_type> text_writer_type;
@@ -103,8 +107,10 @@ std::uint64_t create_recursive_text(
 
   // Clean up.
   delete text_writer;
-  delete[] used_bv;
-  delete[] names;
+  //delete[] used_bv;
+  //delete[] names;
+  free(names);
+  free(used_bv);
 
   // Print summary.
   long double total_time = utils::wclock() - start;
@@ -144,17 +150,22 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
     temp_filenames[permute_block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
 
   // Allocate array with positions of minus star suffixes for normal string.
-  text_offset_type *text_sorted_suffixes_for_normal_string = new text_offset_type[max_permute_block_size];
+  text_offset_type *text_sorted_suffixes_for_normal_string = (text_offset_type *)malloc(max_permute_block_size * sizeof(text_offset_type));
+  std::fill(text_sorted_suffixes_for_normal_string, text_sorted_suffixes_for_normal_string + max_permute_block_size, (text_offset_type)0);
+  //text_offset_type *text_sorted_suffixes_for_normal_string = new text_offset_type[max_permute_block_size];
 
 #ifdef SAIS_DEBUG
   std::uint64_t bufsize = utils::random_int64(1L, 20L);
-  std::uint64_t *inbuf = new std::uint64_t[bufsize];
-  text_offset_type *outbuf = new text_offset_type[bufsize];
 #else
   static const std::uint64_t bufsize = (1UL << 15);
-  std::uint64_t *inbuf = new std::uint64_t[bufsize];
-  text_offset_type *outbuf = new text_offset_type[bufsize];
 #endif
+  //std::uint64_t *inbuf = new std::uint64_t[bufsize];
+  std::uint64_t *inbuf = (std::uint64_t *)malloc(bufsize * sizeof(std::uint64_t));
+  std::fill(inbuf, inbuf + bufsize, 0UL);
+  //text_offset_type *outbuf = new text_offset_type[bufsize];
+  text_offset_type *outbuf = (text_offset_type *)malloc(bufsize * sizeof(text_offset_type));
+  std::fill(outbuf, outbuf + bufsize, (text_offset_type)0);
+
 
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id) {
     // Read text sorted minus star suffixes for normal string from file.
@@ -199,9 +210,12 @@ void permute_minus_star_suffixes_for_normal_string_from_text_to_lex_order(
   }
 
   // Clean up.
-  delete[] inbuf;
-  delete[] outbuf;
-  delete[] text_sorted_suffixes_for_normal_string;
+  //delete[] inbuf;
+  //delete[] outbuf;
+  //delete[] text_sorted_suffixes_for_normal_string;
+  free(inbuf);
+  free(outbuf);
+  free(text_sorted_suffixes_for_normal_string);
 
   std::uint64_t n_buffers = 12 + n_permute_blocks + n_blocks;
   std::uint64_t computed_buf_size = std::max(1UL, ram_use / n_buffers);
