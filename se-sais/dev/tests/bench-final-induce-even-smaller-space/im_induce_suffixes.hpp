@@ -155,14 +155,13 @@ im_induce_suffixes_large_alphabet(
 
 
   // Initialize output writers.
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_pos_writer_type *output_plus_pos_writer =
-    new output_plus_pos_writer_type(output_plus_pos_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
-  output_plus_symbols_writer_type *output_plus_symbols_writer =
-    new output_plus_symbols_writer_type(output_plus_symbols_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -428,11 +427,9 @@ im_induce_suffixes_large_alphabet(
   typedef async_stream_writer_multipart<text_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer =
-    new output_minus_pos_writer_type(output_minus_pos_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer =
-    new output_minus_symbols_writer_type(output_minus_symbols_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -714,14 +711,13 @@ im_induce_suffixes_small_alphabet(
 
 
   // Initialize output writers.
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_pos_writer_type *output_plus_pos_writer =
-    new output_plus_pos_writer_type(output_plus_pos_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
-  output_plus_symbols_writer_type *output_plus_symbols_writer =
-    new output_plus_symbols_writer_type(output_plus_symbols_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -1144,11 +1140,9 @@ im_induce_suffixes_small_alphabet(
   typedef async_stream_writer_multipart<text_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer =
-    new output_minus_pos_writer_type(output_minus_pos_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer =
-    new output_minus_symbols_writer_type(output_minus_symbols_filename, (1UL << 20)/*XXX*/, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
