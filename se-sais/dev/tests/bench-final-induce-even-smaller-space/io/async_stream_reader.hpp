@@ -176,10 +176,32 @@ class async_stream_reader {
     std::thread *m_io_thread;
 
   public:
-    async_stream_reader(std::string filename = std::string(""),
-        std::uint64_t total_buf_size_bytes = (8UL << 20),
-        std::uint64_t n_buffers = 4UL,
-        std::uint64_t n_skip_bytes = 0UL) {
+    async_stream_reader() {
+      init("", (8UL << 20), 4UL, 0UL);
+    }
+
+    async_stream_reader(std::string filename,
+        std::uint64_t n_skip_bytes) {
+      init(filename, (8UL << 20), 4UL, n_skip_bytes);
+    }
+
+    async_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers,
+        std::uint64_t n_skip_bytes) {
+      init(filename, total_buf_size_bytes, n_buffers, n_skip_bytes);
+    }
+
+    async_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      init(filename, total_buf_size_bytes, n_buffers, 0UL);
+    }
+
+    void init(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers,
+        std::uint64_t n_skip_bytes) {
       if (filename.empty()) m_file = stdin;
       else m_file = utils::file_open_nobuf(filename.c_str(), "r");
 
