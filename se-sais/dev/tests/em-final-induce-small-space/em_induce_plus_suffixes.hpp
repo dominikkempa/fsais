@@ -138,10 +138,15 @@ std::uint64_t em_induce_plus_suffixes(
     symbols_reader->add_file(symbols_filenames[block_id]);
 
   // Initialize output writers.
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), (text_length * sizeof(text_offset_type)) / 40UL);
+#endif
   typedef async_stream_writer_multipart<text_offset_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename, (1UL << 20)/*XXX*/, 4UL * computed_buf_size, 4UL);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(output_pos_filename, max_part_size, 4UL * computed_buf_size, 4UL);
   output_type_writer_type *output_type_writer = new output_type_writer_type(output_type_filename, 4UL * computed_buf_size, 4UL);
   output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 

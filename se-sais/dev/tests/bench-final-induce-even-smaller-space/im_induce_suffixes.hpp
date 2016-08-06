@@ -155,7 +155,11 @@ im_induce_suffixes_large_alphabet(
 
 
   // Initialize output writers.
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
   std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+#endif
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
@@ -711,7 +715,11 @@ im_induce_suffixes_small_alphabet(
 
 
   // Initialize output writers.
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
   std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+#endif
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;

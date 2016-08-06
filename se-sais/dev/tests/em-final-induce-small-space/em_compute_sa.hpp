@@ -248,10 +248,15 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   }
 
   // Initialize the writer of the block IDs (of size max_block_size) for lex sorted minus star suffixes of the normal string.
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), text_length / 10UL);
+#endif
   typedef async_stream_writer_multipart<std::uint16_t> lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer
     = new lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type(
-        lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename, /*(1UL << 20)*/utils::random_int64(1L, 50L)/*XXX*/, 4UL * computed_buf_size, 4UL);
+        lex_sorted_minus_star_suffixes_for_normal_string_block_ids_filename, max_part_size, 4UL * computed_buf_size, 4UL);
 
   std::vector<std::uint64_t> leftmost_item_in_block(n_blocks, std::numeric_limits<std::uint64_t>::max());
   std::vector<std::uint64_t> items_written_to_block(n_blocks, 0UL);
