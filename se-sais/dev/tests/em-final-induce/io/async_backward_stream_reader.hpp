@@ -24,12 +24,23 @@ class async_backward_stream_reader {
         m_filled = 0;
       }
 
-      void read_from_file(std::FILE *f, std::uint64_t n_items) {
-        m_filled = std::fread(m_content, sizeof(T), m_size, f);
+      void read_from_file(std::FILE *f) {
+        std::uint64_t filepos = std::ftell(f);
+        if (filepos == 0) m_filled = 0;
+        else {
+          m_filled = std::min(m_size, filepos / sizeof(T));
+          std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
+          utils::read_from_file(m_content, m_filled, f);
+          std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
+        }
       }
 
       std::uint64_t size_in_bytes() const {
         return sizeof(T) * m_filled;
+      }
+
+      inline bool empty() const {
+        return (m_filled == 0);
       }
 
       inline void set_empty() {
@@ -114,18 +125,8 @@ class async_backward_stream_reader {
         lk.unlock();
 
         // Safely read the data from disk.
-        bool beg_of_file = false;
-        std::uint64_t toread = std::min(buffer->m_size, std::ftell(caller->m_file) / sizeof(T));
-        if (toread == 0) beg_of_file = true;
-        else {
-          std::fseek(caller->m_file, -1UL * toread * sizeof(T), SEEK_CUR);
-          buffer->m_filled = toread;
-          utils::read_from_file(buffer->m_content, toread, caller->m_file);
-          std::fseek(caller->m_file, -1UL * toread * sizeof(T), SEEK_CUR);
-        }
-
-        caller->m_bytes_read += buffer->size_in_bytes();
-        if (beg_of_file == true) {
+        buffer->read_from_file(caller->m_file);
+        if (buffer->empty()) {
           // If we reached the end of file,
           // reinsert the buffer into the queue
           // of empty buffers and exit.
@@ -134,6 +135,9 @@ class async_backward_stream_reader {
           caller->m_full_buffers->m_cv.notify_one();
           break;
         } else {
+          // Update the number of bytes read.
+          caller->m_bytes_read += buffer->size_in_bytes();
+
           // Add the buffer to the queue of filled buffers.
           caller->m_full_buffers->push(buffer);
           caller->m_full_buffers->m_cv.notify_one();
