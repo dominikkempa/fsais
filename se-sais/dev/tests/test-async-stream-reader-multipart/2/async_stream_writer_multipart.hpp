@@ -202,7 +202,8 @@ class async_stream_writer_multipart {
     }
 
     inline std::uint64_t get_parts_count() const {
-      return m_cur_part + 1;
+      if (m_bytes_written == 0) return 0;
+      else return m_cur_part + 1;
     }
 
     ~async_stream_writer_multipart() {

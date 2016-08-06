@@ -10,7 +10,7 @@
 #include <string>
 #include <algorithm>
 
-#include "utils.hpp"
+#include "../utils.hpp"
 
 
 template<typename value_type>
@@ -187,31 +187,24 @@ class async_stream_writer_multipart {
 
     // It's safe to call if the buffer is not full, though
     // in principle should only be called internally. Calling
-    // it too often will lead to poor I/O performance. An example
-    // of a situation where this function is useful is when we
-    // write a multi-part file that will be read backwards.
-    // The backward multi-part file reader need the number of
-    // parts as a constructor argument. It can be obtained
-    // from this class by calling "get_parts_count()" but
-    // should only be obtained after first flush()'ing the
-    // writer (i.e., calling this function), usually right
-    // before deleting the writer.
+    // it too often will lead to poor I/O performance.
     void flush() {
-      m_full_buffers->push(m_cur_buffer);
-      m_full_buffers->m_cv.notify_one();
+      if (!m_cur_buffer->empty()) {
+        m_full_buffers->push(m_cur_buffer);
+        m_full_buffers->m_cv.notify_one();
+        m_cur_buffer = get_empty_buffer();
+      }
     }
 
     inline std::uint64_t get_parts_count() const {
-      if (m_bytes_written == 0) return 0;
-      else return m_cur_part + 1;
+      std::uint64_t items_written = m_bytes_written / sizeof(value_type);
+      std::uint64_t n_parts = (items_written + m_single_part_max_items - 1) / m_single_part_max_items;
+      return n_parts;
     }
 
     ~async_stream_writer_multipart() {
       // Send the last incomplete buffer for writing.
-      if (!(m_cur_buffer->empty())) {
-        flush();
-        m_cur_buffer = NULL;
-      }
+      flush();
 
       // Let the I/O thread know that we're done.
       m_full_buffers->send_stop_signal();
@@ -226,17 +219,14 @@ class async_stream_writer_multipart {
       delete m_io_thread;
       if (m_file != NULL)
         std::fclose(m_file);
-      if (m_cur_buffer != NULL)
-        delete m_cur_buffer;
+      delete m_cur_buffer;
     }
 
     inline void write(value_type x) {
       m_bytes_written += sizeof(value_type);
       m_cur_buffer->m_content[m_cur_buffer->m_filled++] = x;
-      if (m_cur_buffer->full()) {
+      if (m_cur_buffer->full())
         flush();
-        m_cur_buffer = get_empty_buffer();
-      }
     }
 
     inline void write(const value_type *values, std::uint64_t length) {
@@ -247,10 +237,8 @@ class async_stream_writer_multipart {
         m_cur_buffer->m_filled += tocopy;
         values += tocopy;
         length -= tocopy;
-        if (m_cur_buffer->full()) {
+        if (m_cur_buffer->full())
           flush();
-          m_cur_buffer = get_empty_buffer();
-        }
       }
     }
 
