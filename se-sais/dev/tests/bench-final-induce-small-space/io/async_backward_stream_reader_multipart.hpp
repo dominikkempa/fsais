@@ -22,10 +22,9 @@ class async_backward_stream_reader_multipart {
         m_size = size;
         m_content = (T *)malloc(m_size * sizeof(T));
         m_filled = 0;
-        m_is_filled = false;
       }
 
-      void read_from_file(std::FILE *f) {
+      bool read_from_file(std::FILE *f) {
         std::uint64_t filepos = std::ftell(f);
         if (filepos == 0) m_filled = 0;
         else {
@@ -34,196 +33,213 @@ class async_backward_stream_reader_multipart {
           utils::read_from_file(m_content, m_filled, f);
           std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
         }
+
+        return (filepos == m_filled * sizeof(T));
+      }
+
+      std::uint64_t size_in_bytes() const {
+        return sizeof(T) * m_filled;
+      }
+
+      inline bool empty() const {
+        return (m_filled == 0);
+      }
+
+      inline void set_empty() {
+        m_filled = 0;
       }
 
       ~buffer() {
         free(m_content);
       }
 
-      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
-      inline bool empty() const { return m_filled == 0; }
-
       T *m_content;
-      std::uint64_t m_filled;
       std::uint64_t m_size;
-      bool m_is_filled;
+      std::uint64_t m_filled;
     };
 
     template<typename buffer_type>
-    struct request {
-      request(buffer_type *buffer) {
-        m_buffer = buffer;
+    struct buffer_queue {
+      buffer_queue(std::uint64_t n_buffers = 0, std::uint64_t items_per_buf = 0) {
+        m_signal_stop = false;
+        for (std::uint64_t i = 0; i < n_buffers; ++i)
+          m_queue.push(new buffer_type(items_per_buf));
       }
 
-      buffer_type *m_buffer;
-    };
+      ~buffer_queue() {
+        while (!m_queue.empty()) {
+          buffer_type *buf = m_queue.front();
+          m_queue.pop();
+          delete buf;
+        }
+      }
 
-    template<typename request_type>
-    struct request_queue {
-      request_queue()
-        : m_no_more_requests(false) {}
-
-      request_type get() {
-        request_type ret = m_requests.front();
-        m_requests.pop();
+      buffer_type *pop() {
+        buffer_type *ret = m_queue.front();
+        m_queue.pop();
         return ret;
       }
 
-      inline void add(request_type request) {
+      void push(buffer_type *buf) {
         std::lock_guard<std::mutex> lk(m_mutex);
-        m_requests.push(request);
+        m_queue.push(buf);
       }
 
-      inline bool empty() const { return m_requests.empty(); }
+      void send_stop_signal() {
+        std::lock_guard<std::mutex> lk(m_mutex);
+        m_signal_stop = true;
+      }
 
-      std::queue<request_type> m_requests;
+      inline bool empty() const { return m_queue.empty(); }
+
+      std::queue<buffer_type*> m_queue;
       std::condition_variable m_cv;
       std::mutex m_mutex;
-      bool m_no_more_requests;
+      bool m_signal_stop;
     };
 
   private:
-    template<typename T>
-    static void async_io_thread_code(async_backward_stream_reader_multipart<T> *caller) {
-      typedef buffer<T> buffer_type;
-      typedef request<buffer_type> request_type;
-      while (true) {
-        // Wait for request or until 'no more requests' flag is set.
-        std::unique_lock<std::mutex> lk(caller->m_read_requests.m_mutex);
-        while (caller->m_read_requests.empty() &&
-            !(caller->m_read_requests.m_no_more_requests))
-          caller->m_read_requests.m_cv.wait(lk);
+    typedef buffer<value_type> buffer_type;
+    typedef buffer_queue<buffer_type> buffer_queue_type;
 
-        if (caller->m_read_requests.empty() &&
-            caller->m_read_requests.m_no_more_requests) {
-          // No more requests -- exit.
+    buffer_queue_type *m_empty_buffers;
+    buffer_queue_type *m_full_buffers;
+
+  private:
+    template<typename T>
+    static void io_thread_code(async_backward_stream_reader_multipart<T> *caller) {
+      typedef buffer<T> buffer_type;
+      while (true) {
+        // Wait for an empty buffer (or a stop signal).
+        std::unique_lock<std::mutex> lk(caller->m_empty_buffers->m_mutex);
+        while (caller->m_empty_buffers->empty() &&
+            !(caller->m_empty_buffers->m_signal_stop))
+          caller->m_empty_buffers->m_cv.wait(lk);
+
+        if (caller->m_empty_buffers->empty()) {
+          // We received the stop signal -- exit.
           lk.unlock();
           break;
         }
 
-        // Extract the buffer from the collection.
-        request_type request = caller->m_read_requests.get();
+        // Extract the buffer from the queue.
+        buffer_type *buffer = caller->m_empty_buffers->pop();
         lk.unlock();
 
-        // Process the request.
         if (caller->m_file == NULL) {
-          // Attempt to open and read from the file.
-          if (caller->m_cur_part_plus == 0) request.m_buffer->m_filled = 0;
-          else {
-            std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
-            if (utils::file_exists(cur_part_filename)) {
-              caller->m_file = utils::file_open(cur_part_filename, "r");
-              std::fseek(caller->m_file, 0, SEEK_END);
-              request.m_buffer->read_from_file(caller->m_file);
-            } else request.m_buffer->m_filled = 0;
-          }
-        } else {
-          request.m_buffer->read_from_file(caller->m_file);
-          if (request.m_buffer->empty()) {
-            // Close and delete current file.
-            std::fclose(caller->m_file);
-            caller->m_file = NULL;
-            std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
-            utils::file_delete(cur_part_filename);
+          std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
+          caller->m_file = utils::file_open(cur_part_filename, "r");
+          std::fseek(caller->m_file, 0, SEEK_END);
+        }
 
-            // Attempt to read from the next file.
-            --caller->m_cur_part_plus;
-            if (caller->m_cur_part_plus == 0) request.m_buffer->m_filled = 0;
-            else {
-              cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
-              if (utils::file_exists(cur_part_filename)) {
-                caller->m_file = utils::file_open(cur_part_filename, "r");
-                std::fseek(caller->m_file, 0, SEEK_END);
-                request.m_buffer->read_from_file(caller->m_file);
-              } else request.m_buffer->m_filled = 0;
-            }
+        bool no_more_data = buffer->read_from_file(caller->m_file);
+        if (buffer->empty()) {
+          // Here we assume that any multipart writer produces
+          // zero files, if no write operation was called.
+          fprintf(stderr, "\nError: empty buffer in async_backward_stream_reader_multipart!\n");
+          std::exit(EXIT_FAILURE);
+        }
+
+        // Add the buffer to the queue of filled buffers.
+        caller->m_full_buffers->push(buffer);
+        caller->m_full_buffers->m_cv.notify_one();
+
+        if (no_more_data) {
+          // We reached the beginning of file.
+          std::fclose(caller->m_file);
+          caller->m_file = NULL;
+          std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
+          utils::file_delete(cur_part_filename);
+          --caller->m_cur_part_plus;
+          if (caller->m_cur_part_plus == 0) {
+            caller->m_full_buffers->send_stop_signal();
+            caller->m_full_buffers->m_cv.notify_one();
+            break;
           }
         }
-        caller->m_bytes_read += request.m_buffer->size_in_bytes();
-
-        // Update the status of the buffer
-        // and notify the waiting thread.
-        std::unique_lock<std::mutex> lk2(caller->m_mutex);
-        request.m_buffer->m_is_filled = true;
-        lk2.unlock();
-        caller->m_cv.notify_one();
       }
     }
 
-  private:
-    typedef buffer<value_type> buffer_type;
-    typedef request<buffer_type> request_type;
+  public:
+    void receive_new_buffer() {
+      // Push the current buffer back to the poll of empty buffer.
+      if (m_cur_buffer != NULL) {
+        m_cur_buffer->set_empty();
+        m_empty_buffers->push(m_cur_buffer);
+        m_empty_buffers->m_cv.notify_one();
+        m_cur_buffer = NULL;
+      }
 
+      // Extract a filled buffer if there is any data left to read.
+      std::unique_lock<std::mutex> lk(m_full_buffers->m_mutex);
+      while (m_full_buffers->empty() && !(m_full_buffers->m_signal_stop))
+        m_full_buffers->m_cv.wait(lk);
+      if (!m_full_buffers->empty()) {
+        m_cur_buffer = m_full_buffers->pop();
+        m_cur_buffer_pos_plus = m_cur_buffer->m_filled;
+      }
+      lk.unlock();
+    }
+
+  private:
     std::uint64_t m_bytes_read;
-    std::uint64_t m_items_per_buf;
-    std::uint64_t n_files;
-    std::uint64_t m_files_added;
 
     std::FILE *m_file;
     std::string m_filename;
     std::uint64_t m_cur_part_plus;
 
-    std::uint64_t m_active_buffer_pos_plus;
-    buffer_type *m_active_buffer;
-    buffer_type *m_passive_buffer;
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
-
-    request_queue<request_type> m_read_requests;
+    std::uint64_t m_cur_buffer_pos_plus;
+    buffer_type *m_cur_buffer;
     std::thread *m_io_thread;
-
-  private:
-    void issue_read_request() {
-      request_type req(m_passive_buffer);
-      m_read_requests.add(req);
-      m_read_requests.m_cv.notify_one();
-    }
-
-    void receive_new_buffer() {
-      // Wait for the I/O thread to finish reading passive buffer.
-      std::unique_lock<std::mutex> lk(m_mutex);
-      while (m_passive_buffer->m_is_filled == false)
-        m_cv.wait(lk);
-
-      // Swap active and bassive buffers.
-      std::swap(m_active_buffer, m_passive_buffer);
-      m_active_buffer_pos_plus = m_active_buffer->m_filled;
-      m_passive_buffer->m_is_filled = false;
-      lk.unlock();
-
-      // Issue the read request for the passive buffer.
-      issue_read_request();
-    }
 
   public:
     async_backward_stream_reader_multipart(std::string filename,
+        std::uint64_t parts_count) {
+      init(filename, parts_count, (8UL << 20), 4UL);
+    }
+
+    async_backward_stream_reader_multipart(std::string filename,
         std::uint64_t parts_count,
-        std::uint64_t total_buf_size_bytes = (8UL << 20),
-        std::uint64_t n_buffers = 4UL) {
-      (void)n_buffers;
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      init(filename, parts_count, total_buf_size_bytes, n_buffers);
+    }
+
+    void init(std::string filename,
+        std::uint64_t parts_count,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      if (n_buffers == 0) {
+        fprintf(stderr, "\nError: n_buffers == 0 in async_backward_stream_reader_multipart::init()\n");
+        std::exit(EXIT_FAILURE);
+      }
 
       // Initialize basic parameters.
       m_bytes_read = 0;
-      m_items_per_buf = std::max(1UL, total_buf_size_bytes / (2UL * sizeof(value_type)));
-      m_active_buffer_pos_plus = 0;
-      m_active_buffer = new buffer_type(m_items_per_buf);
-      m_passive_buffer = new buffer_type(m_items_per_buf);
+      m_cur_buffer_pos_plus = 0;
+      m_cur_part_plus = parts_count;
+      m_cur_buffer = NULL;
+      m_file = NULL;
+      m_filename = filename;
+
+      // Allocate buffers.
+      std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
+      std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
+      m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf);
+      m_full_buffers = new buffer_queue_type();
 
       // Start the I/O thread.
-      m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
-
-      // Issue the read request.
-      m_filename = filename;
-      m_file = NULL;
-      m_cur_part_plus = parts_count;
-      issue_read_request();
+      if (m_cur_part_plus > 0)
+        m_io_thread = new std::thread(io_thread_code<value_type>, this);
+      else m_io_thread = NULL;
     }
 
-    // Read from i-th file.
-    value_type read() {
-      if (m_active_buffer_pos_plus == 0)
+    inline value_type read() {
+      m_bytes_read += sizeof(value_type);
+      if (m_cur_buffer_pos_plus == 0)
         receive_new_buffer();
-      return m_active_buffer->m_content[--m_active_buffer_pos_plus];
+
+      return m_cur_buffer->m_content[--m_cur_buffer_pos_plus];
     }
 
     inline std::uint64_t bytes_read() const {
@@ -231,20 +247,26 @@ class async_backward_stream_reader_multipart {
     }
 
     ~async_backward_stream_reader_multipart() {
-      // Let the I/O thread know that there
-      // won't be any more requests.
-      std::unique_lock<std::mutex> lk(m_read_requests.m_mutex);
-      m_read_requests.m_no_more_requests = true;
-      lk.unlock();
-      m_read_requests.m_cv.notify_one();
+      if (m_io_thread != NULL) {
+        // Let the I/O thread know that we're done.
+        m_empty_buffers->send_stop_signal();
+        m_empty_buffers->m_cv.notify_one();
 
-      // Wait for the I/O to finish.
-      m_io_thread->join();
-      delete m_io_thread;
+        // Wait for the thread to finish.
+        m_io_thread->join();
+        delete m_io_thread;
+      }
 
-      // Delete buffers.
-      delete m_active_buffer;
-      delete m_passive_buffer;
+      // Clean up.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      if (m_file != NULL) {
+        fprintf(stderr, "\nError: m_file != NULL when destroying multipart backward stream reader!\n");
+        fprintf(stderr, "Most likely, not all items were read from the file!\n");
+        std::exit(EXIT_FAILURE);
+      }
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
     }
 };
 

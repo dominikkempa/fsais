@@ -121,7 +121,16 @@ void em_induce_minus_and_plus_suffixes(
   typedef async_backward_stream_reader_multipart<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
+#ifdef SAIS_DEBUG
+  plus_pos_reader_type *plus_pos_reader = NULL;
+  {
+    std::uint64_t reader_buf_size = utils::random_int64(1L, 50L);
+    std::uint64_t reader_n_bufs = utils::random_int64(1L, 5L);
+    plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, reader_buf_size, reader_n_bufs);
+  }
+#else
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, 4UL * computed_buf_size, 4UL);
+#endif
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 
@@ -463,7 +472,16 @@ void em_induce_minus_and_plus_suffixes(
   typedef async_backward_stream_reader_multipart<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
+#ifdef SAIS_DEBUG
+  plus_pos_reader_type *plus_pos_reader = NULL;
+  {
+    std::uint64_t reader_buf_size = utils::random_int64(1L, 50L);
+    std::uint64_t reader_n_bufs = utils::random_int64(1L, 5L);
+    plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, reader_buf_size, reader_n_bufs);
+  }
+#else
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, 4UL * computed_buf_size, 4UL);
+#endif
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 

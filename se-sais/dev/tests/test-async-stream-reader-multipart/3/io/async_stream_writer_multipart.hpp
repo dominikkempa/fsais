@@ -161,9 +161,21 @@ class async_stream_writer_multipart {
 
   public:
     async_stream_writer_multipart(std::string filename,
+        std::uint64_t single_part_max_bytes) {
+      init(filename, single_part_max_bytes, (8UL << 20), 4UL);
+    }
+
+    async_stream_writer_multipart(std::string filename,
         std::uint64_t single_part_max_bytes,
-        std::uint64_t total_buf_size_bytes = (8UL << 20),
-        std::uint64_t n_buffers = 4UL) {
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      init(filename, single_part_max_bytes, total_buf_size_bytes, n_buffers);
+    }
+
+    void init(std::string filename,
+        std::uint64_t single_part_max_bytes,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
       m_filename = filename;
 
       // Initialize basic parameters. Note: if no items are

@@ -6,7 +6,6 @@
 #include <unistd.h>
 
 #include "utils.hpp"
-#include "io/async_stream_reader_multipart.hpp"
 #include "io/async_stream_writer_multipart.hpp"
 #include "io/async_backward_stream_reader_multipart.hpp"
 
@@ -39,8 +38,14 @@ void test(std::uint64_t max_items, std::uint64_t testcases) {
         part_size = utils::random_int64(1L, std::max(1L, (std::int64_t)filesize));
         parts = (filesize + part_size - 1) / part_size;
       } while (parts > (1L << 7));
+
       typedef async_stream_writer_multipart<value_type> writer_type;
-      writer_type *writer = new writer_type(filename, part_size);
+      writer_type *writer = NULL;
+      {
+        std::uint64_t writer_bufsize = utils::random_int64(1L, 50L);
+        std::uint64_t writer_n_buffers = utils::random_int64(1L, 5L);
+        writer = new writer_type(filename, part_size, writer_bufsize, writer_n_buffers);
+      }
       for (std::uint64_t i = 0; i < items; ++i) writer->write(tab[i]);
       n_parts = writer->get_parts_count();
       delete writer;
@@ -48,18 +53,13 @@ void test(std::uint64_t max_items, std::uint64_t testcases) {
 
     // Read data from disk.
     {
-      if (utils::random_int64(0L, 1L)) {
-        typedef async_stream_reader_multipart<value_type> reader_type;
-        reader_type *reader = new reader_type(filename);
-        for (std::uint64_t i = 0; i < items; ++i) tab2[i] = reader->read();
-        delete reader;
-      } else {
-        typedef async_backward_stream_reader_multipart<value_type> reader_type;
-        reader_type *reader = new reader_type(filename, n_parts);
-        for (std::uint64_t iplus = items; iplus > 0; --iplus)
-          tab2[iplus - 1] = reader->read();
-        delete reader;
-      }
+      typedef async_backward_stream_reader_multipart<value_type> reader_type;
+      std::uint64_t reader_bufsize = utils::random_int64(1L, 50L);
+      std::uint64_t reader_n_buffers = utils::random_int64(1L, 5L);
+      reader_type *reader = new reader_type(filename, n_parts, reader_bufsize, reader_n_buffers);
+      for (std::uint64_t iplus = items; iplus > 0; --iplus)
+        tab2[iplus - 1] = reader->read();
+      delete reader;
     }
 
     // Comepare answers.
@@ -84,7 +84,7 @@ void test(std::uint64_t max_items, std::uint64_t testcases) {
 
 int main() {
   srand(time(0) + getpid());
-  for (std::uint64_t items = 1; items < (1L << 25); items *= 2)
+  for (std::uint64_t items = 1; items <= (1L << 19); items *= 2)
     test(items, 100);
   fprintf(stderr, "All tests passed.\n");
 }

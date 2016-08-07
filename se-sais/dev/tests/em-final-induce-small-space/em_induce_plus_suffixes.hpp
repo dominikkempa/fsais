@@ -119,7 +119,16 @@ std::uint64_t em_induce_plus_suffixes(
   typedef async_backward_stream_reader<text_offset_type> minus_count_reader_type;
   typedef async_backward_stream_reader_multipart<std::uint16_t> minus_pos_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename, 4UL * computed_buf_size, 4UL);
+#ifdef SAIS_DEBUG
+  minus_pos_reader_type *minus_pos_reader = NULL;
+  {
+    std::uint64_t reader_buf_size = utils::random_int64(1L, 50L);
+    std::uint64_t reader_n_bufs = utils::random_int64(1L, 5L);
+    minus_pos_reader = new minus_pos_reader_type(minus_pos_filename, minus_pos_n_parts, reader_buf_size, reader_n_bufs);
+  }
+#else
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(minus_pos_filename, minus_pos_n_parts, 4UL * computed_buf_size, 4UL);
+#endif
 
   // Initialize readers of data associated with plus suffixes.
   typedef async_multi_bit_stream_reader plus_type_reader_type;
