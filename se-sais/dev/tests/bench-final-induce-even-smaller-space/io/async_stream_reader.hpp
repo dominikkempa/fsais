@@ -1,4 +1,3 @@
-
 /************************************************************************
 * Copyright (C) 2014-2016                                               *
 *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>               *
@@ -116,7 +115,7 @@ class async_stream_reader {
         buffer_type *buffer = caller->m_empty_buffers->pop();
         lk.unlock();
 
-        // Safely read the data from disk.
+        // Read the data from disk.
         buffer->read_from_file(caller->m_file);
         caller->m_bytes_read += buffer->size_in_bytes();
 
@@ -145,7 +144,7 @@ class async_stream_reader {
 
   public:
     void receive_new_buffer() {
-      // Push the current buffer back to the poll of empty buffer.
+      // Push the current buffer back to the poll of empty buffers.
       if (m_cur_buffer != NULL) {
         m_empty_buffers->push(m_cur_buffer);
         m_empty_buffers->m_cv.notify_one();
@@ -176,15 +175,30 @@ class async_stream_reader {
     std::thread *m_io_thread;
 
   public:
+    // Default constructor, reads from stdin.
     async_stream_reader() {
       init("", (8UL << 20), 4UL, 0UL);
     }
 
+    // Constructor, default buffer sizes, no skip.
+    async_stream_reader(std::string filename) {
+      init(filename, (8UL << 20), 4UL, 0UL);
+    }
+
+    // Constructor, default buffer sizes, given skip.
     async_stream_reader(std::string filename,
         std::uint64_t n_skip_bytes) {
       init(filename, (8UL << 20), 4UL, n_skip_bytes);
     }
 
+    // Constructor, no skip, given buffer sizes.
+    async_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      init(filename, total_buf_size_bytes, n_buffers, 0UL);
+    }
+
+    // Constructor, given buffer sizes and skip.
     async_stream_reader(std::string filename,
         std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers,
@@ -192,12 +206,7 @@ class async_stream_reader {
       init(filename, total_buf_size_bytes, n_buffers, n_skip_bytes);
     }
 
-    async_stream_reader(std::string filename,
-        std::uint64_t total_buf_size_bytes,
-        std::uint64_t n_buffers) {
-      init(filename, total_buf_size_bytes, n_buffers, 0UL);
-    }
-
+    // Main initializing function.
     void init(std::string filename,
         std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers,
@@ -224,6 +233,7 @@ class async_stream_reader {
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
     }
 
+    // Destructor.
     ~async_stream_reader() {
       // Let the I/O thread know that we're done.
       m_empty_buffers->send_stop_signal();
@@ -243,6 +253,7 @@ class async_stream_reader {
         delete m_cur_buffer;
     }
 
+    // Return the next item in the stream.
     inline value_type read() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
@@ -250,6 +261,7 @@ class async_stream_reader {
       return m_cur_buffer->m_content[m_cur_buffer_pos++];
     }
 
+    // Read 'howmany' items in to 'dest'.
     void read(value_type *dest, std::uint64_t howmany) {
       while (howmany > 0) {
         if (m_cur_buffer_pos == m_cur_buffer_filled)
@@ -265,6 +277,7 @@ class async_stream_reader {
       }
     }
 
+    // Skip the next 'howmany' items in the stream.
     void skip(std::uint64_t howmany) {
       while (howmany > 0) {
         if (m_cur_buffer_pos == m_cur_buffer_filled)
@@ -276,6 +289,7 @@ class async_stream_reader {
       }
     }
 
+    // Return the next value in the stream.
     inline value_type peek() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
@@ -283,6 +297,7 @@ class async_stream_reader {
       return m_cur_buffer->m_content[m_cur_buffer_pos];
     }
 
+    // True iff there are still items in the stream.
     inline bool empty() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
@@ -290,14 +305,19 @@ class async_stream_reader {
       return (m_cur_buffer_pos == m_cur_buffer_filled);
     }
 
+    // Return performed I/O in bytes.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
 
+    // Return const ptr to internal buffer.
+    // Used in special situations.
     const value_type *get_buf_ptr() const {
       return m_cur_buffer->m_content;
     }
 
+    // Return the number of items in the
+    // internal buffer. 
     std::uint64_t get_buf_filled() const {
       return m_cur_buffer_filled;
     }
