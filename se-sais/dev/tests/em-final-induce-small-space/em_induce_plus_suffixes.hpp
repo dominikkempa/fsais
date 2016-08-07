@@ -151,6 +151,7 @@ std::uint64_t em_induce_plus_suffixes(
   std::uint64_t max_part_size = utils::random_int64(1L, 50L);
 #else
   std::uint64_t max_part_size = std::max((1UL << 20), (text_length * sizeof(text_offset_type)) / 40UL);
+  fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
 #endif
   typedef async_stream_writer_multipart<text_offset_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;

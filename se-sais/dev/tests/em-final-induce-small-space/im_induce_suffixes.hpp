@@ -67,6 +67,7 @@ im_induce_suffixes_large_alphabet(
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
     std::uint64_t next_block_leftmost_minus_star_plus_rank,
+    std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
     std::string minus_pos_filename,
@@ -155,11 +156,6 @@ im_induce_suffixes_large_alphabet(
 
 
   // Initialize output writers.
-#ifdef SAIS_DEBUG
-  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
-#else
-  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
-#endif
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
@@ -576,6 +572,13 @@ void im_induce_suffixes_large_alphabet(
   fprintf(stderr, "    IM induce suffixes (large alphabet):\n");
   long double start = utils::wclock();
 
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+  fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
+#endif
+
   bool is_last_minus = true;
   std::uint64_t next_block_leftmost_minus_star = 0;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -592,6 +595,7 @@ void im_induce_suffixes_large_alphabet(
           block_beg,
           next_block_leftmost_minus_star,
           next_block_leftmost_minus_star_plus_rank[block_id],
+          max_part_size,
           is_last_minus,
           text_filename,
           minus_pos_filenames[block_id],
@@ -627,6 +631,7 @@ im_induce_suffixes_small_alphabet(
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
     std::uint64_t next_block_leftmost_minus_star_plus_rank,
+    std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
     std::string minus_pos_filename,
@@ -715,11 +720,6 @@ im_induce_suffixes_small_alphabet(
 
 
   // Initialize output writers.
-#ifdef SAIS_DEBUG
-  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
-#else
-  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
-#endif
   typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
@@ -1383,6 +1383,13 @@ void im_induce_suffixes_small_alphabet(
   fprintf(stderr, "    IM induce suffixes (small alphabet):\n");
   long double start = utils::wclock();
 
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+  fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
+#endif
+
   bool is_last_minus = true;
   std::uint64_t next_block_leftmost_minus_star = 0;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -1399,6 +1406,7 @@ void im_induce_suffixes_small_alphabet(
           block_beg,
           next_block_leftmost_minus_star,
           next_block_leftmost_minus_star_plus_rank[block_id],
+          max_part_size,
           is_last_minus,
           text_filename,
           minus_pos_filenames[block_id],

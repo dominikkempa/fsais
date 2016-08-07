@@ -252,6 +252,7 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   std::uint64_t max_part_size = utils::random_int64(1L, 50L);
 #else
   std::uint64_t max_part_size = std::max((1UL << 20), text_length / 10UL);
+  fprintf(stderr, "    Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
 #endif
   typedef async_stream_writer_multipart<std::uint16_t> lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer
