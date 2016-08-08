@@ -11,14 +11,14 @@
 int main(int argc, char **argv) {
   if (argc != 2) std::exit(EXIT_FAILURE);
 
-  std::string text_filename = argv[1];
-  std::string output_filename = text_filename + ".sa5";
-  std::uint64_t text_length = utils::file_size(text_filename);
-
-  typedef std::uint8_t char_type;
+  typedef std::uint8_t/*std::uint32_t*/ char_type;
   typedef uint40 text_offset_type;
 
-  std::uint64_t text_alphabet_size = 256;
+  std::string text_filename = argv[1];
+  std::string output_filename = text_filename + ".sa5";
+  std::uint64_t text_length = utils::file_size(text_filename) / sizeof(char_type);
+
+  std::uint64_t text_alphabet_size = 256/*53915629*/;
   std::uint64_t ram_use = (1792UL << 20);
   std::uint64_t io_volume = 0;
 
