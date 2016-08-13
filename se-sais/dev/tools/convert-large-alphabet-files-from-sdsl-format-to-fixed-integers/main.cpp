@@ -41,7 +41,7 @@ int main(int argc, char **argv) {
   fprintf(stderr, "maxsym = %lu\n", maxsym);
 
   std::uint64_t zero_freq = 0;
-  for (std::uint64_t i = 0; i < freq.size(); ++i)
+  for (std::uint64_t i = 0; i <= maxsym; ++i)
     if (freq[i] == 0) ++zero_freq;
   fprintf(stderr, "zero_freq = %lu\n", zero_freq);
 }
