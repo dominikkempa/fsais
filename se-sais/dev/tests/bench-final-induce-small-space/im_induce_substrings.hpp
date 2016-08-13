@@ -10,6 +10,7 @@
 #include <algorithm>
 
 #include "io/async_stream_writer.hpp"
+#include "io/async_stream_writer_multipart.hpp"
 #include "io/async_bit_stream_writer.hpp"
 #include "io/simple_accessor.hpp"
 
@@ -63,6 +64,7 @@ im_induce_substrings_large_alphabet(
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
+    std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
     std::string output_plus_symbols_filename,
@@ -154,9 +156,9 @@ im_induce_substrings_large_alphabet(
 
 
   // Initialize output writers.
-  typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
+  typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
 
 
@@ -353,12 +355,12 @@ im_induce_substrings_large_alphabet(
 
 
   // Initialize output writers.
-  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
+  typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, (2UL << 20), 4UL);
+  typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -493,6 +495,13 @@ void im_induce_substrings_large_alphabet(
   fprintf(stderr, "      sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
   long double start = utils::wclock();
 
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+  fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
+#endif
+
   bool is_last_minus = true;
   std::uint64_t next_block_leftmost_minus_star = 0;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -509,6 +518,7 @@ void im_induce_substrings_large_alphabet(
           max_block_size,
           block_beg,
           next_block_leftmost_minus_star,
+          max_part_size,
           is_last_minus,
           text_filename,
           output_plus_symbols_filenames[block_id],
@@ -573,6 +583,7 @@ im_induce_substrings_small_alphabet(
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
+    std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
     std::string output_plus_symbols_filename,
@@ -663,9 +674,9 @@ im_induce_substrings_small_alphabet(
 
 
 
-  typedef async_stream_writer<char_type> output_plus_symbols_writer_type;
+  typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
 
 
@@ -1015,12 +1026,12 @@ im_induce_substrings_small_alphabet(
 
 
   // Initialize output writers.
-  typedef async_stream_writer<block_offset_type> output_minus_pos_writer_type;
+  typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, (2UL << 20), 4UL);
+  typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -1256,6 +1267,13 @@ void im_induce_substrings_small_alphabet(
   fprintf(stderr, "      sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
   long double start = utils::wclock();
 
+#ifdef SAIS_DEBUG
+  std::uint64_t max_part_size = utils::random_int64(1L, 50L);
+#else
+  std::uint64_t max_part_size = std::max((1UL << 20), max_block_size / 10UL);
+  fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
+#endif
+
   bool is_last_minus = true;
   std::uint64_t next_block_leftmost_minus_star = 0;
   for (std::uint64_t block_id_plus = n_blocks; block_id_plus > 0; --block_id_plus) {
@@ -1272,6 +1290,7 @@ void im_induce_substrings_small_alphabet(
           max_block_size,
           block_beg,
           next_block_leftmost_minus_star,
+          max_part_size,
           is_last_minus,
           text_filename,
           output_plus_symbols_filenames[block_id],

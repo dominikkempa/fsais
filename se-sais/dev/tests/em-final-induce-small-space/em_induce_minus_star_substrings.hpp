@@ -9,7 +9,10 @@
 
 #include "io/async_stream_writer.hpp"
 #include "io/async_backward_stream_reader.hpp"
+#include "io/async_backward_stream_reader_multipart.hpp"
 #include "io/async_backward_bit_stream_reader.hpp"
+#include "io/async_multi_stream_reader.hpp"
+#include "io/async_multi_stream_reader_multipart.hpp"
 #include "io/async_multi_stream_writer.hpp"
 
 #include "packed_pair.hpp"
@@ -35,6 +38,7 @@ em_induce_minus_star_substrings_large_alphabet(
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::uint64_t max_permute_block_size,
+    std::uint64_t n_parts,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string plus_pos_filename,
@@ -125,16 +129,16 @@ em_induce_minus_star_substrings_large_alphabet(
   radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_for_radix_heap);
 
   // Initialize the readers of data associated with plus suffixes.
-  typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
+  typedef async_backward_stream_reader_multipart<block_id_type> plus_pos_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
   typedef async_backward_bit_stream_reader plus_diff_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, n_parts, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
   plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader_multipart<block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -143,7 +147,7 @@ em_induce_minus_star_substrings_large_alphabet(
   }
 
   // Initialize the reading of data associated with both types of suffixes.
-  typedef async_multi_stream_reader<char_type> symbols_reader_type;
+  typedef async_multi_stream_reader_multipart<char_type> symbols_reader_type;
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
@@ -368,6 +372,7 @@ em_induce_minus_star_substrings_large_alphabet(
     std::uint64_t max_block_size,
     std::uint64_t ram_use,
     std::uint64_t max_permute_block_size,
+    std::uint64_t n_parts,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string plus_pos_filename,
@@ -383,17 +388,17 @@ em_induce_minus_star_substrings_large_alphabet(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 7))
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>
-      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target, plus_pos_filename,
        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
        output_count_filename, output_pos_filenames, total_io_volume);
   else if (n_blocks < (1UL << 15))
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>
-      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target, plus_pos_filename,
        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
        output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>
-      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+      (text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target, plus_pos_filename,
        plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
        output_count_filename, output_pos_filenames, total_io_volume);
 }
@@ -411,6 +416,7 @@ em_induce_minus_star_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
     std::uint64_t max_permute_block_size,
+    std::uint64_t n_parts,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string plus_pos_filename,
@@ -513,16 +519,16 @@ em_induce_minus_star_substrings_small_alphabet(
   radix_heap_type *radix_heap = new radix_heap_type(radix_logs, tempfile_basename, ram_for_radix_heap);
 
   // Initialize the readers of data associated with plus suffixes.
-  typedef async_backward_stream_reader<block_id_type> plus_pos_reader_type;
+  typedef async_backward_stream_reader_multipart<block_id_type> plus_pos_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
   typedef async_backward_bit_stream_reader plus_diff_reader_type;
-  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, 4UL * computed_buf_size, 4UL);
+  plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, n_parts, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
   plus_diff_reader_type *plus_diff_reader = new plus_diff_reader_type(plus_diff_filename, 4UL * computed_buf_size, 4UL);
 
   // Initialize readers of data associated with minus suffixes.
   typedef async_multi_bit_stream_reader minus_type_reader_type;
-  typedef async_multi_stream_reader<block_offset_type> minus_pos_reader_type;
+  typedef async_multi_stream_reader_multipart<block_offset_type> minus_pos_reader_type;
   minus_type_reader_type *minus_type_reader = new minus_type_reader_type(n_blocks, computed_buf_size);
   minus_pos_reader_type *minus_pos_reader = new minus_pos_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id) {
@@ -531,7 +537,7 @@ em_induce_minus_star_substrings_small_alphabet(
   }
 
   // Initialize readers of data associated with both types of suffixes.
-  typedef async_multi_stream_reader<char_type> symbols_reader_type;
+  typedef async_multi_stream_reader_multipart<char_type> symbols_reader_type;
   symbols_reader_type *symbols_reader = new symbols_reader_type(n_blocks, computed_buf_size);
   for (std::uint64_t block_id = 0; block_id < n_blocks; ++block_id)
     symbols_reader->add_file(symbols_filenames[block_id]);
@@ -756,6 +762,7 @@ em_induce_minus_star_substrings_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
     std::uint64_t max_permute_block_size,
+    std::uint64_t n_parts,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string plus_pos_filename,
@@ -771,17 +778,17 @@ em_induce_minus_star_substrings_small_alphabet(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   if (n_blocks < (1UL << 7))
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint8_t>(
-        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
         tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else if (n_blocks < (1UL << 15))
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint16_t>(
-        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
         tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type, std::uint64_t>(
-        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
         tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
 }
@@ -798,6 +805,7 @@ em_induce_minus_star_substrings(
     std::uint64_t text_alphabet_size,
     std::uint64_t ram_use,
     std::uint64_t max_permute_block_size,
+    std::uint64_t n_parts,
     char_type last_text_symbol,
     std::vector<std::uint64_t> &block_count_target,
     std::string plus_pos_filename,
@@ -813,12 +821,12 @@ em_induce_minus_star_substrings(
     bool is_small_alphabet) {
   if (is_small_alphabet)
     return em_induce_minus_star_substrings_small_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
-        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target,
+        text_length, initial_text_length, max_block_size, text_alphabet_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target,
         plus_pos_filename, plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames,
         tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume);
   else
     return em_induce_minus_star_substrings_large_alphabet<char_type, text_offset_type, block_offset_type, block_id_type>(
-        text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, last_text_symbol, block_count_target, plus_pos_filename,
+        text_length, initial_text_length, max_block_size, ram_use, max_permute_block_size, n_parts, last_text_symbol, block_count_target, plus_pos_filename,
         plus_count_filename, plus_diff_filename, minus_type_filenames, minus_pos_filenames, symbols_filenames, tempfile_basename,
         output_count_filename, output_pos_filenames, total_io_volume);
 }
@@ -887,7 +895,7 @@ em_induce_minus_star_substrings(
   std::string plus_count_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
   std::string plus_pos_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
   std::string plus_diff_filename = tempfile_basename + ".tmp" + utils::random_string_hash();
-  em_induce_plus_star_substrings<
+  std::uint64_t n_parts = em_induce_plus_star_substrings<
     char_type,
     text_offset_type,
     block_id_type>(
@@ -906,10 +914,8 @@ em_induce_minus_star_substrings(
         total_io_volume);
 
   // Delete input files.
-  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+  for (std::uint64_t j = 0; j < n_blocks; ++j)
     if (utils::file_exists(plus_type_filenames[j])) utils::file_delete(plus_type_filenames[j]);
-    if (utils::file_exists(plus_symbols_filenames[j])) utils::file_delete(plus_symbols_filenames[j]);
-  }
 
   // Read last symbol of text.
   char_type last_text_symbol;
@@ -927,6 +933,7 @@ em_induce_minus_star_substrings(
       text_alphabet_size,
       ram_use,
       max_permute_block_size,
+      n_parts,
       last_text_symbol,
       minus_block_count_targets,
       plus_pos_filename,
@@ -942,14 +949,10 @@ em_induce_minus_star_substrings(
       is_small_alphabet);
 
   // Delete input files.
-  utils::file_delete(plus_pos_filename);
   utils::file_delete(plus_count_filename);
   utils::file_delete(plus_diff_filename);
-  for (std::uint64_t j = 0; j < n_blocks; ++j) {
+  for (std::uint64_t j = 0; j < n_blocks; ++j)
     if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
-    if (utils::file_exists(minus_symbols_filenames[j])) utils::file_delete(minus_symbols_filenames[j]);
-    if (utils::file_exists(minus_pos_filenames[j])) utils::file_delete(minus_pos_filenames[j]);
-  }
 
   return n_names;
 }
