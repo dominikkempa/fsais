@@ -22,7 +22,7 @@ int main(int argc, char **argv) {
   std::uint64_t maxsym = 0;
   std::uint64_t length = 0;
 
-  std::vector<std::uint64_t> freq(60000000, 0UL);
+  std::vector<std::uint64_t> freq(200000000, 0UL);
 
   for(size_t i=0;i<buf.size();i++) {
     if (i % 1000000 == 0)
