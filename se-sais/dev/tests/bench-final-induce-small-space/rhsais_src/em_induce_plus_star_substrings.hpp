@@ -20,6 +20,8 @@
 #include "utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename char_type,
   typename text_offset_type,
   typename block_id_type,
@@ -706,5 +708,7 @@ std::uint64_t em_induce_plus_star_substrings(
         output_diff_filename, output_count_filename, plus_type_filenames, symbols_filenames, total_io_volume);
 #endif
 }
+
+}  // namespace rhsais_private
 
 #endif  // __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED

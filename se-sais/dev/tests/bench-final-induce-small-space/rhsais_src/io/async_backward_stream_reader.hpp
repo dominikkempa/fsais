@@ -1,20 +1,22 @@
-#ifndef __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
-#define __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#ifndef __ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
+#define __ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
+#include <thread>
 #include <queue>
+#include <mutex>
+#include <condition_variable>
 #include <string>
 #include <algorithm>
-#include <condition_variable>
-#include <mutex>
-#include <thread>
 
 #include "../utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename value_type>
-class async_backward_stream_reader_multipart {
+class async_backward_stream_reader {
   private:
     template<typename T>
     struct buffer {
@@ -24,7 +26,7 @@ class async_backward_stream_reader_multipart {
         m_filled = 0;
       }
 
-      bool read_from_file(std::FILE *f) {
+      void read_from_file(std::FILE *f) {
         std::uint64_t filepos = std::ftell(f);
         if (filepos == 0) m_filled = 0;
         else {
@@ -33,8 +35,6 @@ class async_backward_stream_reader_multipart {
           utils::read_from_file(m_content, m_filled, f);
           std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
         }
-
-        return (filepos == m_filled * sizeof(T));
       }
 
       std::uint64_t size_in_bytes() const {
@@ -107,7 +107,7 @@ class async_backward_stream_reader_multipart {
 
   private:
     template<typename T>
-    static void io_thread_code(async_backward_stream_reader_multipart<T> *caller) {
+    static void io_thread_code(async_backward_stream_reader<T> *caller) {
       typedef buffer<T> buffer_type;
       while (true) {
         // Wait for an empty buffer (or a stop signal).
@@ -126,36 +126,23 @@ class async_backward_stream_reader_multipart {
         buffer_type *buffer = caller->m_empty_buffers->pop();
         lk.unlock();
 
-        if (caller->m_file == NULL) {
-          std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
-          caller->m_file = utils::file_open(cur_part_filename, "r");
-          std::fseek(caller->m_file, 0, SEEK_END);
-        }
-
-        bool no_more_data = buffer->read_from_file(caller->m_file);
+        // Safely read the data from disk.
+        buffer->read_from_file(caller->m_file);
         if (buffer->empty()) {
-          // Here we assume that any multipart writer produces
-          // zero files, if no write operation was called.
-          fprintf(stderr, "\nError: empty buffer in async_backward_stream_reader_multipart!\n");
-          std::exit(EXIT_FAILURE);
-        }
+          // If we reached the end of file,
+          // reinsert the buffer into the queue
+          // of empty buffers and exit.
+          caller->m_empty_buffers->push(buffer);
+          caller->m_full_buffers->send_stop_signal();
+          caller->m_full_buffers->m_cv.notify_one();
+          break;
+        } else {
+          // Update the number of bytes read.
+          caller->m_bytes_read += buffer->size_in_bytes();
 
-        // Add the buffer to the queue of filled buffers.
-        caller->m_full_buffers->push(buffer);
-        caller->m_full_buffers->m_cv.notify_one();
-
-        if (no_more_data) {
-          // We reached the beginning of file.
-          std::fclose(caller->m_file);
-          caller->m_file = NULL;
-          std::string cur_part_filename = caller->m_filename + ".multipart_file.part" + utils::intToStr(caller->m_cur_part_plus - 1);
-          utils::file_delete(cur_part_filename);
-          --caller->m_cur_part_plus;
-          if (caller->m_cur_part_plus == 0) {
-            caller->m_full_buffers->send_stop_signal();
-            caller->m_full_buffers->m_cv.notify_one();
-            break;
-          }
+          // Add the buffer to the queue of filled buffers.
+          caller->m_full_buffers->push(buffer);
+          caller->m_full_buffers->m_cv.notify_one();
         }
       }
     }
@@ -170,57 +157,62 @@ class async_backward_stream_reader_multipart {
         m_cur_buffer = NULL;
       }
 
-      // Extract a filled buffer if there is any data left to read.
+      // Extract a filled buffer.
       std::unique_lock<std::mutex> lk(m_full_buffers->m_mutex);
       while (m_full_buffers->empty() && !(m_full_buffers->m_signal_stop))
         m_full_buffers->m_cv.wait(lk);
-      if (!m_full_buffers->empty()) {
+      if (m_full_buffers->empty()) {
+        lk.unlock();
+        m_cur_buffer_filled = 0;
+      } else {
         m_cur_buffer = m_full_buffers->pop();
-        m_cur_buffer_pos_plus = m_cur_buffer->m_filled;
+        lk.unlock();
+        m_cur_buffer_filled = m_cur_buffer->m_filled;
       }
-      lk.unlock();
+      m_cur_buffer_pos = m_cur_buffer_filled;
     }
 
   private:
-    std::uint64_t m_bytes_read;
-
     std::FILE *m_file;
-    std::string m_filename;
-    std::uint64_t m_cur_part_plus;
-
-    std::uint64_t m_cur_buffer_pos_plus;
+    std::uint64_t m_bytes_read;
+    std::uint64_t m_cur_buffer_pos;
+    std::uint64_t m_cur_buffer_filled;
     buffer_type *m_cur_buffer;
     std::thread *m_io_thread;
 
   public:
-    async_backward_stream_reader_multipart(std::string filename,
-        std::uint64_t parts_count) {
-      init(filename, parts_count, (8UL << 20), 4UL);
+    async_backward_stream_reader(std::string filename) {
+      init(filename, (8UL << 20), 4UL, 0UL);
     }
 
-    async_backward_stream_reader_multipart(std::string filename,
-        std::uint64_t parts_count,
-        std::uint64_t total_buf_size_bytes,
-        std::uint64_t n_buffers) {
-      init(filename, parts_count, total_buf_size_bytes, n_buffers);
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t n_skip_bytes) {
+      init(filename, (8UL << 20), 4UL, n_skip_bytes);
     }
 
-    void init(std::string filename,
-        std::uint64_t parts_count,
-        std::uint64_t total_buf_size_bytes,
-        std::uint64_t n_buffers) {
-      if (n_buffers == 0) {
-        fprintf(stderr, "\nError: n_buffers == 0 in async_backward_stream_reader_multipart::init()\n");
-        std::exit(EXIT_FAILURE);
-      }
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_items, std::uint64_t n_buffers) {
+      init(filename, total_buf_size_items, n_buffers, 0UL);
+    }
 
-      // Initialize basic parameters.
+    async_backward_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_items, std::uint64_t n_buffers,
+        std::uint64_t n_skip_bytes) {
+      init(filename, total_buf_size_items, n_buffers, n_skip_bytes);
+    }
+
+    void init(std::string filename, std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers, std::uint64_t n_skip_bytes) {
+      m_file = utils::file_open_nobuf(filename.c_str(), "r");
+      std::fseek(m_file, 0, SEEK_END);
+      if (n_skip_bytes > 0)
+        std::fseek(m_file, -1UL * n_skip_bytes, SEEK_CUR);
+
+      // Initialize counters.
       m_bytes_read = 0;
-      m_cur_buffer_pos_plus = 0;
-      m_cur_part_plus = parts_count;
+      m_cur_buffer_pos = 0;
+      m_cur_buffer_filled = 0;
       m_cur_buffer = NULL;
-      m_file = NULL;
-      m_filename = filename;
 
       // Allocate buffers.
       std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
@@ -229,45 +221,69 @@ class async_backward_stream_reader_multipart {
       m_full_buffers = new buffer_queue_type();
 
       // Start the I/O thread.
-      if (m_cur_part_plus > 0)
-        m_io_thread = new std::thread(io_thread_code<value_type>, this);
-      else m_io_thread = NULL;
+      m_io_thread = new std::thread(io_thread_code<value_type>, this);
+    }
+
+    ~async_backward_stream_reader() {
+      // Let the I/O thread know that we're done.
+      m_empty_buffers->send_stop_signal();
+      m_empty_buffers->m_cv.notify_one();
+
+      // Wait for the thread to finish.
+      m_io_thread->join();
+
+      // Clean up.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      delete m_io_thread;
+      if (m_file != stdin)
+        std::fclose(m_file);
+
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
     }
 
     inline value_type read() {
-      m_bytes_read += sizeof(value_type);
-      if (m_cur_buffer_pos_plus == 0)
+      if (m_cur_buffer_pos == 0)
         receive_new_buffer();
 
-      return m_cur_buffer->m_content[--m_cur_buffer_pos_plus];
+      return m_cur_buffer->m_content[--m_cur_buffer_pos];
+    }
+
+    void read(value_type *dest, std::uint64_t howmany) {
+      while (howmany > 0) {
+        if (m_cur_buffer_pos == 0)
+          receive_new_buffer();
+
+        std::uint64_t cur_buf_left = m_cur_buffer_pos;
+        std::uint64_t tocopy = std::min(howmany, cur_buf_left);
+        for (std::uint64_t i = 0; i < tocopy; ++i)
+          dest[i] = m_cur_buffer->m_content[m_cur_buffer_pos - 1 - i];
+        m_cur_buffer_pos -= tocopy;
+        dest += tocopy;
+        howmany -= tocopy;
+      }
+    }
+
+    inline value_type peek() {
+      if (m_cur_buffer_pos == 0)
+        receive_new_buffer();
+
+      return m_cur_buffer->m_content[m_cur_buffer_pos - 1];
+    }
+
+    inline bool empty() {
+      if (m_cur_buffer_pos == 0)
+        receive_new_buffer();
+
+      return (m_cur_buffer_pos == 0);
     }
 
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
-
-    ~async_backward_stream_reader_multipart() {
-      if (m_io_thread != NULL) {
-        // Let the I/O thread know that we're done.
-        m_empty_buffers->send_stop_signal();
-        m_empty_buffers->m_cv.notify_one();
-
-        // Wait for the thread to finish.
-        m_io_thread->join();
-        delete m_io_thread;
-      }
-
-      // Clean up.
-      delete m_empty_buffers;
-      delete m_full_buffers;
-      if (m_file != NULL) {
-        fprintf(stderr, "\nError: m_file != NULL when destroying multipart backward stream reader!\n");
-        fprintf(stderr, "Most likely, not all items were read from the file!\n");
-        std::exit(EXIT_FAILURE);
-      }
-      if (m_cur_buffer != NULL)
-        delete m_cur_buffer;
-    }
 };
 
-#endif  // __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED

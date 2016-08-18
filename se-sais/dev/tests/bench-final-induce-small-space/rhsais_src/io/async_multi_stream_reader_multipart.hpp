@@ -13,6 +13,8 @@
 #include "../utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename value_type>
 class async_multi_stream_reader_multipart {
   private:
@@ -261,5 +263,7 @@ class async_multi_stream_reader_multipart {
       delete[] m_cur_part;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __ASYNC_MULTI_STREAM_READER_MULTIPART_HPP_INCLUDED

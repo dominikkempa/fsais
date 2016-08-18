@@ -7,6 +7,7 @@
 #include <algorithm>
 
 
+namespace rhsais_private {
 namespace naive_compute_sa {
 
 template<typename char_type>
@@ -49,5 +50,6 @@ void naive_compute_sa(
 }
 
 }  // namespace naive_compute_sa
+}  // namespace rhsais_private
 
 #endif  // __NAIVE_COMPUTE_SA_HPP_INCLUDED

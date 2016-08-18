@@ -2,6 +2,8 @@
 #define __PACKED_PAIR_HPP_INCLUDED
 
 
+namespace rhsais_private {
+
 template<typename S, typename T>
 struct packed_pair {
   packed_pair() {}
@@ -18,5 +20,7 @@ struct packed_pair {
   S first;
   T second;
 } __attribute__((packed));
+
+}  // namespace rhsais_private
 
 #endif  // __PACKED_PAIR_HPP_INCLUDED

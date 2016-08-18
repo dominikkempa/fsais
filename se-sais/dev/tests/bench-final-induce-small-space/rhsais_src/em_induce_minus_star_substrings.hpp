@@ -15,16 +15,18 @@
 #include "io/async_multi_stream_reader_multipart.hpp"
 #include "io/async_multi_stream_writer.hpp"
 
-#include "packed_pair.hpp"
-#include "em_radix_heap.hpp"
 #include "uint24.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
 #include "utils.hpp"
 
+#include "packed_pair.hpp"
+#include "em_radix_heap.hpp"
 #include "im_induce_substrings.hpp"
 #include "em_induce_plus_star_substrings.hpp"
 
+
+namespace rhsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -1116,5 +1118,6 @@ em_induce_minus_star_substrings(
       output_count_filename, output_pos_filenames, total_io_volume);
 }
 
+}  // namespace rhsais_private
 
 #endif  // __EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED

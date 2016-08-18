@@ -13,6 +13,8 @@
 #include "async_backward_stream_reader.hpp"
 
 
+namespace rhsais_private {
+
 class async_backward_bit_stream_reader {
   private:
     typedef async_backward_stream_reader<std::uint64_t> internal_reader_type;
@@ -57,5 +59,7 @@ class async_backward_bit_stream_reader {
       delete m_internal_reader;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED

@@ -1,23 +1,52 @@
-/************************************************************************
-* Copyright (C) 2014-2016                                               *
-*   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>               *
-*   Dominik Kempa <dominik.kempa (at) cs.helsinki.fi or (at) gmail.com> *
-************************************************************************/
+/**
+ * @file    rhsais_src/io/async_stream_reader.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
 
-#ifndef __ASYNC_STREAM_READER_HPP_INCLUDED
-#define __ASYNC_STREAM_READER_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
-#include <thread>
 #include <queue>
-#include <mutex>
-#include <condition_variable>
 #include <string>
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename value_type>
 class async_stream_reader {
@@ -81,7 +110,7 @@ class async_stream_reader {
 
       inline bool empty() const { return m_queue.empty(); }
 
-      std::queue<buffer_type*> m_queue;
+      std::queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_signal_stop;
@@ -233,26 +262,6 @@ class async_stream_reader {
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
     }
 
-    // Destructor.
-    ~async_stream_reader() {
-      // Let the I/O thread know that we're done.
-      m_empty_buffers->send_stop_signal();
-      m_empty_buffers->m_cv.notify_one();
-
-      // Wait for the thread to finish.
-      m_io_thread->join();
-
-      // Clean up.
-      delete m_empty_buffers;
-      delete m_full_buffers;
-      delete m_io_thread;
-      if (m_file != stdin)
-        std::fclose(m_file);
-
-      if (m_cur_buffer != NULL)
-        delete m_cur_buffer;
-    }
-
     // Return the next item in the stream.
     inline value_type read() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
@@ -261,7 +270,7 @@ class async_stream_reader {
       return m_cur_buffer->m_content[m_cur_buffer_pos++];
     }
 
-    // Read 'howmany' items in to 'dest'.
+    // Read 'howmany' items into 'dest'.
     void read(value_type *dest, std::uint64_t howmany) {
       while (howmany > 0) {
         if (m_cur_buffer_pos == m_cur_buffer_filled)
@@ -289,7 +298,7 @@ class async_stream_reader {
       }
     }
 
-    // Return the next value in the stream.
+    // Return the next item in the stream.
     inline value_type peek() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
@@ -305,11 +314,6 @@ class async_stream_reader {
       return (m_cur_buffer_pos == m_cur_buffer_filled);
     }
 
-    // Return performed I/O in bytes.
-    inline std::uint64_t bytes_read() const {
-      return m_bytes_read;
-    }
-
     // Return const ptr to internal buffer.
     // Used in special situations.
     const value_type *get_buf_ptr() const {
@@ -321,6 +325,33 @@ class async_stream_reader {
     std::uint64_t get_buf_filled() const {
       return m_cur_buffer_filled;
     }
+
+    // Return performed I/O in bytes.
+    inline std::uint64_t bytes_read() const {
+      return m_bytes_read;
+    }
+
+    // Destructor.
+    ~async_stream_reader() {
+      // Let the I/O thread know that we're done.
+      m_empty_buffers->send_stop_signal();
+      m_empty_buffers->m_cv.notify_one();
+
+      // Wait for the thread to finish.
+      m_io_thread->join();
+
+      // Clean up.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      delete m_io_thread;
+      if (m_file != stdin)
+        std::fclose(m_file);
+
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
+    }
 };
 
-#endif  // __ASYNC_STREAM_READER_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED

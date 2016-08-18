@@ -10,6 +10,8 @@
 #include "../utils.hpp"
 
 
+namespace rhsais_private {
+
 class async_bit_stream_writer {
   private:
     static void io_thread_code(async_bit_stream_writer *writer) {
@@ -150,5 +152,7 @@ class async_bit_stream_writer {
     std::FILE *m_file;
     std::thread *m_thread;
 };
+
+}  // namespace rhsais_private
 
 #endif  // __ASYNC_STREAM_WRITER_HPP_INCLUDED

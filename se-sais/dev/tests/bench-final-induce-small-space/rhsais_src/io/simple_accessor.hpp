@@ -7,6 +7,8 @@
 #include "../utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename ValueType>
 class simple_accessor {
   public:
@@ -56,5 +58,7 @@ class simple_accessor {
       delete[] m_buf;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __SIMPLE_ACCESSOR_HPP_INCLUDED

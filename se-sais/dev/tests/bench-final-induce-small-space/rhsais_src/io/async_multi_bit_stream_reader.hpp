@@ -13,6 +13,8 @@
 #include "async_multi_stream_reader.hpp"
 
 
+namespace rhsais_private {
+
 class async_multi_bit_stream_reader {
   private:
     typedef async_multi_stream_reader<std::uint64_t> internal_reader_type;
@@ -61,5 +63,7 @@ class async_multi_bit_stream_reader {
       delete m_internal_reader;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED

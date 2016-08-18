@@ -21,6 +21,8 @@
 #include "utils.hpp"
 
 
+namespace rhsais_private {
+
 //=============================================================================
 // Assumptions:
 // - char_type has to be able to hold any symbol from the text.
@@ -1372,5 +1374,7 @@ void im_induce_substrings(
         output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
   }
 }
+
+}  // namespace rhsais_private
 
 #endif  // __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED

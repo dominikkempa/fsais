@@ -17,6 +17,8 @@
 #include "utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename ValueType>
 class ram_queue {
   public:
@@ -792,5 +794,7 @@ class em_radix_heap {
       m_min_compare_ptr = m_cur_bottom_level_queue_ptr;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __EM_RADIX_HEAP_HPP_INCLUDED

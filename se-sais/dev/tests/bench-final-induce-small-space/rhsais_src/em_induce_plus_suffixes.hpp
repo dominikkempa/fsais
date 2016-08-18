@@ -10,7 +10,6 @@
 
 #include "io/async_stream_writer.hpp"
 #include "io/async_stream_writer_multipart.hpp"
-#include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_stream_reader_multipart.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_backward_stream_reader.hpp"
@@ -20,6 +19,8 @@
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
 
+
+namespace rhsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -258,5 +259,7 @@ std::uint64_t em_induce_plus_suffixes(
   // Return the number of parts.
   return n_parts;
 }
+
+}  // namespace rhsais_private
 
 #endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

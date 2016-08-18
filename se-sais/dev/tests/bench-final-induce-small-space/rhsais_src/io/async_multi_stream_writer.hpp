@@ -1,5 +1,38 @@
-#ifndef __ASYNC_MULTI_STREAM_WRITER_H_INCLUDED
-#define __ASYNC_MULTI_STREAM_WRITER_H_INCLUDED
+/**
+ * @file    rhsais_src/io/async_multi_stream_writer.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
+#ifndef __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_WRITER_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -13,6 +46,8 @@
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename value_type>
 class async_multi_stream_writer {
@@ -175,7 +210,7 @@ class async_multi_stream_writer {
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
     }
 
-    // The added file gets the next available ID (file IDs start from 0).
+    // The added file gets the next available ID (starting from 0).
     void add_file(std::string filename, std::string write_mode =
         std::string("w")) {
       m_buffers.push_back(new buffer_type(m_items_per_buf));
@@ -208,10 +243,12 @@ class async_multi_stream_writer {
       }
     }
 
+    // Return performed I/O in bytes.
     inline std::uint64_t bytes_written() const {
       return m_bytes_written;
     }
 
+    // Destructor.
     ~async_multi_stream_writer() {
       // Flush all buffers.
       std::uint64_t n_buffers = m_buffers.size();
@@ -245,4 +282,6 @@ class async_multi_stream_writer {
     }
 };
 
-#endif  // __ASYNC_MULTI_STREAM_WRITER_H_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_WRITER_HPP_INCLUDED

@@ -1,5 +1,38 @@
-#ifndef __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
-#define __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
+/**
+ * @file    rhsais_src/io/async_multi_stream_reader.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
+#ifndef __EM_SPARSE_PHI_SRC_IO_ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
+#define __EM_SPARSE_PHI_SRC_IO_ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -12,6 +45,8 @@
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename value_type>
 class async_multi_stream_reader {
@@ -29,17 +64,17 @@ class async_multi_stream_reader {
         m_filled = std::fread(m_content, sizeof(T), m_size, f);
       }
 
+      std::uint64_t size_in_bytes() const {
+        return sizeof(T) * m_filled;
+      }
+
       ~buffer() {
         free(m_content);
       }
 
-      inline std::uint64_t size_in_bytes() const {
-        return sizeof(T) * m_filled;
-      }
-
       T *m_content;
-      std::uint64_t m_filled;
       std::uint64_t m_size;
+      std::uint64_t m_filled;
       bool m_is_filled;
     };
 
@@ -72,7 +107,7 @@ class async_multi_stream_reader {
 
       inline bool empty() const { return m_requests.empty(); }
 
-      std::queue<request_type> m_requests;
+      std::queue<request_type> m_requests;  // Must have FIFO property
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_no_more_requests;
@@ -156,6 +191,8 @@ class async_multi_stream_reader {
     }
 
   public:
+    // Constructor, takes the number of files and a
+    // size of per-file buffer (in bytes) as arguments.
     async_multi_stream_reader(std::uint64_t number_of_files,
         std::uint64_t bufsize_per_file_in_bytes = (1UL << 20)) {
       // Initialize basic parameters.
@@ -180,24 +217,26 @@ class async_multi_stream_reader {
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
     }
 
-    // The added file gets the next available ID (file IDs start from 0).
+    // The added file gets the next available ID (starting from 0).
     void add_file(std::string filename) {
       m_files[m_files_added] = utils::file_open_nobuf(filename, "r");
       issue_read_request(m_files_added);
       ++m_files_added;
     }
 
-    // Read from i-th file.
+    // Read the next item from i-th file.
     value_type read_from_ith_file(std::uint64_t i) {
       if (m_active_buffer_pos[i] == m_active_buffers[i]->m_filled)
         receive_new_buffer(i);
       return m_active_buffers[i]->m_content[m_active_buffer_pos[i]++];
     }
 
+    // Return performed I/O in bytes.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
 
+    // Destructor.
     ~async_multi_stream_reader() {
       // Let the I/O thread know that there
       // won't be any more requests.
@@ -227,4 +266,6 @@ class async_multi_stream_reader {
     }
 };
 
-#endif  // __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_READER_HPP_INCLUDED

@@ -10,6 +10,8 @@
 #include <algorithm>
 
 
+namespace rhsais_private {
+
 template<typename KeyType, typename ValueType>
 class radix_heap {
   static_assert(sizeof(KeyType) <= 8,
@@ -196,5 +198,7 @@ class radix_heap {
       m_min_compare_ptr = m_cur_bottom_level_queue_ptr;
     }
 };
+
+}  // namespace rhsais_private
 
 #endif  // __RADIX_HEAP_HPP_INCLUDED

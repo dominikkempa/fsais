@@ -23,6 +23,8 @@
 #include "utils.hpp"
 
 
+namespace rhsais_private {
+
 //=============================================================================
 // Assumptions:
 // - char_type has to be able to hold any symbol from the text.
@@ -1463,5 +1465,7 @@ void im_induce_suffixes(
         output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   }
 }
+
+}  // namespace rhsais_private
 
 #endif  // __IM_INDUCE_SUFFIXES_HPP_INCLUDED
