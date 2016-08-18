@@ -1,5 +1,5 @@
-#ifndef __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
-#define __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#define __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -262,4 +262,4 @@ std::uint64_t em_induce_plus_suffixes(
 
 }  // namespace rhsais_private
 
-#endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

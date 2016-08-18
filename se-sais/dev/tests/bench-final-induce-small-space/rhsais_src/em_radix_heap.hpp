@@ -1,5 +1,5 @@
-#ifndef __EM_RADIX_HEAP_HPP_INCLUDED
-#define __EM_RADIX_HEAP_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
+#define __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -797,4 +797,4 @@ class em_radix_heap {
 
 }  // namespace rhsais_private
 
-#endif  // __EM_RADIX_HEAP_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED

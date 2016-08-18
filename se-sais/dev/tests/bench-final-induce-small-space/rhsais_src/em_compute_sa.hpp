@@ -1,5 +1,5 @@
-#ifndef __EM_COMPUTE_SA_HPP_INCULUDED
-#define __EM_COMPUTE_SA_HPP_INCULUDED
+#ifndef __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
+#define __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -864,4 +864,4 @@ void em_compute_sa(
 
 }  // namespace rhsais_private
 
-#endif  // __EM_COMPUTE_SA_HPP_INCULUDED
+#endif  // __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED

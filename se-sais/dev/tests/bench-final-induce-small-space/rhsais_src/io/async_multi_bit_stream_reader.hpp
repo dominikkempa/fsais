@@ -1,5 +1,5 @@
-#ifndef __ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED
-#define __ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -66,4 +66,4 @@ class async_multi_bit_stream_reader {
 
 }  // namespace rhsais_private
 
-#endif  // __ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_IO_ASYNC_MULTI_BIT_STREAM_READER_HPP_INCLUDED

@@ -1,5 +1,5 @@
-#ifndef __PACKED_PAIR_HPP_INCLUDED
-#define __PACKED_PAIR_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
+#define __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
 
 
 namespace rhsais_private {
@@ -23,4 +23,4 @@ struct packed_pair {
 
 }  // namespace rhsais_private
 
-#endif  // __PACKED_PAIR_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED

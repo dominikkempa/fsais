@@ -1,5 +1,5 @@
-#ifndef __NAIVE_COMPUTE_SA_HPP_INCLUDED
-#define __NAIVE_COMPUTE_SA_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
+#define __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
 
 #include <cstdint>
 #include <string>
@@ -52,4 +52,4 @@ void naive_compute_sa(
 }  // namespace naive_compute_sa
 }  // namespace rhsais_private
 
-#endif  // __NAIVE_COMPUTE_SA_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED

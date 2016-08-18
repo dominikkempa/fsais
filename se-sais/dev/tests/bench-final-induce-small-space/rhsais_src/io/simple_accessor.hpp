@@ -1,5 +1,5 @@
-#ifndef __SIMPLE_ACCESSOR_HPP_INCLUDED
-#define __SIMPLE_ACCESSOR_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED
 
 #include <cstdio>
 #include <algorithm>
@@ -61,4 +61,4 @@ class simple_accessor {
 
 }  // namespace rhsais_private
 
-#endif  // __SIMPLE_ACCESSOR_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED

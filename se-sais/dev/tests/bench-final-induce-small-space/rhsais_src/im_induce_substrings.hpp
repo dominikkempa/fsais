@@ -1,5 +1,5 @@
-#ifndef __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
-#define __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#define __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -1377,4 +1377,4 @@ void im_induce_substrings(
 
 }  // namespace rhsais_private
 
-#endif  // __IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
