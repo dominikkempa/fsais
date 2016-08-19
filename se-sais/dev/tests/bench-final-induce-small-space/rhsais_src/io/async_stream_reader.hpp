@@ -306,7 +306,7 @@ class async_stream_reader {
       return m_cur_buffer->m_content[m_cur_buffer_pos];
     }
 
-    // True iff there are still items in the stream.
+    // True iff there are no more items in the stream.
     inline bool empty() {
       if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
@@ -315,18 +315,16 @@ class async_stream_reader {
     }
 
     // Return const ptr to internal buffer.
-    // Used in special situations.
     const value_type *get_buf_ptr() const {
       return m_cur_buffer->m_content;
     }
 
-    // Return the number of items in the
-    // internal buffer. 
+    // Return the number of items in the internal buffer.
     std::uint64_t get_buf_filled() const {
       return m_cur_buffer_filled;
     }
 
-    // Return performed I/O in bytes.
+    // Performed I/O in bytes.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
