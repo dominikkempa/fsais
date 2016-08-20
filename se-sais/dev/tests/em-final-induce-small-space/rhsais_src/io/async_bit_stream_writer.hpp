@@ -1,5 +1,5 @@
-#ifndef __ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
-#define __ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_BIT_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdint>
 #include <thread>
@@ -9,6 +9,8 @@
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 class async_bit_stream_writer {
   private:
@@ -151,4 +153,6 @@ class async_bit_stream_writer {
     std::thread *m_thread;
 };
 
-#endif  // __ASYNC_STREAM_WRITER_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED

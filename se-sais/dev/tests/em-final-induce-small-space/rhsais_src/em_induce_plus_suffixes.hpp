@@ -1,5 +1,5 @@
-#ifndef __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
-#define __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#define __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -10,7 +10,6 @@
 
 #include "io/async_stream_writer.hpp"
 #include "io/async_stream_writer_multipart.hpp"
-#include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_stream_reader_multipart.hpp"
 #include "io/async_multi_bit_stream_reader.hpp"
 #include "io/async_backward_stream_reader.hpp"
@@ -20,6 +19,8 @@
 #include "utils.hpp"
 #include "em_radix_heap.hpp"
 
+
+namespace rhsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -259,4 +260,6 @@ std::uint64_t em_induce_plus_suffixes(
   return n_parts;
 }
 
-#endif  // __EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

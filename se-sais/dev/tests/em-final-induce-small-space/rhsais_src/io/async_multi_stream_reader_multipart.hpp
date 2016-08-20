@@ -1,5 +1,5 @@
-#ifndef __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
-#define __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_READER_MULTIPART_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_READER_MULTIPART_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -13,8 +13,10 @@
 #include "../utils.hpp"
 
 
+namespace rhsais_private {
+
 template<typename value_type>
-class async_multi_stream_reader {
+class async_multi_stream_reader_multipart {
   private:
     template<typename T>
     struct buffer {
@@ -33,9 +35,8 @@ class async_multi_stream_reader {
         free(m_content);
       }
 
-      inline std::uint64_t size_in_bytes() const {
-        return sizeof(T) * m_filled;
-      }
+      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
+      inline bool empty() const { return m_filled == 0; }
 
       T *m_content;
       std::uint64_t m_filled;
@@ -80,7 +81,7 @@ class async_multi_stream_reader {
 
   private:
     template<typename T>
-    static void async_io_thread_code(async_multi_stream_reader<T> *caller) {
+    static void async_io_thread_code(async_multi_stream_reader_multipart<T> *caller) {
       typedef buffer<T> buffer_type;
       typedef request<buffer_type> request_type;
       while (true) {
@@ -102,7 +103,34 @@ class async_multi_stream_reader {
         lk.unlock();
 
         // Process the request.
-        request.m_buffer->read_from_file(caller->m_files[request.m_file_id]);
+        if (caller->m_files[request.m_file_id] == NULL) {
+          // Attempt to open and read from the file.
+          std::string cur_part_filename = caller->m_filenames[request.m_file_id] +
+            ".multipart_file.part" + utils::intToStr(caller->m_cur_part[request.m_file_id]);
+          if (utils::file_exists(cur_part_filename)) {
+            caller->m_files[request.m_file_id] = utils::file_open(cur_part_filename, "r");
+            request.m_buffer->read_from_file(caller->m_files[request.m_file_id]);
+          } else request.m_buffer->m_filled = 0;
+        } else {
+          request.m_buffer->read_from_file(caller->m_files[request.m_file_id]);
+          if (request.m_buffer->empty()) {
+            // Close and delete current file.
+            std::fclose(caller->m_files[request.m_file_id]);
+            caller->m_files[request.m_file_id] = NULL;
+            std::string cur_part_filename = caller->m_filenames[request.m_file_id] +
+              ".multipart_file.part" + utils::intToStr(caller->m_cur_part[request.m_file_id]);
+            utils::file_delete(cur_part_filename);
+
+            // Attempt to read from the next file.
+            ++caller->m_cur_part[request.m_file_id];
+            cur_part_filename = caller->m_filenames[request.m_file_id] +
+              ".multipart_file.part" + utils::intToStr(caller->m_cur_part[request.m_file_id]);
+            if (utils::file_exists(cur_part_filename)) {
+              caller->m_files[request.m_file_id] = utils::file_open(cur_part_filename, "r");
+              request.m_buffer->read_from_file(caller->m_files[request.m_file_id]);
+            } else request.m_buffer->m_filled = 0;
+          }
+        }
         caller->m_bytes_read += request.m_buffer->size_in_bytes();
 
         // Update the status of the buffer
@@ -124,6 +152,9 @@ class async_multi_stream_reader {
     std::uint64_t m_files_added;
 
     std::FILE **m_files;
+    std::string *m_filenames;
+    std::uint64_t *m_cur_part;
+
     std::uint64_t *m_active_buffer_pos;
     buffer_type **m_active_buffers;
     buffer_type **m_passive_buffers;
@@ -133,6 +164,7 @@ class async_multi_stream_reader {
     request_queue<request_type> m_read_requests;
     std::thread *m_io_thread;
 
+  private:
     void issue_read_request(std::uint64_t file_id) {
       request_type req(m_passive_buffers[file_id], file_id);
       m_read_requests.add(req);
@@ -156,18 +188,20 @@ class async_multi_stream_reader {
     }
 
   public:
-    async_multi_stream_reader(std::uint64_t number_of_files,
-        std::uint64_t bufsize_per_file_in_bytes = (1UL << 20)) {
+    async_multi_stream_reader_multipart(std::uint64_t number_of_files,
+        std::uint64_t buf_size_bytes = (1UL << 19)) {
       // Initialize basic parameters.
       n_files = number_of_files;
       m_files_added = 0;
       m_bytes_read = 0;
-      m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / (2UL * sizeof(value_type)));
+      m_items_per_buf = std::max(1UL, buf_size_bytes / sizeof(value_type));
 
       m_mutexes = new std::mutex[n_files];
       m_cvs = new std::condition_variable[n_files];
       m_active_buffer_pos = new std::uint64_t[n_files];
       m_files = new std::FILE*[n_files];
+      m_filenames = new std::string[n_files];
+      m_cur_part = new std::uint64_t[n_files];
       m_active_buffers = new buffer_type*[n_files];
       m_passive_buffers = new buffer_type*[n_files];
 
@@ -182,7 +216,9 @@ class async_multi_stream_reader {
 
     // The added file gets the next available ID (file IDs start from 0).
     void add_file(std::string filename) {
-      m_files[m_files_added] = utils::file_open_nobuf(filename, "r");
+      m_filenames[m_files_added] = filename;
+      m_files[m_files_added] = NULL;
+      m_cur_part[m_files_added] = 0;
       issue_read_request(m_files_added);
       ++m_files_added;
     }
@@ -198,7 +234,7 @@ class async_multi_stream_reader {
       return m_bytes_read;
     }
 
-    ~async_multi_stream_reader() {
+    ~async_multi_stream_reader_multipart() {
       // Let the I/O thread know that there
       // won't be any more requests.
       std::unique_lock<std::mutex> lk(m_read_requests.m_mutex);
@@ -210,9 +246,8 @@ class async_multi_stream_reader {
       m_io_thread->join();
       delete m_io_thread;
 
-      // Delete buffers and close files.
+      // Delete buffers.
       for (std::uint64_t i = 0; i < n_files; ++i) {
-        std::fclose(m_files[i]);
         delete m_active_buffers[i];
         delete m_passive_buffers[i];
       }
@@ -224,7 +259,11 @@ class async_multi_stream_reader {
       delete[] m_cvs;
       delete[] m_active_buffer_pos;
       delete[] m_files;
+      delete[] m_filenames;
+      delete[] m_cur_part;
     }
 };
 
-#endif  // __ASYNC_MULTI_STREAM_READER_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_MULTI_STREAM_READER_MULTIPART_HPP_INCLUDED

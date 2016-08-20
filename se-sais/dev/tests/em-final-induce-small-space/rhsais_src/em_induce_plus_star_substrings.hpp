@@ -1,5 +1,5 @@
-#ifndef __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
-#define __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#define __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -19,6 +19,8 @@
 #include "em_radix_heap.hpp"
 #include "utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -707,4 +709,6 @@ std::uint64_t em_induce_plus_star_substrings(
 #endif
 }
 
-#endif  // __EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED

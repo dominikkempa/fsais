@@ -1,11 +1,13 @@
-#ifndef __SIMPLE_ACCESSOR_HPP_INCLUDED
-#define __SIMPLE_ACCESSOR_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED
 
 #include <cstdio>
 #include <algorithm>
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename ValueType>
 class simple_accessor {
@@ -57,4 +59,6 @@ class simple_accessor {
     }
 };
 
-#endif  // __SIMPLE_ACCESSOR_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_SIMPLE_ACCESSOR_HPP_INCLUDED

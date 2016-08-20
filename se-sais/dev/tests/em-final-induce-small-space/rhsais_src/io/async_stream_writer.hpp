@@ -1,24 +1,52 @@
+/**
+ * @file    rhsais_src/io/async_stream_writer.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
 
-/************************************************************************
-* Copyright (C) 2014-2016                                               *
-*   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>               *
-*   Dominik Kempa <dominik.kempa (at) cs.helsinki.fi or (at) gmail.com> *
-************************************************************************/
-
-#ifndef __ASYNC_STREAM_WRITER_HPP_INCLUDED
-#define __ASYNC_STREAM_WRITER_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
 #include <queue>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
 #include <string>
 #include <algorithm>
+#include <condition_variable>
+#include <mutex>
+#include <thread>
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename value_type>
 class async_stream_writer {
@@ -40,11 +68,10 @@ class async_stream_writer {
         free(m_content);
       }
 
-      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
-      inline std::uint64_t free_space() const { return m_size - m_filled; }
-
       inline bool empty() const { return m_filled == 0; }
       inline bool full() const { return m_filled == m_size; }
+      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
+      inline std::uint64_t free_space() const { return m_size - m_filled; }
 
       T *m_content;
       std::uint64_t m_size;
@@ -119,7 +146,7 @@ class async_stream_writer {
         buffer_type *buffer = caller->m_full_buffers->pop();
         lk.unlock();
 
-        // Safely write the data to disk.
+        // Write the data to disk.
         buffer->write_to_file(caller->m_file);
 
         // Add the (now empty) buffer to the collection
@@ -170,31 +197,7 @@ class async_stream_writer {
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
     }
 
-    ~async_stream_writer() {
-      // Send the last incomplete buffer for writing.
-      if (!(m_cur_buffer->empty())) {
-        m_full_buffers->push(m_cur_buffer);
-        m_full_buffers->m_cv.notify_one();
-        m_cur_buffer = NULL;
-      }
-
-      // Let the I/O thread know that we're done.
-      m_full_buffers->send_stop_signal();
-      m_full_buffers->m_cv.notify_one();
-
-      // Wait for the I/O thread to finish.
-      m_io_thread->join();
-
-      // Clean up.
-      delete m_empty_buffers;
-      delete m_full_buffers;
-      delete m_io_thread;
-      if (m_file != stdout)
-        std::fclose(m_file);
-      if (m_cur_buffer != NULL)
-        delete m_cur_buffer;
-    }
-
+    // Write item x to the stream.
     inline void write(value_type x) {
       m_bytes_written += sizeof(value_type);
       m_cur_buffer->m_content[m_cur_buffer->m_filled++] = x;
@@ -205,6 +208,7 @@ class async_stream_writer {
       }
     }
 
+    // Write values[0..length) to the stream.
     inline void write(const value_type *values, std::uint64_t length) {
       m_bytes_written += length * sizeof(value_type);
       while (length > 0) {
@@ -221,9 +225,40 @@ class async_stream_writer {
       }
     }
 
+    // Return performed I/O in bytes.
     inline std::uint64_t bytes_written() const {
       return m_bytes_written;
     }
+
+    // Destructor.
+    ~async_stream_writer() {
+      // Send the last incomplete buffer for writing.
+      if (!(m_cur_buffer->empty())) {
+        m_full_buffers->push(m_cur_buffer);
+        m_full_buffers->m_cv.notify_one();
+        m_cur_buffer = NULL;
+      }
+
+      // Let the I/O thread know that we're done.
+      m_full_buffers->send_stop_signal();
+      m_full_buffers->m_cv.notify_one();
+
+      // Wait for the I/O thread to finish.
+      m_io_thread->join();
+
+      // Delete buffers and close the file.
+      delete m_empty_buffers;
+      delete m_full_buffers;
+      delete m_io_thread;
+
+      if (m_file != stdout)
+        std::fclose(m_file);
+
+      if (m_cur_buffer != NULL)
+        delete m_cur_buffer;
+    }
 };
 
-#endif  // __ASYNC_STREAM_WRITER_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_HPP_INCLUDED

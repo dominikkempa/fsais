@@ -1,5 +1,5 @@
-#ifndef __EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED
-#define __EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED
+#define __RHSAIS_SRC_EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -15,15 +15,17 @@
 #include "io/async_backward_stream_reader_multipart.hpp"
 #include "io/async_backward_bit_stream_reader.hpp"
 
-#include "em_radix_heap.hpp"
 #include "utils.hpp"
 #include "uint24.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
 
+#include "em_radix_heap.hpp"
 #include "im_induce_suffixes.hpp"
 #include "em_induce_plus_suffixes.hpp"
 
+
+namespace rhsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -792,5 +794,6 @@ void em_induce_minus_and_plus_suffixes(
   }
 }
 
+}  // namespace rhsais_private
 
-#endif  // __EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED
+#endif  // __RHSAIS_SRC_EM_INDUCE_MINUS_AND_PLUS_SUFFIXES_HPP_INCLUDED

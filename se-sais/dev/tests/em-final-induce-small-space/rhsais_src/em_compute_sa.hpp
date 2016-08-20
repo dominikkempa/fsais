@@ -1,5 +1,5 @@
-#ifndef __EM_COMPUTE_SA_HPP_INCULUDED
-#define __EM_COMPUTE_SA_HPP_INCULUDED
+#ifndef __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
+#define __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -12,7 +12,6 @@
 #include "naive_compute_sa.hpp"
 #include "em_induce_minus_star_substrings.hpp"
 #include "em_induce_minus_and_plus_suffixes.hpp"
-
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_stream_writer_multipart.hpp"
@@ -23,6 +22,8 @@
 #include "uint40.hpp"
 #include "uint48.hpp"
 
+
+namespace rhsais_private {
 
 template<typename name_type,
   typename text_offset_type>
@@ -861,4 +862,6 @@ void em_compute_sa(
   fprintf(stderr, "  I/O volume = %.1Lf bytes/symbol\n", (1.L * total_io_volume) / text_length);
 }
 
-#endif  // __EM_COMPUTE_SA_HPP_INCULUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED

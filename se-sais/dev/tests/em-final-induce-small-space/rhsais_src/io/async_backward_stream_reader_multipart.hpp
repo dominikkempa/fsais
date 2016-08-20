@@ -1,5 +1,5 @@
-#ifndef __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
-#define __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#ifndef __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#define __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdint>
@@ -12,6 +12,8 @@
 
 #include "../utils.hpp"
 
+
+namespace rhsais_private {
 
 template<typename value_type>
 class async_backward_stream_reader_multipart {
@@ -270,4 +272,6 @@ class async_backward_stream_reader_multipart {
     }
 };
 
-#endif  // __ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+}  // namespace rhsais_private
+
+#endif  // __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
