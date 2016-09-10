@@ -22,7 +22,7 @@ class async_multi_stream_reader_multipart {
     struct buffer {
       buffer(std::uint64_t size) {
         m_size = size;
-        m_content = (T *)malloc(m_size * sizeof(T));
+        m_content = (T *)/*malloc*/utils::allocate(m_size * sizeof(T));
         m_filled = 0;
         m_is_filled = false;
       }
@@ -32,7 +32,7 @@ class async_multi_stream_reader_multipart {
       }
 
       ~buffer() {
-        free(m_content);
+        /*free*/utils::deallocate((std::uint8_t *)m_content);
       }
 
       inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }

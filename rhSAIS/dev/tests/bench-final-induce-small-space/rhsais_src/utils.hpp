@@ -46,6 +46,14 @@ namespace utils {
 
 long double wclock();
 
+extern std::uint64_t current_ram_allocation;
+extern std::uint64_t peak_ram_allocation;
+
+std::uint8_t *allocate(std::uint64_t);
+void deallocate(std::uint8_t *);
+std::uint64_t get_current_ram_allocation();
+std::uint64_t get_peak_ram_allocation();
+
 std::FILE *file_open(std::string fname, std::string mode);
 std::FILE *file_open_nobuf(std::string fname, std::string mode);
 std::uint64_t file_size(std::string fname);

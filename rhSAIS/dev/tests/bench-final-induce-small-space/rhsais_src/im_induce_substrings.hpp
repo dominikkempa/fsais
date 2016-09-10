@@ -124,8 +124,7 @@ im_induce_substrings_large_alphabet(
 
 
   // Read block into RAM.
-  //char_type *block = new char_type[block_size];
-  char_type *block = (char_type *)malloc(block_size * sizeof(char_type));
+  char_type *block = (char_type *)utils::allocate(block_size * sizeof(char_type));
   std::fill(block, block + block_size, (char_type)0);
   utils::read_at_offset(block, block_beg, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
@@ -172,8 +171,7 @@ im_induce_substrings_large_alphabet(
   // Compute type_bv that stores whether each of the
   // position is a minus position (true) or not (false).
   std::uint64_t bv_size = (total_block_size + 63) / 64;
-  //std::uint64_t *type_bv = new std::uint64_t[bv_size];
-  std::uint64_t *type_bv = (std::uint64_t *)malloc(bv_size * sizeof(std::uint64_t));
+  std::uint64_t *type_bv = (std::uint64_t *)utils::allocate(bv_size * sizeof(std::uint64_t));
   std::fill(type_bv, type_bv + bv_size, 0UL);
   {
     if (is_last_minus) {
@@ -276,7 +274,8 @@ im_induce_substrings_large_alphabet(
 
 
   typedef packed_pair<char_type, ext_block_offset_type> pair_type;
-  std::vector<pair_type> vec2;
+  typedef std::vector<pair_type> vector_type;
+  vector_type *vec2 = new vector_type();
 
 
 
@@ -309,7 +308,7 @@ im_induce_substrings_large_alphabet(
     if (!is_head_minus) {
       bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
       if (head_pos < block_size) output_plus_type_writer->write(is_head_star);
-      if (is_head_star) vec2.push_back(pair_type((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
+      if (is_head_star) vec2->push_back(pair_type((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
     }
     if (head_pos > 0) {
       if (!is_prev_pos_minus) {
@@ -330,15 +329,11 @@ im_induce_substrings_large_alphabet(
 
 
   heap_type *heap2 = new heap_type(radix_logs);
-  std::reverse(vec2.begin(), vec2.end());
-  for (std::uint64_t t = 0; t < vec2.size(); ++t)
-    heap2->push(vec2[t].first, vec2[t].second);
-  {
-    // Deallocate vec2.
-    std::vector<pair_type> v;
-    vec2.clear();
-    vec2.swap(v);
-  }
+  std::reverse(vec2->begin(), vec2->end());
+  for (std::uint64_t t = 0; t < vec2->size(); ++t)
+    heap2->push((*vec2)[t].first, (*vec2)[t].second);
+
+  delete vec2;  // XXX vec2 -- declare as array, and include into the normal flow of things.
 
 
   // Update I/O volume.
@@ -452,10 +447,8 @@ im_induce_substrings_large_alphabet(
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
   delete text_accessor;
-  //delete[] type_bv;
-  //delete[] block;
-  free(type_bv);
-  free(block);
+  utils::deallocate((std::uint8_t *)type_bv);
+  utils::deallocate((std::uint8_t *)block);
 
 
 
@@ -643,8 +636,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Read block into RAM.
-  //char_type *block = new char_type[block_size];
-  char_type *block = (char_type *)malloc(block_size * sizeof(char_type));
+  char_type *block = (char_type *)utils::allocate(block_size * sizeof(char_type));
   std::fill(block, block + block_size, (char_type)0);
   utils::read_at_offset(block, block_beg, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
@@ -691,8 +683,7 @@ im_induce_substrings_small_alphabet(
   // Compute type_bv that stores whether each of the
   // position is a minus position (true) or not (false).
   std::uint64_t bv_size = (total_block_size + 63) / 64;
-  //std::uint64_t *type_bv = new std::uint64_t[bv_size];
-  std::uint64_t *type_bv = (std::uint64_t *)malloc(bv_size * sizeof(std::uint64_t));
+  std::uint64_t *type_bv = (std::uint64_t *)utils::allocate(bv_size * sizeof(std::uint64_t));
   std::fill(type_bv, type_bv + bv_size, 0UL);
   {
     if (is_last_minus) {
@@ -736,8 +727,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Compute bucket sizes.
-  //ext_block_offset_type *bucket_ptr = new ext_block_offset_type[text_alphabet_size];
-  ext_block_offset_type *bucket_ptr = (ext_block_offset_type *)malloc(text_alphabet_size * sizeof(ext_block_offset_type));
+  ext_block_offset_type *bucket_ptr = (ext_block_offset_type *)utils::allocate(text_alphabet_size * sizeof(ext_block_offset_type));
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
@@ -772,8 +762,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Allocate buckets.
-  //ext_block_offset_type *buckets = new ext_block_offset_type[total_bucket_size];
-  ext_block_offset_type *buckets = (ext_block_offset_type *)malloc(total_bucket_size * sizeof(ext_block_offset_type));
+  ext_block_offset_type *buckets = (ext_block_offset_type *)utils::allocate(total_bucket_size * sizeof(ext_block_offset_type));
   std::fill(buckets, buckets + total_bucket_size, (ext_block_offset_type)0);
 
 
@@ -1219,14 +1208,10 @@ im_induce_substrings_small_alphabet(
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
   delete text_accessor;
-  //delete[] type_bv;
-  //delete[] buckets;
-  //delete[] bucket_ptr;
-  //delete[] block;
-  free(type_bv);
-  free(buckets);
-  free(bucket_ptr);
-  free(block);
+  utils::deallocate((std::uint8_t *)type_bv);
+  utils::deallocate((std::uint8_t *)buckets);
+  utils::deallocate((std::uint8_t *)bucket_ptr);
+  utils::deallocate((std::uint8_t *)block);
 
 
 

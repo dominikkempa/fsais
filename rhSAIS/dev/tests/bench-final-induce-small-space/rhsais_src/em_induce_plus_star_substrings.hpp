@@ -289,12 +289,12 @@ std::uint64_t em_induce_plus_star_substrings_large_alphabet(
   std::uint64_t n_parts = output_pos_writer->get_parts_count();
 
   // Clean up.
-  delete radix_heap;
-  delete plus_type_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
-  delete output_diff_writer;
   delete output_count_writer;
+  delete output_diff_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete plus_type_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
@@ -621,12 +621,12 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
   std::uint64_t n_parts = output_pos_writer->get_parts_count();
 
   // Clean up.
-  delete radix_heap;
-  delete plus_type_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
-  delete output_diff_writer;
   delete output_count_writer;
+  delete output_diff_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete plus_type_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,

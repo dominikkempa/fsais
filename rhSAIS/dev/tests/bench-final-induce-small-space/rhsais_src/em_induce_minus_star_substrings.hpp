@@ -346,15 +346,15 @@ em_induce_minus_star_substrings_large_alphabet(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_count_reader;
-  delete plus_diff_reader;
-  delete minus_type_reader;
-  delete minus_pos_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
   delete output_count_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete minus_pos_reader;
+  delete minus_type_reader;
+  delete plus_diff_reader;
+  delete plus_count_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
@@ -735,15 +735,15 @@ em_induce_minus_star_substrings_small_alphabet(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_count_reader;
-  delete plus_diff_reader;
-  delete minus_type_reader;
-  delete minus_pos_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
   delete output_count_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete minus_pos_reader;
+  delete minus_type_reader;
+  delete plus_diff_reader;
+  delete plus_count_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes/symbol (of initial text)\n", total_time,

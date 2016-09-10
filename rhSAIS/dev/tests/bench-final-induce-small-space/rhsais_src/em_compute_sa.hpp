@@ -38,16 +38,19 @@ std::uint64_t create_recursive_text(
   std::uint64_t io_volume = 0;
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size; 
 
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
+
   fprintf(stderr, "  Create recursive text: ");
   long double start = utils::wclock();
 
   // Allocate array with names and `used' bitvector.
   std::uint64_t used_bv_size = (max_permute_block_size + 63) / 64;
-  std::uint64_t *used_bv = (std::uint64_t *)malloc(used_bv_size * sizeof(std::uint64_t));
-//  std::uint64_t *used_bv = new std::uint64_t[used_bv_size];
+  std::uint64_t *used_bv = (std::uint64_t *)utils::allocate(used_bv_size * sizeof(std::uint64_t));
   std::fill(used_bv, used_bv + used_bv_size, (std::uint64_t)0);
-//  text_offset_type *names = new text_offset_type[max_permute_block_size];
-  text_offset_type *names = (text_offset_type *)malloc(max_permute_block_size * sizeof(text_offset_type));
+  text_offset_type *names = (text_offset_type *)utils::allocate(max_permute_block_size * sizeof(text_offset_type));
   std::fill(names, names + max_permute_block_size, (text_offset_type)0);
 
   // Initialize the writer of text.
@@ -109,10 +112,8 @@ std::uint64_t create_recursive_text(
 
   // Clean up.
   delete text_writer;
-  //delete[] used_bv;
-  //delete[] names;
-  free(names);
-  free(used_bv);
+  utils::deallocate((std::uint8_t *)names);
+  utils::deallocate((std::uint8_t *)used_bv);
 
   // Print summary.
   long double total_time = utils::wclock() - start;
@@ -147,25 +148,28 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   fprintf(stderr, "  Permute minus star suffixes from text to lex order:\n");
   long double start = utils::wclock();
 
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
+
+
   std::vector<std::string> temp_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     temp_filenames[permute_block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
 
   // Allocate array with positions of minus star suffixes for normal string.
-  text_offset_type *text_sorted_suffixes_for_normal_string = (text_offset_type *)malloc(max_permute_block_size * sizeof(text_offset_type));
+  text_offset_type *text_sorted_suffixes_for_normal_string = (text_offset_type *)utils::allocate(max_permute_block_size * sizeof(text_offset_type));
   std::fill(text_sorted_suffixes_for_normal_string, text_sorted_suffixes_for_normal_string + max_permute_block_size, (text_offset_type)0);
-  //text_offset_type *text_sorted_suffixes_for_normal_string = new text_offset_type[max_permute_block_size];
 
 #ifdef SAIS_DEBUG
   std::uint64_t bufsize = utils::random_int64(1L, 20L);
 #else
   static const std::uint64_t bufsize = (1UL << 15);
 #endif
-  //std::uint64_t *inbuf = new std::uint64_t[bufsize];
-  std::uint64_t *inbuf = (std::uint64_t *)malloc(bufsize * sizeof(std::uint64_t));
+  std::uint64_t *inbuf = (std::uint64_t *)utils::allocate(bufsize * sizeof(std::uint64_t));
   std::fill(inbuf, inbuf + bufsize, 0UL);
-  //text_offset_type *outbuf = new text_offset_type[bufsize];
-  text_offset_type *outbuf = (text_offset_type *)malloc(bufsize * sizeof(text_offset_type));
+  text_offset_type *outbuf = (text_offset_type *)utils::allocate(bufsize * sizeof(text_offset_type));
   std::fill(outbuf, outbuf + bufsize, (text_offset_type)0);
 
 
@@ -212,12 +216,9 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   }
 
   // Clean up.
-  //delete[] inbuf;
-  //delete[] outbuf;
-  //delete[] text_sorted_suffixes_for_normal_string;
-  free(inbuf);
-  free(outbuf);
-  free(text_sorted_suffixes_for_normal_string);
+  utils::deallocate((std::uint8_t *)outbuf);
+  utils::deallocate((std::uint8_t *)inbuf);
+  utils::deallocate((std::uint8_t *)text_sorted_suffixes_for_normal_string);
 
   std::uint64_t n_buffers = 12 + n_permute_blocks + n_blocks;
   std::uint64_t computed_buf_size = std::max(1UL, ram_use / n_buffers);
@@ -290,10 +291,10 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   std::uint64_t n_parts = lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer->get_parts_count();
 
   // Clean up.
-  delete lex_sorted_suffixes_for_recursive_string_block_ids_reader;
-  delete lex_sorted_minus_star_suffixes_for_normal_string_reader;
-  delete lex_sorted_minus_star_suffixes_for_normal_string_writer;
   delete lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer;
+  delete lex_sorted_minus_star_suffixes_for_normal_string_writer;
+  delete lex_sorted_minus_star_suffixes_for_normal_string_reader;
+  delete lex_sorted_suffixes_for_recursive_string_block_ids_reader;
   utils::file_delete(lex_sorted_suffixes_for_recursive_string_block_ids_filename);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     utils::file_delete(temp_filenames[permute_block_id]);
@@ -408,6 +409,11 @@ void compute_sa(
   fprintf(stderr, "  Text length = %lu\n", text_length);
   fprintf(stderr, "  Text alphabet size = %lu\n", text_alphabet_size);
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
+
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
 
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
@@ -583,6 +589,12 @@ void compute_sa(
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "  Max block size = %lu\n", max_block_size);
 
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
+
+
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
   std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());
@@ -609,6 +621,11 @@ void compute_sa(
       input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
 
   fprintf(stderr, "Exiting recursion level %lu\n", recursion_level);
+
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
 }
 
 template<typename char_type,
@@ -657,6 +674,12 @@ void em_compute_sa(
   fprintf(stderr, "Text alphabet size = %lu\n\n", text_alphabet_size);
   fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "sizeof(char_type) = %lu\n\n\n", sizeof(char_type));
+
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
+
 
   long double start = utils::wclock();
   fprintf(stderr, "Entering recursion level 0\n");
@@ -829,6 +852,12 @@ void em_compute_sa(
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "  Max block size = %lu\n", max_block_size);
 
+  //
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  //
+
+
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
   std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());
@@ -860,6 +889,8 @@ void em_compute_sa(
   fprintf(stderr, "  Total time = %.2Lfs\n", total_time);
   fprintf(stderr, "  Relative runtime = %.2Lfs/MiB\n", (1.L * total_time) / (text_length / (1L << 20)));
   fprintf(stderr, "  I/O volume = %.1Lf bytes/symbol\n", (1.L * total_io_volume) / text_length);
+  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
+  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
 }
 
 }  // namespace rhsais_private

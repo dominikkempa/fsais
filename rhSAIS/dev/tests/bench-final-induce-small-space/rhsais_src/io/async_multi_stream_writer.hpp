@@ -56,7 +56,7 @@ class async_multi_stream_writer {
     struct buffer {
       buffer(std::uint64_t size) {
         m_size = size;
-        m_content = (T *)malloc(m_size * sizeof(T));
+        m_content = (T *)/*malloc*/utils::allocate(m_size * sizeof(T));
         m_filled = 0;
       }
 
@@ -66,7 +66,7 @@ class async_multi_stream_writer {
       }
 
       ~buffer() {
-        free(m_content);
+        /*free*/utils::deallocate((std::uint8_t *)m_content);
       }
 
       inline bool full() const { return m_filled == m_size; }

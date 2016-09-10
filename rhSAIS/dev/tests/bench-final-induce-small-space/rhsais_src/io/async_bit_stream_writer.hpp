@@ -69,8 +69,8 @@ class async_bit_stream_writer {
 
       // Initialize buffers.
       m_buf_size = std::max(1UL, bufsize / (2UL * sizeof(std::uint64_t)));
-      m_active_buf = (std::uint64_t *)malloc(m_buf_size * sizeof(std::uint64_t));
-      m_passive_buf = (std::uint64_t *)malloc(m_buf_size * sizeof(std::uint64_t));
+      m_active_buf = (std::uint64_t *)/*malloc*/utils::allocate(m_buf_size * sizeof(std::uint64_t));
+      m_passive_buf = (std::uint64_t *)/*malloc*/utils::allocate(m_buf_size * sizeof(std::uint64_t));
 
       m_active_buf[0] = 0;
       m_bit_pos = 0;
@@ -105,8 +105,8 @@ class async_bit_stream_writer {
 
       // Clean up.
       delete m_thread;
-      free(m_active_buf);
-      free(m_passive_buf);
+      /*free*/utils::deallocate((std::uint8_t *)m_active_buf);
+      /*free*/utils::deallocate((std::uint8_t *)m_passive_buf);
       std::fclose(m_file);
     }
 

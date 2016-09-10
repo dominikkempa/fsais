@@ -206,14 +206,14 @@ void em_induce_minus_and_plus_suffixes(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_type_reader;
-  delete plus_count_reader;
-  delete minus_pos_reader;
-  delete minus_type_reader;
-  delete symbols_reader;
   delete output_writer;
+  delete symbols_reader;
+  delete minus_type_reader;
+  delete minus_pos_reader;
+  delete plus_count_reader;
+  delete plus_type_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   // Print summary.
   long double total_time = utils::wclock() - start;
@@ -608,15 +608,15 @@ void em_induce_minus_and_plus_suffixes(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_type_reader;
-  delete plus_count_reader;
-  delete minus_pos_reader;
-  delete minus_type_reader;
-  delete symbols_reader;
   delete block_id_writer;
   delete pos_writer;
+  delete symbols_reader;
+  delete minus_type_reader;
+  delete minus_pos_reader;
+  delete plus_count_reader;
+  delete plus_type_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   // Print summary.
   long double total_time = utils::wclock() - start;
