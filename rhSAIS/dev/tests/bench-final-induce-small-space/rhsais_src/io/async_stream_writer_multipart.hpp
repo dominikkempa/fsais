@@ -22,12 +22,12 @@ class async_stream_writer_multipart {
     struct buffer {
       buffer(std::uint64_t size) {
         m_size = size;
-        m_content = (T *)/*malloc*/utils::allocate(m_size * sizeof(T));
+        m_content = (T *)utils::allocate(m_size * sizeof(T));
         m_filled = 0;
       }
 
       ~buffer() {
-        /*free*/utils::deallocate((std::uint8_t *)m_content);
+        utils::deallocate((std::uint8_t *)m_content);
       }
 
       inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }

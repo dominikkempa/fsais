@@ -36,12 +36,10 @@ class ram_queue {
     ram_queue(std::uint64_t max_size) {
       set_empty();
       m_max_size = max_size;
-      //m_data = (value_type *)malloc(max_size * sizeof(value_type));
       m_data = (value_type *)utils::allocate(max_size * sizeof(value_type));
     }
 
     ~ram_queue() {
-      //free(m_data);
       utils::deallocate((std::uint8_t *)m_data);
     }
 

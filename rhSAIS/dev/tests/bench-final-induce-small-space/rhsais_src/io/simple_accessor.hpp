@@ -30,7 +30,7 @@ class simple_accessor {
       m_file_items = utils::file_size(filename) / sizeof(value_type);
       m_file = utils::file_open_nobuf(filename, "r");
 
-      m_buf = new value_type[m_items_per_buf];
+      m_buf = (value_type *)utils::allocate(m_items_per_buf * sizeof(value_type));
       m_buf_filled = 0;
       m_buf_pos = 0;
       m_bytes_read = 0;
@@ -55,7 +55,7 @@ class simple_accessor {
 
     ~simple_accessor() {
       std::fclose(m_file);
-      delete[] m_buf;
+      utils::deallocate((std::uint8_t *)m_buf);
     }
 };
 
