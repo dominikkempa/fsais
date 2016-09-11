@@ -26,21 +26,17 @@ class ram_queue {
     typedef ram_queue<value_type> ram_queue_type;
 
   private:
-    value_type *m_data;
+    value_type* const m_data;
+    const std::uint64_t m_max_size;
+
     std::uint64_t m_beg;
     std::uint64_t m_end;
     std::uint64_t m_size;
-    std::uint64_t m_max_size;
 
   public:
-    ram_queue(std::uint64_t max_size) {
+    ram_queue(std::uint64_t max_size, value_type* const mem)
+      : m_data(mem), m_max_size(max_size) {
       set_empty();
-      m_max_size = max_size;
-      m_data = (value_type *)utils::allocate(max_size * sizeof(value_type));
-    }
-
-    ~ram_queue() {
-      utils::deallocate(m_data);
     }
 
     inline bool empty() const {
@@ -419,11 +415,15 @@ class em_radix_heap {
       bool m_no_more_requests;
     };
 
-    template<typename queue_type>
+    template<typename T>
     struct ram_queue_collection {
-      ram_queue_collection(std::uint64_t n_queues, std::uint64_t items_per_queue) {
-        for (std::uint64_t i = 0; i < n_queues; ++i)
-          m_queues.push_back(new queue_type(items_per_queue));
+      typedef ram_queue<T> queue_type;
+      ram_queue_collection(std::uint64_t n_queues,
+          std::uint64_t items_per_queue, T *mem) {
+        for (std::uint64_t i = 0; i < n_queues; ++i) {
+          m_queues.push_back(new queue_type(items_per_queue, mem));
+          mem += items_per_queue;
+        }
       }
 
       ~ram_queue_collection() {
@@ -498,7 +498,7 @@ class em_radix_heap {
       }
     }
 
-    typedef ram_queue_collection<ram_queue_type> ram_queue_collection_type;
+    typedef ram_queue_collection<pair_type> ram_queue_collection_type;
     typedef io_request<ram_queue_type> request_type;
     typedef request_queue<request_type> request_queue_type;
 
@@ -523,6 +523,8 @@ class em_radix_heap {
     std::vector<std::uint64_t> m_sum_of_radix_logs;
     std::vector<std::uint64_t> m_sum_of_radixes;
 
+    pair_type *m_mem;
+    pair_type *m_mem_ptr;
     em_queue_type **m_queues;
     std::vector<std::uint64_t> m_queue_min;
     std::vector<ram_queue_type*> m_empty_ram_queues;
@@ -607,13 +609,21 @@ class em_radix_heap {
       m_queue_min = std::vector<std::uint64_t>(m_em_queue_count,
           std::numeric_limits<std::uint64_t>::max());
 
-      // Allocate empty RAM queues.
+      // Request RAM for queues.
       n_ram_queues = std::max(n_ram_queues, m_em_queue_count + 1);
-      for (std::uint64_t j = 0; j < n_ram_queues; ++j)
-        m_empty_ram_queues.push_back(new ram_queue_type(items_per_ram_queue));
+      std::uint64_t n_all_queues = n_ram_queues + k_io_queues;
+      m_mem = (pair_type *)utils::allocate(n_all_queues * items_per_ram_queue * sizeof(pair_type));
+      m_mem_ptr = m_mem;
+
+      // Allocate empty RAM queues.
+      for (std::uint64_t j = 0; j < n_ram_queues; ++j) {
+        m_empty_ram_queues.push_back(new ram_queue_type(items_per_ram_queue, m_mem_ptr));
+        m_mem_ptr += items_per_ram_queue;
+      }
 
       // Allocate collection of empty I/O queue.
-      m_empty_io_queues = new ram_queue_collection_type(k_io_queues, items_per_ram_queue);
+      m_empty_io_queues = new ram_queue_collection_type(k_io_queues, items_per_ram_queue, m_mem_ptr);
+      m_mem_ptr += k_io_queues * items_per_ram_queue;
 
       // Start I/O thread.
       m_io_thread = new std::thread(async_io_thread_code<key_type, value_type>, this);
@@ -762,6 +772,7 @@ class em_radix_heap {
       delete[] m_queues;
       for (std::uint64_t i = 0; i < m_empty_ram_queues.size(); ++i)
         delete m_empty_ram_queues[i];
+      utils::deallocate(m_mem);
     }
 
   private:

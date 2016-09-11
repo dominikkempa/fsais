@@ -772,7 +772,6 @@ im_induce_suffixes_small_alphabet(
 
 
   // Compute bucket sizes.
-  //text_offset_type *bucket_ptr = new text_offset_type[text_alphabet_size];
   text_offset_type *bucket_ptr = (text_offset_type *)utils::allocate(text_alphabet_size * sizeof(text_offset_type));
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (text_offset_type)0);
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;

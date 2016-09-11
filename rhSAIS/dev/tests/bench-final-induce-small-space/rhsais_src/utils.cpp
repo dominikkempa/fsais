@@ -86,6 +86,11 @@ long double wclock() {
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
 }
 
+void sleep(long double duration_sec) {
+  long double timestamp = wclock();
+  while (wclock() - timestamp < duration_sec);
+}
+
 std::FILE *file_open(std::string filename, std::string mode) {
   std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
   if (f == NULL) {

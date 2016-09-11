@@ -38,11 +38,6 @@ std::uint64_t create_recursive_text(
   std::uint64_t io_volume = 0;
   std::uint64_t n_permute_blocks = (text_length + max_permute_block_size - 1) / max_permute_block_size; 
 
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
   fprintf(stderr, "  Create recursive text: ");
   long double start = utils::wclock();
 
@@ -147,12 +142,6 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
 
   fprintf(stderr, "  Permute minus star suffixes from text to lex order:\n");
   long double start = utils::wclock();
-
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
 
   std::vector<std::string> temp_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
@@ -410,11 +399,6 @@ void compute_sa(
   fprintf(stderr, "  Text alphabet size = %lu\n", text_alphabet_size);
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
 
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
   // Induce minus star substrings of the normal text.
   std::vector<std::string> lex_sorted_minus_star_substrings_for_normal_string_filenames(n_permute_blocks);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
@@ -589,12 +573,6 @@ void compute_sa(
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "  Max block size = %lu\n", max_block_size);
 
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
-
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
   std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());
@@ -621,11 +599,6 @@ void compute_sa(
       input_lex_sorted_suffixes_filenames, total_io_volume, is_small_alphabet);
 
   fprintf(stderr, "Exit recursion level %lu\n", recursion_level);
-
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
 }
 
 template<typename char_type,
@@ -674,12 +647,6 @@ void em_compute_sa(
   fprintf(stderr, "Text alphabet size = %lu\n\n", text_alphabet_size);
   fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
   fprintf(stderr, "sizeof(char_type) = %lu\n\n\n", sizeof(char_type));
-
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
 
   long double start = utils::wclock();
   fprintf(stderr, "Enter recursion level 0\n");
@@ -852,12 +819,6 @@ void em_compute_sa(
   fprintf(stderr, "  sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "  Max block size = %lu\n", max_block_size);
 
-  //
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
-  //
-
-
   // Note: text sorted minus star substrings for normal text is
   // the same as text sorted minus star suffixes for normal text.
   std::vector<std::uint64_t> next_block_leftmost_minus_star_plus_rank(n_blocks, std::numeric_limits<std::uint64_t>::max());
@@ -889,8 +850,9 @@ void em_compute_sa(
   fprintf(stderr, "  Total time = %.2Lfs\n", total_time);
   fprintf(stderr, "  Relative runtime = %.2Lfs/MiB\n", (1.L * total_time) / (text_length / (1L << 20)));
   fprintf(stderr, "  I/O volume = %.1Lf bytes/symbol\n", (1.L * total_io_volume) / text_length);
-  fprintf(stderr, "  peak_ram_allocation = %lu\n", utils::get_peak_ram_allocation());
-  fprintf(stderr, "  current_ram_allocation = %lu\n", utils::get_current_ram_allocation());
+  fprintf(stderr, "  RAM allocation: cur = %.2LfMiB, peak = %.2LfMiB\n",
+      (1.L * utils::get_current_ram_allocation()) / (1UL << 20),
+      (1.L * utils::get_peak_ram_allocation()) / (1UL << 20));
 }
 
 }  // namespace rhsais_private

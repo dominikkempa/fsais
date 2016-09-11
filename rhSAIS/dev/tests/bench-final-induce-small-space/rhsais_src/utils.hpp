@@ -45,6 +45,7 @@ namespace rhsais_private {
 namespace utils {
 
 long double wclock();
+void sleep(long double);
 
 extern std::uint64_t current_ram_allocation;
 extern std::uint64_t peak_ram_allocation;
