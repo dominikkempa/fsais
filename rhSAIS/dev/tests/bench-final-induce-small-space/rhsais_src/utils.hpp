@@ -49,8 +49,8 @@ long double wclock();
 extern std::uint64_t current_ram_allocation;
 extern std::uint64_t peak_ram_allocation;
 
-std::uint8_t *allocate(std::uint64_t);
-void deallocate(std::uint8_t *);
+void *allocate(std::uint64_t);
+void deallocate(void *);
 std::uint64_t get_current_ram_allocation();
 std::uint64_t get_peak_ram_allocation();
 

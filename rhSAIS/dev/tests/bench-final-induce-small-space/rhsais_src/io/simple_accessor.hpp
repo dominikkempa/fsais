@@ -55,7 +55,7 @@ class simple_accessor {
 
     ~simple_accessor() {
       std::fclose(m_file);
-      utils::deallocate((std::uint8_t *)m_buf);
+      utils::deallocate(m_buf);
     }
 };
 

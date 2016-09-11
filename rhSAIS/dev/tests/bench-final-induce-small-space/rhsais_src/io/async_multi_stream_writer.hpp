@@ -54,9 +54,8 @@ class async_multi_stream_writer {
   private:
     template<typename T>
     struct buffer {
-      buffer(std::uint64_t size) {
-        m_size = size;
-        m_content = (T *)utils::allocate(m_size * sizeof(T));
+      buffer(std::uint64_t size, T* const mem)
+        : m_content(mem), m_size(size) {
         m_filled = 0;
       }
 
@@ -65,17 +64,14 @@ class async_multi_stream_writer {
         m_filled = 0;
       }
 
-      ~buffer() {
-        utils::deallocate((std::uint8_t *)m_content);
-      }
-
       inline bool full() const { return m_filled == m_size; }
       inline bool empty() const { return m_filled == 0; }
       inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
 
-      T *m_content;
+      T* const m_content;
+      const std::uint64_t m_size;
+
       std::uint64_t m_filled;
-      std::uint64_t m_size;
     };
 
     template<typename buffer_type>
@@ -174,6 +170,8 @@ class async_multi_stream_writer {
     std::uint64_t m_bytes_written;
     std::uint64_t m_items_per_buf;
 
+    value_type *m_mem;
+    value_type *m_mem_ptr;
     std::vector<std::FILE*> m_files;
     std::vector<buffer_type*> m_buffers;
     buffer_collection<buffer_type> m_free_buffers;
@@ -199,21 +197,28 @@ class async_multi_stream_writer {
     }
 
   public:
-    async_multi_stream_writer(std::uint64_t bufsize_per_file_in_bytes = (1UL << 20),
+    async_multi_stream_writer(std::uint64_t n_files,
+        std::uint64_t bufsize_per_file_in_bytes = (1UL << 20),
         std::uint64_t n_free_buffers = 4UL) {
       // Initialize basic parameters.
       // Works even with n_free_buffers == 0.
       m_bytes_written = 0;
       m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / sizeof(value_type));
-      for (std::uint64_t j = 0; j < n_free_buffers; ++j)
-        m_free_buffers.add(new buffer_type(m_items_per_buf));
+      std::uint64_t n_bufs = n_free_buffers + n_files;
+      m_mem = (value_type *)utils::allocate(n_bufs * m_items_per_buf * sizeof(value_type));
+      m_mem_ptr = m_mem;
+      for (std::uint64_t j = 0; j < n_free_buffers; ++j) {
+        m_free_buffers.add(new buffer_type(m_items_per_buf, m_mem_ptr));
+        m_mem_ptr += m_items_per_buf;
+      }
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
     }
 
     // The added file gets the next available ID (starting from 0).
     void add_file(std::string filename, std::string write_mode =
         std::string("w")) {
-      m_buffers.push_back(new buffer_type(m_items_per_buf));
+      m_buffers.push_back(new buffer_type(m_items_per_buf, m_mem_ptr));
+      m_mem_ptr += m_items_per_buf;
       m_files.push_back(utils::file_open_nobuf(filename, write_mode));
     }
 
@@ -279,6 +284,8 @@ class async_multi_stream_writer {
         buffer_type *buf = m_free_buffers.get();
         delete buf;
       }
+
+      utils::deallocate(m_mem);
     }
 };
 

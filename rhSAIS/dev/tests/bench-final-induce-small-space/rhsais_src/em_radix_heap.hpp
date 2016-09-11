@@ -40,7 +40,7 @@ class ram_queue {
     }
 
     ~ram_queue() {
-      utils::deallocate((std::uint8_t *)m_data);
+      utils::deallocate(m_data);
     }
 
     inline bool empty() const {

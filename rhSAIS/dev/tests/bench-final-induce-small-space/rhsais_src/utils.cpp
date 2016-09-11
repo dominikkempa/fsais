@@ -54,18 +54,18 @@ namespace utils {
 std::uint64_t current_ram_allocation;
 std::uint64_t peak_ram_allocation;
 
-std::uint8_t *allocate(std::uint64_t bytes) {
+void *allocate(std::uint64_t bytes) {
   std::uint8_t *ptr = (std::uint8_t *)malloc(bytes + 8);
   std::uint64_t *ptr64 = (std::uint64_t *)ptr;
   *ptr64 = bytes;
   std::uint8_t *ret = ptr + 8;
   current_ram_allocation += bytes;
   peak_ram_allocation = std::max(peak_ram_allocation, current_ram_allocation);
-  return ret;
+  return (void *)ret;
 }
 
-void deallocate(std::uint8_t *tab) {
-  std::uint8_t *ptr = tab - 8;
+void deallocate(void *tab) {
+  std::uint8_t *ptr = (std::uint8_t *)tab - 8;
   std::uint64_t *ptr64 = (std::uint64_t *)ptr;
   std::uint64_t bytes = *ptr64;
   current_ram_allocation -= bytes;

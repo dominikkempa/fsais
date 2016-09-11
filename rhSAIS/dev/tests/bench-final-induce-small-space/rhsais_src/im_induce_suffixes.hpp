@@ -522,8 +522,8 @@ im_induce_suffixes_large_alphabet(
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
   delete text_accessor;
-  utils::deallocate((std::uint8_t *)type_bv);
-  utils::deallocate((std::uint8_t *)block);
+  utils::deallocate(type_bv);
+  utils::deallocate(block);
 
 
 
@@ -1324,10 +1324,10 @@ im_induce_suffixes_small_alphabet(
   delete output_minus_type_writer;
   delete output_minus_symbols_writer;
   delete text_accessor;
-  utils::deallocate((std::uint8_t *)type_bv);
-  utils::deallocate((std::uint8_t *)buckets);
-  utils::deallocate((std::uint8_t *)bucket_ptr);
-  utils::deallocate((std::uint8_t *)block);
+  utils::deallocate(type_bv);
+  utils::deallocate(buckets);
+  utils::deallocate(bucket_ptr);
+  utils::deallocate(block);
 
 
 

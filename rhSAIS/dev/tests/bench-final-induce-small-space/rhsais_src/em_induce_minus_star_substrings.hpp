@@ -156,7 +156,7 @@ em_induce_minus_star_substrings_large_alphabet(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks, computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -546,7 +546,7 @@ em_induce_minus_star_substrings_small_alphabet(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks, computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -746,7 +746,7 @@ em_induce_minus_star_substrings_small_alphabet(
   delete radix_heap;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes/symbol (of initial text)\n", total_time,
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 
   return diff_items_written;

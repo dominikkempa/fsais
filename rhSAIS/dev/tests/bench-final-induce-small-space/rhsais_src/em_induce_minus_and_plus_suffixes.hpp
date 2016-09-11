@@ -505,7 +505,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Initialize output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(computed_buf_size, 4UL);
+  pos_writer_type *pos_writer = new pos_writer_type(block_count.size(), computed_buf_size, 4UL);
   for (std::uint64_t i = 0; i < block_count.size(); ++i)
     pos_writer->add_file(input_lex_sorted_suffixes_filenames[i]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
