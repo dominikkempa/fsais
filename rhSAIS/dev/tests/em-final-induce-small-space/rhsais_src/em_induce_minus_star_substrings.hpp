@@ -156,7 +156,7 @@ em_induce_minus_star_substrings_large_alphabet(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks, computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -346,15 +346,15 @@ em_induce_minus_star_substrings_large_alphabet(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_count_reader;
-  delete plus_diff_reader;
-  delete minus_type_reader;
-  delete minus_pos_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
   delete output_count_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete minus_pos_reader;
+  delete minus_type_reader;
+  delete plus_diff_reader;
+  delete plus_count_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
@@ -546,7 +546,7 @@ em_induce_minus_star_substrings_small_alphabet(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> output_pos_writer_type;
-  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(computed_buf_size, 4UL);
+  output_pos_writer_type *output_pos_writer = new output_pos_writer_type(n_permute_blocks, computed_buf_size, 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -735,18 +735,18 @@ em_induce_minus_star_substrings_small_alphabet(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_count_reader;
-  delete plus_diff_reader;
-  delete minus_type_reader;
-  delete minus_pos_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
   delete output_count_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete minus_pos_reader;
+  delete minus_type_reader;
+  delete plus_diff_reader;
+  delete plus_count_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lfn bytes/symbol (of initial text)\n", total_time,
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
       (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
 
   return diff_items_written;

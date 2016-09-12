@@ -241,15 +241,15 @@ std::uint64_t em_induce_plus_suffixes(
   std::uint64_t n_parts = output_pos_writer->get_parts_count();
 
   // Clean up.
-  delete radix_heap;
+  delete output_count_writer;
+  delete output_type_writer;
+  delete output_pos_writer;
+  delete symbols_reader;
+  delete plus_pos_reader;
+  delete plus_type_reader;
   delete minus_pos_reader;
   delete minus_count_reader;
-  delete plus_type_reader;
-  delete plus_pos_reader;
-  delete symbols_reader;
-  delete output_pos_writer;
-  delete output_type_writer;
-  delete output_count_writer;
+  delete radix_heap;
 
   // Print summary.
   long double total_time = utils::wclock() - start;

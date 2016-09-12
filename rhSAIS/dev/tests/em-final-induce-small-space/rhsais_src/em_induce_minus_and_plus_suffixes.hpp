@@ -206,14 +206,14 @@ void em_induce_minus_and_plus_suffixes(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_type_reader;
-  delete plus_count_reader;
-  delete minus_pos_reader;
-  delete minus_type_reader;
-  delete symbols_reader;
   delete output_writer;
+  delete symbols_reader;
+  delete minus_type_reader;
+  delete minus_pos_reader;
+  delete plus_count_reader;
+  delete plus_type_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   // Print summary.
   long double total_time = utils::wclock() - start;
@@ -505,7 +505,7 @@ void em_induce_minus_and_plus_suffixes(
 
   // Initialize output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(computed_buf_size, 4UL);
+  pos_writer_type *pos_writer = new pos_writer_type(block_count.size(), computed_buf_size, 4UL);
   for (std::uint64_t i = 0; i < block_count.size(); ++i)
     pos_writer->add_file(input_lex_sorted_suffixes_filenames[i]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
@@ -608,15 +608,15 @@ void em_induce_minus_and_plus_suffixes(
   total_io_volume += io_volume;
 
   // Clean up.
-  delete radix_heap;
-  delete plus_pos_reader;
-  delete plus_type_reader;
-  delete plus_count_reader;
-  delete minus_pos_reader;
-  delete minus_type_reader;
-  delete symbols_reader;
   delete block_id_writer;
   delete pos_writer;
+  delete symbols_reader;
+  delete minus_type_reader;
+  delete minus_pos_reader;
+  delete plus_count_reader;
+  delete plus_type_reader;
+  delete plus_pos_reader;
+  delete radix_heap;
 
   // Print summary.
   long double total_time = utils::wclock() - start;

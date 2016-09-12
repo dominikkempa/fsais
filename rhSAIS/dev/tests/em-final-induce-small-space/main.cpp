@@ -61,7 +61,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     rhsais_private::em_compute_sa<
       char_type,
       text_offset_type>(
-          text_length,
           ram_use,
           text_alphabet_size,
           text_filename,

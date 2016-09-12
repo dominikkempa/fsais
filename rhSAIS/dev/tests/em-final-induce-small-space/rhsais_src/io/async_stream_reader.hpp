@@ -53,9 +53,8 @@ class async_stream_reader {
   private:
     template<typename T>
     struct buffer {
-      buffer(std::uint64_t size) {
-        m_size = size;
-        m_content = (T *)malloc(m_size * sizeof(T));
+      buffer(std::uint64_t size, T* const mem)
+        : m_content(mem), m_size(size) {
         m_filled = 0;
       }
 
@@ -67,21 +66,22 @@ class async_stream_reader {
         return sizeof(T) * m_filled;
       }
 
-      ~buffer() {
-        free(m_content);
-      }
-
-      T *m_content;
-      std::uint64_t m_size;
+      T* const m_content;
+      const std::uint64_t m_size;
       std::uint64_t m_filled;
     };
 
-    template<typename buffer_type>
+    template<typename T>
     struct buffer_queue {
-      buffer_queue(std::uint64_t n_buffers = 0, std::uint64_t items_per_buf = 0) {
+      typedef buffer<T> buffer_type;
+
+      buffer_queue(std::uint64_t n_buffers,
+          std::uint64_t items_per_buf, T *mem) {
         m_signal_stop = false;
-        for (std::uint64_t i = 0; i < n_buffers; ++i)
-          m_queue.push(new buffer_type(items_per_buf));
+        for (std::uint64_t i = 0; i < n_buffers; ++i) {
+          m_queue.push(new buffer_type(items_per_buf, mem));
+          mem += items_per_buf;
+        }
       }
 
       ~buffer_queue() {
@@ -118,7 +118,7 @@ class async_stream_reader {
 
   private:
     typedef buffer<value_type> buffer_type;
-    typedef buffer_queue<buffer_type> buffer_queue_type;
+    typedef buffer_queue<value_type> buffer_queue_type;
 
     buffer_queue_type *m_empty_buffers;
     buffer_queue_type *m_full_buffers;
@@ -200,6 +200,7 @@ class async_stream_reader {
     std::uint64_t m_bytes_read;
     std::uint64_t m_cur_buffer_pos;
     std::uint64_t m_cur_buffer_filled;
+    value_type *m_mem;
     buffer_type *m_cur_buffer;
     std::thread *m_io_thread;
 
@@ -240,6 +241,11 @@ class async_stream_reader {
         std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers,
         std::uint64_t n_skip_bytes) {
+      if (n_buffers == 0) {
+        fprintf(stderr, "\nError in async_stream_reader: n_buffers == 0\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       if (filename.empty()) m_file = stdin;
       else m_file = utils::file_open_nobuf(filename.c_str(), "r");
 
@@ -255,8 +261,9 @@ class async_stream_reader {
       // Allocate buffers.
       std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
       std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
-      m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf);
-      m_full_buffers = new buffer_queue_type();
+      m_mem = (value_type *)utils::allocate(n_buffers * items_per_buf * sizeof(value_type));
+      m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf, m_mem);
+      m_full_buffers = new buffer_queue_type(0, 0, (value_type *)NULL);
 
       // Start the I/O thread.
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
@@ -347,6 +354,8 @@ class async_stream_reader {
 
       if (m_cur_buffer != NULL)
         delete m_cur_buffer;
+
+      utils::deallocate(m_mem);
     }
 };
 

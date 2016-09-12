@@ -53,9 +53,8 @@ class async_multi_stream_reader {
   private:
     template<typename T>
     struct buffer {
-      buffer(std::uint64_t size) {
-        m_size = size;
-        m_content = (T *)malloc(m_size * sizeof(T));
+      buffer(std::uint64_t size, T* const mem)
+        : m_content(mem), m_size(size) {
         m_filled = 0;
         m_is_filled = false;
       }
@@ -68,12 +67,9 @@ class async_multi_stream_reader {
         return sizeof(T) * m_filled;
       }
 
-      ~buffer() {
-        free(m_content);
-      }
+      T* const m_content;
+      const std::uint64_t m_size;
 
-      T *m_content;
-      std::uint64_t m_size;
       std::uint64_t m_filled;
       bool m_is_filled;
     };
@@ -160,6 +156,7 @@ class async_multi_stream_reader {
 
     std::FILE **m_files;
     std::uint64_t *m_active_buffer_pos;
+    value_type *m_mem;
     buffer_type **m_active_buffers;
     buffer_type **m_passive_buffers;
     std::mutex *m_mutexes;
@@ -195,6 +192,11 @@ class async_multi_stream_reader {
     // size of per-file buffer (in bytes) as arguments.
     async_multi_stream_reader(std::uint64_t number_of_files,
         std::uint64_t bufsize_per_file_in_bytes = (1UL << 20)) {
+      if (number_of_files == 0) {
+        fprintf(stderr, "\nError in async_multi_stream_reader: number_of_files == 0\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       // Initialize basic parameters.
       n_files = number_of_files;
       m_files_added = 0;
@@ -208,10 +210,16 @@ class async_multi_stream_reader {
       m_active_buffers = new buffer_type*[n_files];
       m_passive_buffers = new buffer_type*[n_files];
 
-      for (std::uint64_t i = 0; i < n_files; ++i) {
-        m_active_buffer_pos[i] = 0;
-        m_active_buffers[i] = new buffer_type(m_items_per_buf);
-        m_passive_buffers[i] = new buffer_type(m_items_per_buf);
+      m_mem = (value_type *)utils::allocate(2UL * n_files * m_items_per_buf * sizeof(value_type));
+      {
+        value_type *mem = m_mem;
+        for (std::uint64_t i = 0; i < n_files; ++i) {
+          m_active_buffer_pos[i] = 0;
+          m_active_buffers[i] = new buffer_type(m_items_per_buf, mem);
+          mem += m_items_per_buf;
+          m_passive_buffers[i] = new buffer_type(m_items_per_buf, mem);
+          mem += m_items_per_buf;
+        }
       }
 
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
@@ -263,6 +271,7 @@ class async_multi_stream_reader {
       delete[] m_cvs;
       delete[] m_active_buffer_pos;
       delete[] m_files;
+      utils::deallocate(m_mem);
     }
 };
 

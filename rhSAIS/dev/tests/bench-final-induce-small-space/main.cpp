@@ -16,7 +16,6 @@ int main(int argc, char **argv) {
 
   std::string text_filename = argv[1];
   std::string output_filename = text_filename + ".sa5";
-  std::uint64_t text_length = rhsais_private::utils::file_size(text_filename) / sizeof(char_type);
 
   std::uint64_t text_alphabet_size = 256/*53915629*/;
   std::uint64_t ram_use = (3584UL << 20);
@@ -25,7 +24,6 @@ int main(int argc, char **argv) {
   rhsais_private::em_compute_sa<
     char_type,
     text_offset_type>(
-        text_length,
         ram_use,
         text_alphabet_size,
         text_filename,

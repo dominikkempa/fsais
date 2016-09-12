@@ -45,6 +45,15 @@ namespace rhsais_private {
 namespace utils {
 
 long double wclock();
+void sleep(long double);
+
+extern std::uint64_t current_ram_allocation;
+extern std::uint64_t peak_ram_allocation;
+
+void *allocate(std::uint64_t);
+void deallocate(void *);
+std::uint64_t get_current_ram_allocation();
+std::uint64_t get_peak_ram_allocation();
 
 std::FILE *file_open(std::string fname, std::string mode);
 std::FILE *file_open_nobuf(std::string fname, std::string mode);
