@@ -19,7 +19,7 @@ int main(int argc, char **argv) {
   std::uint64_t text_length = rhsais_private::utils::file_size(text_filename) / sizeof(char_type);
 
   std::uint64_t text_alphabet_size = 256/*53915629*/;
-  std::uint64_t ram_use = (1792UL << 20);
+  std::uint64_t ram_use = (3584UL << 20);
   std::uint64_t io_volume = 0;
 
   rhsais_private::em_compute_sa<
