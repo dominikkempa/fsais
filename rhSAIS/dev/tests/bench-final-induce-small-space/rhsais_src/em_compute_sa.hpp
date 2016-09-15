@@ -320,11 +320,11 @@ void temp_compute_sa(
 
   // Initialize the output writers.
   typedef async_multi_stream_writer<text_offset_type> pos_writer_type;
-  pos_writer_type *pos_writer = new pos_writer_type(n_permute_blocks);
+  pos_writer_type *pos_writer = new pos_writer_type(n_permute_blocks, (1UL << 20), 4UL);
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     pos_writer->add_file(lex_sorted_suffixes_filenames[permute_block_id]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
-  block_id_writer_type *block_id_writer = new block_id_writer_type(lex_sorted_suffixes_block_ids_filename);
+  block_id_writer_type *block_id_writer = new block_id_writer_type(lex_sorted_suffixes_block_ids_filename, (1UL << 20), 4UL);
 
   for (std::uint64_t i = 0; i < text_length; ++i) {
     std::uint64_t pos = sa[i];
