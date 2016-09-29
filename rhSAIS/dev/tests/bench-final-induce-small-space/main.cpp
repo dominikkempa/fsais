@@ -5,7 +5,7 @@
 #include <algorithm>
 
 #include "rhsais_src/em_compute_sa.hpp"
-#include "rhsais_src/utils.hpp"
+#include "uint40.hpp"
 
 
 int main(int argc, char **argv) {

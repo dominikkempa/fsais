@@ -16,9 +16,9 @@
 
 #include "packed_pair.hpp"
 #include "radix_heap.hpp"
-#include "uint40.hpp"
-#include "uint48.hpp"
 #include "utils.hpp"
+#include "../uint40.hpp"
+#include "../uint48.hpp"
 
 
 namespace rhsais_private {

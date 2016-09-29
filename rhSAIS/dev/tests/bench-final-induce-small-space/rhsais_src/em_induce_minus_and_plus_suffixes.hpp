@@ -15,14 +15,13 @@
 #include "io/async_backward_stream_reader_multipart.hpp"
 #include "io/async_backward_bit_stream_reader.hpp"
 
-#include "utils.hpp"
-#include "uint24.hpp"
-#include "uint40.hpp"
-#include "uint48.hpp"
-
-#include "em_radix_heap.hpp"
 #include "im_induce_suffixes.hpp"
 #include "em_induce_plus_suffixes.hpp"
+#include "em_radix_heap.hpp"
+#include "utils.hpp"
+#include "../uint24.hpp"
+#include "../uint40.hpp"
+#include "../uint48.hpp"
 
 
 namespace rhsais_private {

@@ -1,14 +1,48 @@
+/**
+ * @file    rhsais_src/io/async_backward_stream_writer_multipart.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #ifndef __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
 #define __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <queue>
 #include <string>
 #include <algorithm>
-#include <condition_variable>
-#include <mutex>
 #include <thread>
+#include <mutex>
+#include <condition_variable>
 
 #include "../utils.hpp"
 
@@ -172,7 +206,7 @@ class async_backward_stream_reader_multipart {
         m_cur_buffer = NULL;
       }
 
-      // Extract a filled buffer if there is any data left to read.
+      // Extract a filled buffer.
       std::unique_lock<std::mutex> lk(m_full_buffers->m_mutex);
       while (m_full_buffers->empty() && !(m_full_buffers->m_signal_stop))
         m_full_buffers->m_cv.wait(lk);

@@ -9,18 +9,19 @@
 #include <limits>
 #include <algorithm>
 
-#include "naive_compute_sa.hpp"
-#include "em_induce_minus_star_substrings.hpp"
-#include "em_induce_minus_and_plus_suffixes.hpp"
 #include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_stream_writer_multipart.hpp"
 #include "io/async_multi_stream_reader.hpp"
 #include "io/async_multi_stream_writer.hpp"
+
+#include "em_induce_minus_star_substrings.hpp"
+#include "em_induce_minus_and_plus_suffixes.hpp"
+#include "naive_compute_sa.hpp"
 #include "utils.hpp"
-#include "uint24.hpp"
-#include "uint40.hpp"
-#include "uint48.hpp"
+#include "../uint24.hpp"
+#include "../uint40.hpp"
+#include "../uint48.hpp"
 
 
 namespace rhsais_private {
