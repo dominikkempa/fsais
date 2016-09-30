@@ -1,14 +1,47 @@
+/**
+ * @file    rhsais_src/io/async_stream_writer_multipart.hpp
+ * @section LICENCE
+ *
+ * This file is part of rhSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
 #ifndef __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_MULTIPART_HPP_INCLUDED
 #define __RHSAIS_SRC_IO_ASYNC_STREAM_WRITER_MULTIPART_HPP_INCLUDED
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
-#include <queue>
+#include <string>
+#include <algorithm>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
-#include <string>
-#include <algorithm>
 
 #include "../utils.hpp"
 
@@ -25,20 +58,86 @@ class async_stream_writer_multipart {
         m_filled = 0;
       }
 
+      inline bool empty() const { return m_filled == 0; }
+      inline bool full() const { return m_filled == m_size; }
       inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
       inline std::uint64_t free_space() const { return m_size - m_filled; }
 
-      inline bool empty() const { return m_filled == 0; }
-      inline bool full() const { return m_filled == m_size; }
-
       T* const m_content;
-      std::uint64_t m_size;
+      const std::uint64_t m_size;
       std::uint64_t m_filled;
+    };
+
+    template<typename T>
+    struct circular_queue {
+      private:
+        std::uint64_t m_size;
+        std::uint64_t m_filled;
+        std::uint64_t m_head;
+        std::uint64_t m_tail;
+        T *m_data;
+
+      public:
+        circular_queue()
+          : m_size(1),
+            m_filled(0),
+            m_head(0),
+            m_tail(0),
+            m_data(new T[m_size]) {}
+
+        inline void push(T x) {
+          m_data[m_head++] = x;
+          if (m_head == m_size)
+            m_head = 0;
+          ++m_filled;
+          if (m_filled == m_size)
+            enlarge();
+        }
+
+        inline T &front() const {
+          return m_data[m_tail];
+        }
+
+        inline void pop() {
+          ++m_tail;
+          if (m_tail == m_size)
+            m_tail = 0;
+          --m_filled;
+        }
+
+        inline bool empty() const { return (m_filled == 0); }
+        inline std::uint64_t size() const { return m_filled; }
+
+        ~circular_queue() {
+          delete[] m_data;
+        }
+
+      private:
+        void enlarge() {
+          T *new_data = new T[2 * m_size];
+          std::uint64_t left = m_filled;
+          m_filled = 0;
+          while (left > 0) {
+            std::uint64_t tocopy = std::min(left, m_size - m_tail);
+            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            m_tail += tocopy;
+            if (m_tail == m_size)
+              m_tail = 0;
+            left -= tocopy;
+            m_filled += tocopy;
+          }
+          m_head = m_filled;
+          m_tail = 0;
+          m_size <<= 1;
+          std::swap(m_data, new_data);
+          delete[] new_data;
+        }
     };
 
     template<typename T>
     struct buffer_queue {
       typedef buffer<T> buffer_type;
+
       buffer_queue(std::uint64_t n_buffers,
           std::uint64_t items_per_buf, T *mem) {
         m_signal_stop = false;
@@ -74,7 +173,7 @@ class async_stream_writer_multipart {
 
       inline bool empty() const { return m_queue.empty(); }
 
-      std::queue<buffer_type*> m_queue;  // Must have FIFO property
+      circular_queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_signal_stop;
@@ -108,7 +207,7 @@ class async_stream_writer_multipart {
         buffer_type *buffer = caller->m_full_buffers->pop();
         lk.unlock();
 
-        // Safely write the data to disk.
+        // Write the data to disk.
         const T *ptr = buffer->m_content;
         while (buffer->m_filled > 0) {
           if (caller->m_file == NULL || caller->m_cur_part_items_written == caller->m_single_part_max_items) {

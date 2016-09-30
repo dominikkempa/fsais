@@ -15,15 +15,14 @@
 #include "io/async_multi_stream_reader_multipart.hpp"
 #include "io/async_multi_stream_writer.hpp"
 
-#include "uint24.hpp"
-#include "uint40.hpp"
-#include "uint48.hpp"
-#include "utils.hpp"
-
-#include "packed_pair.hpp"
-#include "em_radix_heap.hpp"
 #include "im_induce_substrings.hpp"
 #include "em_induce_plus_star_substrings.hpp"
+#include "em_radix_heap.hpp"
+#include "utils.hpp"
+#include "packed_pair.hpp"
+#include "../uint24.hpp"
+#include "../uint40.hpp"
+#include "../uint48.hpp"
 
 
 namespace rhsais_private {
