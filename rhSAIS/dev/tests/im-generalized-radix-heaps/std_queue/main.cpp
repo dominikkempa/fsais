@@ -13,7 +13,7 @@
 
 
 template<typename key_type>
-void test(std::uint64_t, std::uint64_t, std::uint64_t, std::uint64_t) {}
+void test(std::uint64_t, std::uint64_t, std::uint64_t) {}
 
 struct comp8 {
   bool operator() (const std::pair<std::uint8_t, std::uint64_t> l, const std::pair<std::uint8_t, std::uint64_t> r) const {
@@ -62,8 +62,8 @@ inline std::uint64_t log2_floor(std::uint64_t x) {
 }
 
 template<>
-void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=std::uint8_t, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<std::uint8_t>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=std::uint8_t, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<std::uint8_t, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -152,8 +152,8 @@ void test<std::uint8_t>(std::uint64_t radix_log, std::uint64_t testcases, std::u
 
 
 template<>
-void test<std::uint16_t>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=std::uint16_t, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<std::uint16_t>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=std::uint16_t, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<std::uint16_t, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -224,8 +224,8 @@ void test<std::uint16_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
 
 
 template<>
-void test<std::uint32_t>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=std::uint32_t, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<std::uint32_t>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=std::uint32_t, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<std::uint32_t, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -295,8 +295,8 @@ void test<std::uint32_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
 }
 
 template<>
-void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=uint40, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<uint40>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=uint40, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<uint40, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -366,8 +366,8 @@ void test<uint40>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
 }
 
 template<>
-void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=uint48, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<uint48>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=uint48, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<uint48, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -437,8 +437,8 @@ void test<uint48>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_
 }
 
 template<>
-void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
-  fprintf(stderr, "TEST, key_type=std::uint64_t, radix_log=%lu, testcases=%lu, max_operations=%lu, max_key=%lu\n", radix_log, testcases, max_operations, max_key);
+void test<std::uint64_t>(std::uint64_t testcases, std::uint64_t max_operations, std::uint64_t max_key) {
+  fprintf(stderr, "TEST, key_type=std::uint64_t, testcases=%lu, max_operations=%lu, max_key=%lu\n", testcases, max_operations, max_key);
   typedef radix_heap<std::uint64_t, std::uint64_t> heap_type;
 
   for (std::uint64_t test_id = 0; test_id < testcases; ++test_id) {
@@ -507,37 +507,25 @@ void test<std::uint64_t>(std::uint64_t radix_log, std::uint64_t testcases, std::
   }
 }
 
-void run_tests(std::uint64_t radix_log, std::uint64_t testcases, std::uint64_t max_operations) {
-  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(radix_log, testcases, max_operations, max_key);
-  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(radix_log, testcases, max_operations, max_key);
-  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(radix_log, testcases, max_operations, max_key);
-  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(radix_log, testcases, max_operations, max_key);
-  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(radix_log, testcases, max_operations, max_key);
+void run_tests(std::uint64_t testcases, std::uint64_t max_operations) {
+  for (std::uint64_t max_key = 1; max_key <= 250;                 max_key = (max_key * 3 + 1) / 2) test<std::uint8_t>(testcases, max_operations, max_key);
+  for (std::uint64_t max_key = 1; max_key <= 64000;               max_key = (max_key * 3 + 1) / 2) test<std::uint16_t>(testcases, max_operations, max_key);
+  for (std::uint64_t max_key = 1; max_key <= 4000000000;          max_key = (max_key * 3 + 1) / 2) test<std::uint32_t>(testcases, max_operations, max_key);
+  for (std::uint64_t max_key = 1; max_key <= 1000000000000;       max_key = (max_key * 3 + 1) / 2) test<uint40>(testcases, max_operations, max_key);
+  for (std::uint64_t max_key = 1; max_key <= 100000000000000;     max_key = (max_key * 3 + 1) / 2) test<uint48>(testcases, max_operations, max_key);
   for (std::uint64_t max_key = 1; max_key <= 9000000000000000000; max_key = std::max(max_key + 1, (max_key / 2) * 3))
-    test<std::uint64_t>(radix_log, testcases, max_operations, max_key);
+    test<std::uint64_t>(testcases, max_operations, max_key);
 }
 
-void run_tests_with_given_radix_log(std::uint64_t radix_log) {
-  run_tests(radix_log, 1000,  10);
-  run_tests(radix_log, 1000, 100);
-  run_tests(radix_log, 100, 1000);
-}
-
-void run_tests_with_given_radix_log2(std::uint64_t radix_log) {
-  run_tests(radix_log, 10,  10);
-  run_tests(radix_log, 10, 100);
-  run_tests(radix_log, 10, 1000);
+void run_tests() {
+  run_tests(5000,  10);
+  run_tests(5000, 100);
+  run_tests(500, 1000);
 }
 
 int main() {
   srand(time(0) + getpid());
-
-  for (std::uint64_t radix_log = 1; radix_log < /*8*/2; ++radix_log)
-    run_tests_with_given_radix_log(radix_log);
-//  for (std::uint64_t radix_log = 8; radix_log <= 12; ++radix_log)
-//    run_tests_with_given_radix_log2(radix_log);
-
-
+  run_tests();
   fprintf(stderr, "All tests passed.\n");
 }
 
