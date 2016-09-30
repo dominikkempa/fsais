@@ -36,10 +36,7 @@
 
 #include <cstdint>
 #include <string>
-#include <algorithm>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
+#include <vector>
 
 #include "async_multi_stream_reader.hpp"
 

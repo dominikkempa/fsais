@@ -5,7 +5,6 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string>
-#include <queue>
 #include <vector>
 #include <limits>
 #include <type_traits>
@@ -136,11 +135,78 @@ class em_queue {
     typedef ValueType value_type;
 
   private:
+    template<typename T>
+    struct circular_queue {
+      private:
+        std::uint64_t m_size;
+        std::uint64_t m_filled;
+        std::uint64_t m_head;
+        std::uint64_t m_tail;
+        T *m_data;
+
+      public:
+        circular_queue()
+          : m_size(1),
+            m_filled(0),
+            m_head(0),
+            m_tail(0),
+            m_data(new T[m_size]) {}
+
+        inline void push(T x) {
+          m_data[m_head++] = x;
+          if (m_head == m_size)
+            m_head = 0;
+          ++m_filled;
+          if (m_filled == m_size)
+            enlarge();
+        }
+
+        inline T &front() const {
+          return m_data[m_tail];
+        }
+
+        inline void pop() {
+          ++m_tail;
+          if (m_tail == m_size)
+            m_tail = 0;
+          --m_filled;
+        }
+
+        inline bool empty() const { return (m_filled == 0); }
+        inline std::uint64_t size() const { return m_filled; }
+
+        ~circular_queue() {
+          delete[] m_data;
+        }
+
+      private:
+        void enlarge() {
+          T *new_data = new T[2 * m_size];
+          std::uint64_t left = m_filled;
+          m_filled = 0;
+          while (left > 0) {
+            std::uint64_t tocopy = std::min(left, m_size - m_tail);
+            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            m_tail += tocopy;
+            if (m_tail == m_size)
+              m_tail = 0;
+            left -= tocopy;
+            m_filled += tocopy;
+          }
+          m_head = m_filled;
+          m_tail = 0;
+          m_size <<= 1;
+          std::swap(m_data, new_data);
+          delete[] new_data;
+        }
+    };
+
+  private:
     typedef ram_queue<value_type> ram_queue_type;
     typedef RadixHeapType radix_heap_type;
 
     radix_heap_type *m_radix_heap;
-    std::queue<ram_queue_type*> m_full_ram_queues;
+    circular_queue<ram_queue_type*> m_full_ram_queues;
     ram_queue_type *m_head_ram_queue;
     ram_queue_type *m_tail_ram_queue;
     std::uint64_t m_items_per_ram_queue;
@@ -345,6 +411,73 @@ class em_radix_heap {
   static_assert(std::is_unsigned<KeyType>::value,
       "em_radix_heap: KeyType not unsigned!");
 
+  private:
+    template<typename T>
+    struct circular_queue {
+      private:
+        std::uint64_t m_size;
+        std::uint64_t m_filled;
+        std::uint64_t m_head;
+        std::uint64_t m_tail;
+        T *m_data;
+
+      public:
+        circular_queue()
+          : m_size(1),
+            m_filled(0),
+            m_head(0),
+            m_tail(0),
+            m_data(new T[m_size]) {}
+
+        inline void push(T x) {
+          m_data[m_head++] = x;
+          if (m_head == m_size)
+            m_head = 0;
+          ++m_filled;
+          if (m_filled == m_size)
+            enlarge();
+        }
+
+        inline T &front() const {
+          return m_data[m_tail];
+        }
+
+        inline void pop() {
+          ++m_tail;
+          if (m_tail == m_size)
+            m_tail = 0;
+          --m_filled;
+        }
+
+        inline bool empty() const { return (m_filled == 0); }
+        inline std::uint64_t size() const { return m_filled; }
+
+        ~circular_queue() {
+          delete[] m_data;
+        }
+
+      private:
+        void enlarge() {
+          T *new_data = new T[2 * m_size];
+          std::uint64_t left = m_filled;
+          m_filled = 0;
+          while (left > 0) {
+            std::uint64_t tocopy = std::min(left, m_size - m_tail);
+            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            m_tail += tocopy;
+            if (m_tail == m_size)
+              m_tail = 0;
+            left -= tocopy;
+            m_filled += tocopy;
+          }
+          m_head = m_filled;
+          m_tail = 0;
+          m_size <<= 1;
+          std::swap(m_data, new_data);
+          delete[] new_data;
+        }
+    };
+
   public:
     typedef KeyType key_type;
     typedef ValueType value_type;
@@ -375,6 +508,7 @@ class em_radix_heap {
 
     template<typename queue_type>
     struct io_request {
+      io_request() {}
       io_request(queue_type *queue, std::FILE *file,
           e_request_type type, std::uint64_t pos = 0) {
         m_queue = queue;
@@ -409,7 +543,7 @@ class em_radix_heap {
         return m_requests.empty();
       }
 
-      std::queue<req_type> m_requests;
+      circular_queue<req_type> m_requests;
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_no_more_requests;

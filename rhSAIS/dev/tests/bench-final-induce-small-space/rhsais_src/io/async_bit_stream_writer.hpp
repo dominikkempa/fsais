@@ -36,7 +36,6 @@
 
 #include <cstdio>
 #include <cstdint>
-#include <queue>
 #include <string>
 #include <algorithm>
 #include <thread>

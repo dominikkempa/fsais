@@ -36,10 +36,6 @@
 
 #include <cstdint>
 #include <string>
-#include <algorithm>
-#include <thread>
-#include <mutex>
-#include <condition_variable>
 
 #include "async_backward_stream_reader.hpp"
 

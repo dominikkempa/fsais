@@ -35,8 +35,8 @@
 #define __RHSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
-#include <queue>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -68,7 +68,74 @@ class async_stream_reader {
 
       T* const m_content;
       const std::uint64_t m_size;
+
       std::uint64_t m_filled;
+    };
+
+    template<typename T>
+    struct circular_queue {
+      private:
+        std::uint64_t m_size;
+        std::uint64_t m_filled;
+        std::uint64_t m_head;
+        std::uint64_t m_tail;
+        T *m_data;
+
+      public:
+        circular_queue()
+          : m_size(1),
+            m_filled(0),
+            m_head(0),
+            m_tail(0),
+            m_data(new T[m_size]) {}
+
+        inline void push(T x) {
+          m_data[m_head++] = x;
+          if (m_head == m_size)
+            m_head = 0;
+          ++m_filled;
+          if (m_filled == m_size)
+            enlarge();
+        }
+
+        inline T &front() const {
+          return m_data[m_tail];
+        }
+
+        inline void pop() {
+          ++m_tail;
+          if (m_tail == m_size)
+            m_tail = 0;
+          --m_filled;
+        }
+
+        inline bool empty() const { return (m_filled == 0); }
+        inline std::uint64_t size() const { return m_filled; }
+
+        ~circular_queue() {
+          delete[] m_data;
+        }
+
+      private:
+        void enlarge() {
+          T *new_data = new T[2 * m_size];
+          std::uint64_t left = m_filled;
+          m_filled = 0;
+          while (left > 0) {
+            std::uint64_t tocopy = std::min(left, m_size - m_tail);
+            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            m_tail += tocopy;
+            if (m_tail == m_size)
+              m_tail = 0;
+            left -= tocopy;
+            m_filled += tocopy;
+          }
+          m_head = m_filled;
+          m_tail = 0;
+          m_size <<= 1;
+          std::swap(m_data, new_data);
+          delete[] new_data;
+        }
     };
 
     template<typename T>
@@ -110,7 +177,7 @@ class async_stream_reader {
 
       inline bool empty() const { return m_queue.empty(); }
 
-      std::queue<buffer_type*> m_queue;  // Must have FIFO property
+      circular_queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_signal_stop;
@@ -200,6 +267,7 @@ class async_stream_reader {
     std::uint64_t m_bytes_read;
     std::uint64_t m_cur_buffer_pos;
     std::uint64_t m_cur_buffer_filled;
+
     value_type *m_mem;
     buffer_type *m_cur_buffer;
     std::thread *m_io_thread;
@@ -263,7 +331,7 @@ class async_stream_reader {
       std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
       m_mem = (value_type *)utils::allocate(n_buffers * items_per_buf * sizeof(value_type));
       m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf, m_mem);
-      m_full_buffers = new buffer_queue_type(0, 0, (value_type *)NULL);
+      m_full_buffers = new buffer_queue_type(0, 0, NULL);
 
       // Start the I/O thread.
       m_io_thread = new std::thread(io_thread_code<value_type>, this);

@@ -37,7 +37,6 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
-#include <queue>
 #include <string>
 #include <algorithm>
 #include <thread>
@@ -89,8 +88,75 @@ class async_backward_stream_reader {
     };
 
     template<typename T>
+    struct circular_queue {
+      private:
+        std::uint64_t m_size;
+        std::uint64_t m_filled;
+        std::uint64_t m_head;
+        std::uint64_t m_tail;
+        T *m_data;
+
+      public:
+        circular_queue()
+          : m_size(1),
+            m_filled(0),
+            m_head(0),
+            m_tail(0),
+            m_data(new T[m_size]) {}
+
+        inline void push(T x) {
+          m_data[m_head++] = x;
+          if (m_head == m_size)
+            m_head = 0;
+          ++m_filled;
+          if (m_filled == m_size)
+            enlarge();
+        }
+
+        inline T &front() const {
+          return m_data[m_tail];
+        }
+
+        inline void pop() {
+          ++m_tail;
+          if (m_tail == m_size)
+            m_tail = 0;
+          --m_filled;
+        }
+
+        inline bool empty() const { return (m_filled == 0); }
+        inline std::uint64_t size() const { return m_filled; }
+
+        ~circular_queue() {
+          delete[] m_data;
+        }
+
+      private:
+        void enlarge() {
+          T *new_data = new T[2 * m_size];
+          std::uint64_t left = m_filled;
+          m_filled = 0;
+          while (left > 0) {
+            std::uint64_t tocopy = std::min(left, m_size - m_tail);
+            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            m_tail += tocopy;
+            if (m_tail == m_size)
+              m_tail = 0;
+            left -= tocopy;
+            m_filled += tocopy;
+          }
+          m_head = m_filled;
+          m_tail = 0;
+          m_size <<= 1;
+          std::swap(m_data, new_data);
+          delete[] new_data;
+        }
+    };
+
+    template<typename T>
     struct buffer_queue {
       typedef buffer<T> buffer_type;
+
       buffer_queue(std::uint64_t n_buffers,
           std::uint64_t items_per_buf, T *mem) {
         m_signal_stop = false;
@@ -126,7 +192,7 @@ class async_backward_stream_reader {
 
       inline bool empty() const { return m_queue.empty(); }
 
-      std::queue<buffer_type*> m_queue;
+      circular_queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
       std::mutex m_mutex;
       bool m_signal_stop;
@@ -217,26 +283,31 @@ class async_backward_stream_reader {
     std::thread *m_io_thread;
 
   public:
+    // Constructor, default buffer sizes, no skip.
     async_backward_stream_reader(std::string filename) {
       init(filename, (8UL << 20), 4UL, 0UL);
     }
 
+    // Constructor, default buffer sizes, given skip.
     async_backward_stream_reader(std::string filename,
         std::uint64_t n_skip_bytes) {
       init(filename, (8UL << 20), 4UL, n_skip_bytes);
     }
 
+    // Constructor, no skip, given buffer sizes.
     async_backward_stream_reader(std::string filename,
         std::uint64_t total_buf_size_items, std::uint64_t n_buffers) {
       init(filename, total_buf_size_items, n_buffers, 0UL);
     }
 
+    // Constructor, given buffer sizes and skip.
     async_backward_stream_reader(std::string filename,
         std::uint64_t total_buf_size_items, std::uint64_t n_buffers,
         std::uint64_t n_skip_bytes) {
       init(filename, total_buf_size_items, n_buffers, n_skip_bytes);
     }
 
+    // Main initializing function.
     void init(std::string filename, std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers, std::uint64_t n_skip_bytes) {
       if (n_buffers == 0) {
@@ -266,6 +337,7 @@ class async_backward_stream_reader {
       m_io_thread = new std::thread(io_thread_code<value_type>, this);
     }
 
+    // Return the next item in the stream.
     inline value_type read() {
       if (m_cur_buffer_pos == 0)
         receive_new_buffer();
@@ -273,6 +345,7 @@ class async_backward_stream_reader {
       return m_cur_buffer->m_content[--m_cur_buffer_pos];
     }
 
+    // Read 'howmany' items into 'dest'.
     void read(value_type *dest, std::uint64_t howmany) {
       while (howmany > 0) {
         if (m_cur_buffer_pos == 0)
@@ -288,6 +361,7 @@ class async_backward_stream_reader {
       }
     }
 
+    // Return the next item in the stream.
     inline value_type peek() {
       if (m_cur_buffer_pos == 0)
         receive_new_buffer();
@@ -295,6 +369,7 @@ class async_backward_stream_reader {
       return m_cur_buffer->m_content[m_cur_buffer_pos - 1];
     }
 
+    // True iff there are no more items in the stream.
     inline bool empty() {
       if (m_cur_buffer_pos == 0)
         receive_new_buffer();
@@ -306,6 +381,7 @@ class async_backward_stream_reader {
       return m_bytes_read;
     }
 
+    // Destructor.
     ~async_backward_stream_reader() {
       // Let the I/O thread know that we're done.
       m_empty_buffers->send_stop_signal();
