@@ -4,6 +4,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstdint>
+#include <vector>
 #include <string>
 #include <algorithm>
 

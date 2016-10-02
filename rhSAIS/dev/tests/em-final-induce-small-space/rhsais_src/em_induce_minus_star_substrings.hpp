@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <algorithm>
 
 #include "io/async_stream_writer.hpp"
@@ -563,7 +564,9 @@ em_induce_minus_star_substrings_small_alphabet(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  std::vector<text_offset_type> symbol_timestamps(text_alphabet_size, (text_offset_type)0);
+  text_offset_type *symbol_timestamps
+    = (text_offset_type *)utils::allocate(text_alphabet_size * sizeof(text_offset_type));
+  std::fill(symbol_timestamps, symbol_timestamps + text_alphabet_size, (text_offset_type)0);
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Extract all minus substrings starting
     // with cur_symbol from the heap.
@@ -734,6 +737,7 @@ em_induce_minus_star_substrings_small_alphabet(
   total_io_volume += io_volume;
 
   // Clean up.
+  utils::deallocate(symbol_timestamps);
   delete output_count_writer;
   delete output_pos_writer;
   delete symbols_reader;

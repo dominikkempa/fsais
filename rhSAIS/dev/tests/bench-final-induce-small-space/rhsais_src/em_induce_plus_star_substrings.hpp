@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdint>
 #include <string>
+#include <vector>
 #include <algorithm>
 
 #include "io/async_backward_stream_reader.hpp"
@@ -508,7 +509,9 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  std::vector<text_offset_type> symbol_timestamps(text_alphabet_size, (text_offset_type)0);
+  text_offset_type *symbol_timestamps =
+    (text_offset_type *)utils::allocate(text_alphabet_size * sizeof(text_offset_type));
+  std::fill(symbol_timestamps, symbol_timestamps + text_alphabet_size, (text_offset_type)0);
   std::uint64_t max_char = (std::uint64_t)std::numeric_limits<char_type>::max();
 
   while (!radix_heap->empty()) {
@@ -621,6 +624,7 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
   std::uint64_t n_parts = output_pos_writer->get_parts_count();
 
   // Clean up.
+  utils::deallocate(symbol_timestamps);
   delete output_count_writer;
   delete output_diff_writer;
   delete output_pos_writer;
