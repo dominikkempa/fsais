@@ -235,7 +235,7 @@ im_induce_substrings_large_alphabet(
     }
   }
   typedef radix_heap<char_type, ext_block_offset_type> heap_type;
-  heap_type *heap = new heap_type(radix_logs);
+  heap_type *heap = new heap_type(radix_logs, lastpos/*XXX ???*/);
 
 
 
@@ -328,7 +328,7 @@ im_induce_substrings_large_alphabet(
 
 
 
-  heap_type *heap2 = new heap_type(radix_logs);
+  heap_type *heap2 = new heap_type(radix_logs, lastpos/*XXX ???*/);
   std::reverse(vec2->begin(), vec2->end());
   for (std::uint64_t t = 0; t < vec2->size(); ++t)
     heap2->push((*vec2)[t].first, (*vec2)[t].second);

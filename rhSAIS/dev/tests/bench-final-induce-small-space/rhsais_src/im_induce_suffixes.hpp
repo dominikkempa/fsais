@@ -223,8 +223,6 @@ im_induce_suffixes_large_alphabet(
       cur_sum += radix_log;
     }
   }
-  typedef radix_heap<char_type, text_offset_type> heap_type;
-  heap_type *heap = new heap_type(radix_logs);
 
 
 
@@ -242,6 +240,15 @@ im_induce_suffixes_large_alphabet(
 
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
+
+
+
+
+
+  typedef radix_heap<char_type, text_offset_type> heap_type;
+  heap_type *heap = new heap_type(radix_logs, lastpos/*XXX ???*/);
+
+
 
 
 
@@ -437,7 +444,7 @@ im_induce_suffixes_large_alphabet(
 
 
 
-  heap_type *heap2 = new heap_type(radix_logs);
+  heap_type *heap2 = new heap_type(radix_logs, lastpos/*XXX ???*/);
   std::reverse(temp_storage->begin(), temp_storage->end());
   for (std::uint64_t t = 0; t < temp_storage->size(); ++t)
     heap2->push((*temp_storage)[t].first, (*temp_storage)[t].second);

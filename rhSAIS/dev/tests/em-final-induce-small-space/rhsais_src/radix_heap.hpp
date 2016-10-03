@@ -38,8 +38,15 @@ class radix_heap {
     } __attribute__((packed));
 
   private:
+    struct queue_header {
+      std::uint64_t m_head_page_id;
+      std::uint64_t m_tail_page_id;
+      std::uint64_t m_head_ptr;
+      std::uint64_t m_tail_ptr;
+    } __attribute__((packed));
+
+  private:
     typedef packed_pair<key_type, value_type> pair_type;
-    typedef std::vector<pair_type> queue_type;
 
   private:
     std::uint64_t m_size;
@@ -48,6 +55,10 @@ class radix_heap {
     std::uint64_t m_min_compare_ptr;
     std::uint64_t m_em_queue_count;
     std::uint64_t m_bottom_level_radix;
+    std::uint64_t m_pagesize;
+
+    // Internal queue minimas.
+    std::vector<std::uint64_t> m_queue_min;
 
     // Lookup tables used to compute bucket ID.
     std::vector<std::uint64_t> m_bin_len_to_level_id;
@@ -55,13 +66,80 @@ class radix_heap {
     std::vector<std::uint64_t> m_sum_of_radix_logs;
     std::vector<std::uint64_t> m_sum_of_radixes;
 
-    queue_type **m_queues;
-    std::vector<std::uint64_t> m_queue_ptr;
-    std::vector<std::uint64_t> m_queue_min;
+    // Internal queues.
+    std::uint64_t m_empty_pages_list_head;
+    std::uint64_t *m_pages_next;
+    pair_type *m_pages_mem;
+    queue_header *m_queue_headers;
+
+  private:
+    inline bool is_internal_queue_empty(std::uint64_t queue_id) const {
+      queue_header &h = m_queue_headers[queue_id];
+      return (h.m_tail_page_id == std::numeric_limits<std::uint64_t>::max()) ||
+        (h.m_tail_page_id == h.m_head_page_id && h.m_tail_ptr == h.m_head_ptr);
+    }
+
+    inline pair_type& internal_queue_front(std::uint64_t queue_id) const {
+      queue_header &h = m_queue_headers[queue_id];
+      return m_pages_mem[h.m_tail_page_id * m_pagesize + h.m_tail_ptr];
+    }
+
+    inline void internal_queue_pop(std::uint64_t queue_id) {
+      queue_header &h = m_queue_headers[queue_id];
+      ++h.m_tail_ptr;
+      if (h.m_tail_ptr == m_pagesize) {
+        std::uint64_t next_tail_page_id = m_pages_next[h.m_tail_page_id];
+        m_pages_next[h.m_tail_page_id] = m_empty_pages_list_head;
+        m_empty_pages_list_head = h.m_tail_page_id;
+        h.m_tail_page_id = next_tail_page_id;
+        h.m_tail_ptr = 0;
+      } else if (h.m_tail_ptr == h.m_head_ptr && h.m_tail_page_id == h.m_head_page_id) {
+        m_pages_next[h.m_tail_page_id] = m_empty_pages_list_head;
+        m_empty_pages_list_head = h.m_tail_page_id;
+        h.m_tail_page_id = std::numeric_limits<std::uint64_t>::max();
+        h.m_head_page_id = std::numeric_limits<std::uint64_t>::max();
+      }
+    }
+
+    inline void internal_queue_push(std::uint64_t queue_id, pair_type x) {
+      queue_header &h = m_queue_headers[queue_id];
+      if (h.m_head_page_id == std::numeric_limits<std::uint64_t>::max()) {
+        h.m_head_page_id = m_empty_pages_list_head;
+        m_empty_pages_list_head = m_pages_next[m_empty_pages_list_head];
+        m_pages_next[h.m_head_page_id] = std::numeric_limits<std::uint64_t>::max();
+        h.m_tail_page_id = h.m_head_page_id;
+        h.m_head_ptr = 0;
+        h.m_tail_ptr = 0;
+      }
+
+      m_pages_mem[h.m_head_page_id * m_pagesize + h.m_head_ptr++] = x;
+      if (h.m_head_ptr == m_pagesize) {
+        std::uint64_t new_head_page_id = m_empty_pages_list_head;
+        m_empty_pages_list_head = m_pages_next[m_empty_pages_list_head];
+        m_pages_next[new_head_page_id] = std::numeric_limits<std::uint64_t>::max();
+        m_pages_next[h.m_head_page_id] = new_head_page_id;
+        h.m_head_page_id = new_head_page_id;
+        h.m_head_ptr = 0;
+      }
+    }
 
   public:
-    radix_heap(std::vector<std::uint64_t> radix_logs) {
+    radix_heap(std::vector<std::uint64_t> radix_logs,
+        std::uint64_t max_items,
+        std::uint64_t pagesize =
+#ifdef SAIS_DEBUG
+          (std::uint64_t)1
+#else
+          (std::uint64_t)4096
+#endif
+        ) {
+      m_pagesize = pagesize;
       std::uint64_t radix_logs_sum = std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
+      if (radix_logs_sum == 0) {
+        fprintf(stderr, "\nError: radix_logs_sum == 0 in radix_heap constructor!\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       // Compute m_level_mask lookup table.
       m_level_mask = std::vector<std::uint64_t>(radix_logs.size());
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i)
@@ -98,12 +176,26 @@ class radix_heap {
       m_bottom_level_radix = (1UL << radix_logs.back());
 
       m_em_queue_count = sum_of_radixes - (radix_logs.size() - 1);
-      m_queues = new queue_type*[m_em_queue_count];
-      m_queue_ptr = std::vector<std::uint64_t>(m_em_queue_count, 0UL);
-      for (std::uint64_t i = 0; i < m_em_queue_count; ++i)
-        m_queues[i] = new queue_type();
       m_queue_min = std::vector<std::uint64_t>(m_em_queue_count,
           std::numeric_limits<std::uint64_t>::max());
+      std::uint64_t n_pages = max_items / m_pagesize +
+        (std::uint64_t)2 * m_em_queue_count;
+
+      m_pages_mem = (pair_type *)utils::allocate(n_pages * m_pagesize * sizeof(pair_type));
+      m_pages_next = (std::uint64_t *)utils::allocate(n_pages * sizeof(std::uint64_t));
+      m_queue_headers = (queue_header *)utils::allocate(m_em_queue_count * sizeof(queue_header));
+      m_empty_pages_list_head = 0;
+
+      for (std::uint64_t i = 0; i < m_em_queue_count; ++i) {
+        queue_header &h = m_queue_headers[i];
+        h.m_tail_page_id = std::numeric_limits<std::uint64_t>::max();
+        h.m_head_page_id = std::numeric_limits<std::uint64_t>::max();
+      }
+
+      for (std::uint64_t i = 0; i < n_pages; ++i) {
+        if (i + 1 != n_pages) m_pages_next[i] = i + 1;
+        else m_pages_next[i] = std::numeric_limits<std::uint64_t>::max();
+      }
     }
 
   private:
@@ -123,7 +215,7 @@ class radix_heap {
     inline void push(key_type key, value_type value) {
       ++m_size;
       std::uint64_t id = get_queue_id(key);
-      m_queues[id]->push_back(pair_type(key, value));
+      internal_queue_push(id, pair_type(key, value));
       m_queue_min[id] = std::min(m_queue_min[id], (std::uint64_t)key);
       m_min_compare_ptr = std::min(m_min_compare_ptr, id);
     }
@@ -132,27 +224,23 @@ class radix_heap {
     // smallest element currently stored in the heap.
     inline bool min_compare(key_type key) {
       if (empty()) return false;
-      if (!m_queues[m_min_compare_ptr]->empty())
+      if (!is_internal_queue_empty(m_min_compare_ptr))
         return (m_queue_min[m_min_compare_ptr] <= (std::uint64_t)key);
       std::uint64_t id = get_queue_id(key);
-      while (m_min_compare_ptr != id && m_queues[m_min_compare_ptr]->empty())
+      while (m_min_compare_ptr != id && is_internal_queue_empty(m_min_compare_ptr))
         ++m_min_compare_ptr;
-      return (!m_queues[m_min_compare_ptr]->empty() &&
+      return (!is_internal_queue_empty(m_min_compare_ptr) &&
           m_queue_min[m_min_compare_ptr] <= (std::uint64_t)key);
     }
 
     // Remove and return the item with the smallest key.
     inline std::pair<key_type, value_type> extract_min() {
-      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+      if (is_internal_queue_empty(m_cur_bottom_level_queue_ptr))
         redistribute();
-      key_type key = (*m_queues[m_cur_bottom_level_queue_ptr])[m_queue_ptr[m_cur_bottom_level_queue_ptr]].first;
-      value_type value = (*m_queues[m_cur_bottom_level_queue_ptr])[m_queue_ptr[m_cur_bottom_level_queue_ptr]++].second;
-      if (m_queue_ptr[m_cur_bottom_level_queue_ptr] == m_queues[m_cur_bottom_level_queue_ptr]->size()) {
-        queue_type v;
-        m_queues[m_cur_bottom_level_queue_ptr]->clear();
-        m_queues[m_cur_bottom_level_queue_ptr]->swap(v);
-        m_queue_ptr[m_cur_bottom_level_queue_ptr] = 0;
-      }
+      pair_type p = internal_queue_front(m_cur_bottom_level_queue_ptr);
+      internal_queue_pop(m_cur_bottom_level_queue_ptr);
+      key_type key = p.first;
+      value_type value = p.second;
       --m_size;
       return std::make_pair(key, value);
     }
@@ -166,33 +254,33 @@ class radix_heap {
     }
 
     ~radix_heap() {
-      for (std::uint64_t i = 0; i < m_em_queue_count; ++i)
-        delete m_queues[i];
-      delete[] m_queues;
+      utils::deallocate(m_pages_mem);
+      utils::deallocate(m_pages_next);
+      utils::deallocate(m_queue_headers);
     }
 
   private:
     void redistribute() {
-      while (m_cur_bottom_level_queue_ptr < m_bottom_level_radix && m_queues[m_cur_bottom_level_queue_ptr]->empty())
+      while (m_cur_bottom_level_queue_ptr < m_bottom_level_radix && is_internal_queue_empty(m_cur_bottom_level_queue_ptr))
         m_queue_min[m_cur_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
 
       if (m_cur_bottom_level_queue_ptr < m_bottom_level_radix) {
         m_key_lower_bound = m_queue_min[m_cur_bottom_level_queue_ptr];
       } else {
         std::uint64_t id = m_bottom_level_radix;
-        while (m_queues[id]->empty()) ++id;
+        while (is_internal_queue_empty(id)) ++id;
         m_key_lower_bound = m_queue_min[id];
 
-        // Redistribute elements in m_queues[id].
-        for (std::uint64_t i = m_queue_ptr[id]; i < m_queues[id]->size(); ++i) {
-          pair_type p = (*m_queues[id])[i];
+        // Redistribute elements in internal queue.
+        while (!is_internal_queue_empty(id)) {
+          pair_type p = internal_queue_front(id);
+          internal_queue_pop(id);
           std::uint64_t newid = get_queue_id(p.first);
-          m_queues[newid]->push_back(p);
+          internal_queue_push(newid, p);
           m_queue_min[newid] = std::min(m_queue_min[newid], (std::uint64_t)p.first);
           if (newid < m_cur_bottom_level_queue_ptr)
             m_cur_bottom_level_queue_ptr = newid;
         }
-        queue_type v; m_queues[id]->clear(); m_queues[id]->swap(v); m_queue_ptr[id] = 0;
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
       m_min_compare_ptr = m_cur_bottom_level_queue_ptr;

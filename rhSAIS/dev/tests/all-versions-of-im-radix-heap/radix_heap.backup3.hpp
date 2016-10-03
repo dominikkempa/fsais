@@ -37,13 +37,12 @@ class radix_heap {
       T second;
     } __attribute__((packed));
 
-  private:
     struct queue_header {
       std::uint64_t m_head_page_id;
       std::uint64_t m_tail_page_id;
       std::uint64_t m_head_ptr;
       std::uint64_t m_tail_ptr;
-    } __attribute__((packed));
+    };
 
   private:
     typedef packed_pair<key_type, value_type> pair_type;
@@ -57,19 +56,18 @@ class radix_heap {
     std::uint64_t m_bottom_level_radix;
     std::uint64_t m_pagesize;
 
-    // Internal queue minimas.
-    std::vector<std::uint64_t> m_queue_min;
-
     // Lookup tables used to compute bucket ID.
     std::vector<std::uint64_t> m_bin_len_to_level_id;
     std::vector<std::uint64_t> m_level_mask;
     std::vector<std::uint64_t> m_sum_of_radix_logs;
     std::vector<std::uint64_t> m_sum_of_radixes;
 
-    // Internal queues.
-    std::uint64_t m_empty_pages_list_head;
-    std::uint64_t *m_pages_next;
+    std::vector<std::uint64_t> m_queue_min;
+
+  public:
+    std::vector<std::uint64_t> m_empty_pages;  // eliminate this too!
     pair_type *m_pages_mem;
+    std::uint64_t *m_pages_next;
     queue_header *m_queue_headers;
 
   private:
@@ -89,13 +87,11 @@ class radix_heap {
       ++h.m_tail_ptr;
       if (h.m_tail_ptr == m_pagesize) {
         std::uint64_t next_tail_page_id = m_pages_next[h.m_tail_page_id];
-        m_pages_next[h.m_tail_page_id] = m_empty_pages_list_head;
-        m_empty_pages_list_head = h.m_tail_page_id;
+        m_empty_pages.push_back(h.m_tail_page_id);
         h.m_tail_page_id = next_tail_page_id;
         h.m_tail_ptr = 0;
       } else if (h.m_tail_ptr == h.m_head_ptr && h.m_tail_page_id == h.m_head_page_id) {
-        m_pages_next[h.m_tail_page_id] = m_empty_pages_list_head;
-        m_empty_pages_list_head = h.m_tail_page_id;
+        m_empty_pages.push_back(h.m_tail_page_id);
         h.m_tail_page_id = std::numeric_limits<std::uint64_t>::max();
         h.m_head_page_id = std::numeric_limits<std::uint64_t>::max();
       }
@@ -104,8 +100,8 @@ class radix_heap {
     inline void internal_queue_push(std::uint64_t queue_id, pair_type x) {
       queue_header &h = m_queue_headers[queue_id];
       if (h.m_head_page_id == std::numeric_limits<std::uint64_t>::max()) {
-        h.m_head_page_id = m_empty_pages_list_head;
-        m_empty_pages_list_head = m_pages_next[m_empty_pages_list_head];
+        h.m_head_page_id = m_empty_pages.back();
+        m_empty_pages.pop_back();
         m_pages_next[h.m_head_page_id] = std::numeric_limits<std::uint64_t>::max();
         h.m_tail_page_id = h.m_head_page_id;
         h.m_head_ptr = 0;
@@ -114,8 +110,8 @@ class radix_heap {
 
       m_pages_mem[h.m_head_page_id * m_pagesize + h.m_head_ptr++] = x;
       if (h.m_head_ptr == m_pagesize) {
-        std::uint64_t new_head_page_id = m_empty_pages_list_head;
-        m_empty_pages_list_head = m_pages_next[m_empty_pages_list_head];
+        std::uint64_t new_head_page_id = m_empty_pages.back();
+        m_empty_pages.pop_back();
         m_pages_next[new_head_page_id] = std::numeric_limits<std::uint64_t>::max();
         m_pages_next[h.m_head_page_id] = new_head_page_id;
         h.m_head_page_id = new_head_page_id;
@@ -126,20 +122,9 @@ class radix_heap {
   public:
     radix_heap(std::vector<std::uint64_t> radix_logs,
         std::uint64_t max_items,
-        std::uint64_t pagesize =
-#ifdef SAIS_DEBUG
-          (std::uint64_t)1
-#else
-          (std::uint64_t)4096
-#endif
-        ) {
+        std::uint64_t pagesize = (std::uint64_t)1/*4096*/) {
       m_pagesize = pagesize;
       std::uint64_t radix_logs_sum = std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
-      if (radix_logs_sum == 0) {
-        fprintf(stderr, "\nError: radix_logs_sum == 0 in radix_heap constructor!\n");
-        std::exit(EXIT_FAILURE);
-      }
-
       // Compute m_level_mask lookup table.
       m_level_mask = std::vector<std::uint64_t>(radix_logs.size());
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i)
@@ -178,23 +163,17 @@ class radix_heap {
       m_em_queue_count = sum_of_radixes - (radix_logs.size() - 1);
       m_queue_min = std::vector<std::uint64_t>(m_em_queue_count,
           std::numeric_limits<std::uint64_t>::max());
-      std::uint64_t n_pages = max_items / m_pagesize +
-        (std::uint64_t)2 * m_em_queue_count;
+      std::uint64_t n_pages = max_items / m_pagesize + (std::uint64_t)2 * m_em_queue_count;
 
-      m_pages_mem = (pair_type *)utils::allocate(n_pages * m_pagesize * sizeof(pair_type));
-      m_pages_next = (std::uint64_t *)utils::allocate(n_pages * sizeof(std::uint64_t));
-      m_queue_headers = (queue_header *)utils::allocate(m_em_queue_count * sizeof(queue_header));
-      m_empty_pages_list_head = 0;
-
+      m_pages_mem = new pair_type[n_pages * m_pagesize];
+      m_pages_next = new std::uint64_t[n_pages];
+      for (std::uint64_t i = 0; i < n_pages; ++i)
+        m_empty_pages.push_back(i);
+      m_queue_headers = new queue_header[m_em_queue_count];
       for (std::uint64_t i = 0; i < m_em_queue_count; ++i) {
         queue_header &h = m_queue_headers[i];
         h.m_tail_page_id = std::numeric_limits<std::uint64_t>::max();
         h.m_head_page_id = std::numeric_limits<std::uint64_t>::max();
-      }
-
-      for (std::uint64_t i = 0; i < n_pages; ++i) {
-        if (i + 1 != n_pages) m_pages_next[i] = i + 1;
-        else m_pages_next[i] = std::numeric_limits<std::uint64_t>::max();
       }
     }
 
@@ -254,9 +233,9 @@ class radix_heap {
     }
 
     ~radix_heap() {
-      utils::deallocate(m_pages_mem);
-      utils::deallocate(m_pages_next);
-      utils::deallocate(m_queue_headers);
+      delete[] m_pages_mem;
+      delete[] m_pages_next;
+      delete[] m_queue_headers;
     }
 
   private:
