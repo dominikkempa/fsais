@@ -17,10 +17,44 @@
 
 namespace utils {
 
+std::uint64_t current_ram_allocation;
+std::uint64_t peak_ram_allocation;
+
+void *allocate(std::uint64_t bytes) {
+  std::uint8_t *ptr = (std::uint8_t *)malloc(bytes + 8);
+  std::uint64_t *ptr64 = (std::uint64_t *)ptr;
+  *ptr64 = bytes;
+  std::uint8_t *ret = ptr + 8;
+  current_ram_allocation += bytes;
+  peak_ram_allocation = std::max(peak_ram_allocation, current_ram_allocation);
+  return (void *)ret;
+}
+
+void deallocate(void *tab) {
+  std::uint8_t *ptr = (std::uint8_t *)tab - 8;
+  std::uint64_t *ptr64 = (std::uint64_t *)ptr;
+  std::uint64_t bytes = *ptr64;
+  current_ram_allocation -= bytes;
+  free(ptr);
+}
+
+std::uint64_t get_current_ram_allocation() {
+  return current_ram_allocation;
+}
+
+std::uint64_t get_peak_ram_allocation() {
+  return peak_ram_allocation;
+}
+
 long double wclock() {
   timeval tim;
   gettimeofday(&tim, NULL);
   return tim.tv_sec + (tim.tv_usec / 1000000.0L);
+}
+
+void sleep(long double duration_sec) {
+  long double timestamp = wclock();
+  while (wclock() - timestamp < duration_sec);
 }
 
 std::FILE *file_open(std::string filename, std::string mode) {
@@ -32,8 +66,21 @@ std::FILE *file_open(std::string filename, std::string mode) {
   return f;
 }
 
+std::FILE *file_open_nobuf(std::string filename, std::string mode) {
+  std::FILE *f = std::fopen(filename.c_str(), mode.c_str());
+  if (f == NULL) {
+    std::perror(filename.c_str());
+    std::exit(EXIT_FAILURE);
+  }
+  if(std::setvbuf(f, NULL, _IONBF, 0) != 0) {
+    perror("setvbuf failed");
+    std::exit(EXIT_FAILURE);
+  }
+  return f;
+}
+
 std::uint64_t file_size(std::string filename) {
-  std::FILE *f = file_open(filename, "r");
+  std::FILE *f = file_open_nobuf(filename, "r");
   std::fseek(f, 0, SEEK_END);
   long size = std::ftell(f);
   if (size < 0) {
