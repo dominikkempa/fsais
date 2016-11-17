@@ -49,7 +49,7 @@ class radix_heap {
   private:
     std::uint64_t m_size;
     std::uint64_t m_key_lower_bound;
-    std::uint64_t m_cur_bottom_level_queue_ptr;
+    std::uint64_t m_bottom_level_queue_ptr;
     std::uint64_t m_min_compare_ptr;
     std::uint64_t m_queue_count;
     std::uint64_t m_bottom_level_radix;
@@ -63,6 +63,9 @@ class radix_heap {
     std::vector<std::uint64_t> m_level_mask;
     std::vector<std::uint64_t> m_sum_of_radix_logs;
     std::vector<std::uint64_t> m_sum_of_radixes;
+
+    // Pointers used to locate the smallest non-empty queue.
+    std::vector<std::uint64_t> m_level_ptr;
 
     // Internal queues.
     std::uint64_t m_empty_pages_list_head;
@@ -160,16 +163,19 @@ class radix_heap {
       }
 
       // Compute m_sum_of_radixes lookup table.
-      m_sum_of_radixes = std::vector<std::uint64_t>(radix_logs.size());
+      m_sum_of_radixes = std::vector<std::uint64_t>(radix_logs.size() + 1);
+      m_level_ptr = std::vector<std::uint64_t>(radix_logs.size());
       std::uint64_t sum_of_radixes = 0;
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i) {
         m_sum_of_radixes[i] = sum_of_radixes - i;
+        m_level_ptr[i] = m_sum_of_radixes[i] + 1;
         sum_of_radixes += (1UL << radix_logs[radix_logs.size() - 1 - i]);
       }
+      m_sum_of_radixes[radix_logs.size()] = sum_of_radixes - radix_logs.size();
 
       m_size = 0;
       m_key_lower_bound = 0;
-      m_cur_bottom_level_queue_ptr = 0;
+      m_bottom_level_queue_ptr = 0;
       m_min_compare_ptr = 0;
       m_bottom_level_radix = (1UL << radix_logs.back());
 
@@ -233,10 +239,10 @@ class radix_heap {
 
     // Remove and return the item with the smallest key.
     inline std::pair<key_type, value_type> extract_min() {
-      if (is_internal_queue_empty(m_cur_bottom_level_queue_ptr))
+      if (is_internal_queue_empty(m_bottom_level_queue_ptr))
         redistribute();
-      pair_type p = internal_queue_front(m_cur_bottom_level_queue_ptr);
-      internal_queue_pop(m_cur_bottom_level_queue_ptr);
+      pair_type p = internal_queue_front(m_bottom_level_queue_ptr);
+      internal_queue_pop(m_bottom_level_queue_ptr);
       key_type key = p.first;
       value_type value = p.second;
       --m_size;
@@ -259,14 +265,29 @@ class radix_heap {
 
   private:
     void redistribute() {
-      while (m_cur_bottom_level_queue_ptr < m_bottom_level_radix && is_internal_queue_empty(m_cur_bottom_level_queue_ptr))
-        m_queue_min[m_cur_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
+      while (m_bottom_level_queue_ptr < m_bottom_level_radix && is_internal_queue_empty(m_bottom_level_queue_ptr))
+        m_queue_min[m_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
 
-      if (m_cur_bottom_level_queue_ptr < m_bottom_level_radix) {
-        m_key_lower_bound = m_queue_min[m_cur_bottom_level_queue_ptr];
+      if (m_bottom_level_queue_ptr < m_bottom_level_radix) {
+        m_key_lower_bound = m_queue_min[m_bottom_level_queue_ptr];
       } else {
-        std::uint64_t id = m_bottom_level_radix;
-        while (is_internal_queue_empty(id)) ++id;
+        // Find the non-empty queue with the smallest id.
+        std::uint64_t level = 1;
+        while (true) {
+          // Scan current level.
+          while (m_level_ptr[level] < m_sum_of_radixes[level + 1] + 1 &&
+              is_internal_queue_empty(m_level_ptr[level]))
+            ++m_level_ptr[level];
+
+          // If not found, reset the level pointer
+          // and move up. Otherwise break.
+          if (m_level_ptr[level] == m_sum_of_radixes[level + 1] + 1) {
+            m_level_ptr[level] = m_sum_of_radixes[level] + 1;
+            ++level;
+          } else break;
+        }
+
+        std::uint64_t id = m_level_ptr[level];
         m_key_lower_bound = m_queue_min[id];
 
         // Redistribute elements in internal queue.
@@ -276,12 +297,11 @@ class radix_heap {
           std::uint64_t newid = get_queue_id(p.first);
           internal_queue_push(newid, p);
           m_queue_min[newid] = std::min(m_queue_min[newid], (std::uint64_t)p.first);
-          if (newid < m_cur_bottom_level_queue_ptr)
-            m_cur_bottom_level_queue_ptr = newid;
         }
+        m_bottom_level_queue_ptr = get_queue_id(m_key_lower_bound);
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
-      m_min_compare_ptr = m_cur_bottom_level_queue_ptr;
+      m_min_compare_ptr = m_bottom_level_queue_ptr;
     }
 };
 
