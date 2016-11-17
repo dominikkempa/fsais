@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_RADIX_HEAP_HPP_INCLUDED
-#define __RHSAIS_SRC_RADIX_HEAP_HPP_INCLUDED
+#ifndef __RADIX_HEAP_HPP_INCLUDED
+#define __RADIX_HEAP_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -9,8 +9,6 @@
 #include <type_traits>
 #include <algorithm>
 
-
-namespace rhsais_private {
 
 template<typename KeyType, typename ValueType>
 class radix_heap {
@@ -287,6 +285,4 @@ class radix_heap {
     }
 };
 
-}  // namespace rhsais_private
-
-#endif  // __RHSAIS_SRC_RADIX_HEAP_HPP_INCLUDED
+#endif  // __RADIX_HEAP_HPP_INCLUDED

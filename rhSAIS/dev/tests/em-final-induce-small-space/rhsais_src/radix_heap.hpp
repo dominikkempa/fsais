@@ -53,7 +53,7 @@ class radix_heap {
     std::uint64_t m_key_lower_bound;
     std::uint64_t m_cur_bottom_level_queue_ptr;
     std::uint64_t m_min_compare_ptr;
-    std::uint64_t m_em_queue_count;
+    std::uint64_t m_queue_count;
     std::uint64_t m_bottom_level_radix;
     std::uint64_t m_pagesize;
 
@@ -175,18 +175,18 @@ class radix_heap {
       m_min_compare_ptr = 0;
       m_bottom_level_radix = (1UL << radix_logs.back());
 
-      m_em_queue_count = sum_of_radixes - (radix_logs.size() - 1);
-      m_queue_min = std::vector<std::uint64_t>(m_em_queue_count,
+      m_queue_count = sum_of_radixes - (radix_logs.size() - 1);
+      m_queue_min = std::vector<std::uint64_t>(m_queue_count,
           std::numeric_limits<std::uint64_t>::max());
       std::uint64_t n_pages = max_items / m_pagesize +
-        (std::uint64_t)2 * m_em_queue_count;
+        (std::uint64_t)2 * m_queue_count;
 
       m_pages_mem = (pair_type *)utils::allocate(n_pages * m_pagesize * sizeof(pair_type));
       m_pages_next = (std::uint64_t *)utils::allocate(n_pages * sizeof(std::uint64_t));
-      m_queue_headers = (queue_header *)utils::allocate(m_em_queue_count * sizeof(queue_header));
+      m_queue_headers = (queue_header *)utils::allocate(m_queue_count * sizeof(queue_header));
       m_empty_pages_list_head = 0;
 
-      for (std::uint64_t i = 0; i < m_em_queue_count; ++i) {
+      for (std::uint64_t i = 0; i < m_queue_count; ++i) {
         queue_header &h = m_queue_headers[i];
         h.m_tail_page_id = std::numeric_limits<std::uint64_t>::max();
         h.m_head_page_id = std::numeric_limits<std::uint64_t>::max();
