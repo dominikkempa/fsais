@@ -7,6 +7,7 @@
 #include <vector>
 #include <limits>
 #include <type_traits>
+#include <numeric>
 #include <algorithm>
 
 

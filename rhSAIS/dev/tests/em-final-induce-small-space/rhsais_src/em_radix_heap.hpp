@@ -8,6 +8,7 @@
 #include <vector>
 #include <limits>
 #include <type_traits>
+#include <numeric>
 #include <algorithm>
 #include <mutex>
 #include <thread>
@@ -647,11 +648,14 @@ class em_radix_heap {
 
     std::uint64_t m_size;
     std::uint64_t m_key_lower_bound;
-    std::uint64_t m_cur_bottom_level_queue_ptr;
+    std::uint64_t m_bottom_level_queue_ptr;
     std::uint64_t m_min_compare_ptr;
     std::uint64_t m_get_empty_ram_queue_ptr;
     std::uint64_t m_em_queue_count;
     std::uint64_t m_bottom_level_radix;
+
+    // Internal queue minimas.
+    std::vector<std::uint64_t> m_queue_min;
 
     // Lookup tables used to compute bucket ID.
     std::vector<std::uint64_t> m_bin_len_to_level_id;
@@ -659,16 +663,24 @@ class em_radix_heap {
     std::vector<std::uint64_t> m_sum_of_radix_logs;
     std::vector<std::uint64_t> m_sum_of_radixes;
 
+    // Pointers used to locate the smallest non-empty queue.
+    std::vector<std::uint64_t> m_level_ptr;
+
+    // Internal queues.
     pair_type *m_mem;
     pair_type *m_mem_ptr;
     em_queue_type **m_queues;
-    std::vector<std::uint64_t> m_queue_min;
     std::vector<ram_queue_type*> m_empty_ram_queues;
 
   private:
     void init(std::vector<std::uint64_t> radix_logs, std::string filename,
         std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
       std::uint64_t radix_logs_sum = std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
+      if (radix_logs_sum == 0) {
+        fprintf(stderr, "\nError: radix_logs_sum == 0 in radix_heap constructor!\n");
+        std::exit(EXIT_FAILURE);
+      }
+
       // Compute m_level_mask lookup table.
       m_level_mask = std::vector<std::uint64_t>(radix_logs.size());
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i)
@@ -691,16 +703,19 @@ class em_radix_heap {
       }
 
       // Compute m_sum_of_radixes lookup table.
-      m_sum_of_radixes = std::vector<std::uint64_t>(radix_logs.size());
+      m_sum_of_radixes = std::vector<std::uint64_t>(radix_logs.size() + 1);
+      m_level_ptr = std::vector<std::uint64_t>(radix_logs.size());
       std::uint64_t sum_of_radixes = 0;
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i) {
         m_sum_of_radixes[i] = sum_of_radixes - i;
+        m_level_ptr[i] = m_sum_of_radixes[i] + 1;
         sum_of_radixes += (1UL << radix_logs[radix_logs.size() - 1 - i]);
       }
+      m_sum_of_radixes[radix_logs.size()] = sum_of_radixes - radix_logs.size();
 
       m_size = 0;
       m_key_lower_bound = 0;
-      m_cur_bottom_level_queue_ptr = 0;
+      m_bottom_level_queue_ptr = 0;
       m_get_empty_ram_queue_ptr = 0;
       m_min_compare_ptr = 0;
       m_bottom_level_radix = (1UL << radix_logs.back());
@@ -818,14 +833,29 @@ class em_radix_heap {
     }
 
     void redistribute() {
-      while (m_cur_bottom_level_queue_ptr < m_bottom_level_radix && m_queues[m_cur_bottom_level_queue_ptr]->empty())
-        m_queue_min[m_cur_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
+      while (m_bottom_level_queue_ptr < m_bottom_level_radix && m_queues[m_bottom_level_queue_ptr]->empty())
+        m_queue_min[m_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
 
-      if (m_cur_bottom_level_queue_ptr < m_bottom_level_radix) {
-        m_key_lower_bound = m_queue_min[m_cur_bottom_level_queue_ptr];
+      if (m_bottom_level_queue_ptr < m_bottom_level_radix) {
+        m_key_lower_bound = m_queue_min[m_bottom_level_queue_ptr];
       } else {
-        std::uint64_t id = m_bottom_level_radix;
-        while (m_queues[id]->empty()) ++id;
+        // Find the non-empty queue with the smallest id.
+        std::uint64_t level = 1;
+        while (true) {
+          // Scan current level.
+          while (m_level_ptr[level] < m_sum_of_radixes[level + 1] + 1 &&
+              m_queues[m_level_ptr[level]]->empty())
+            ++m_level_ptr[level];
+
+          // If not found, reset the level pointer
+          // and move up. Otherwise break.
+          if (m_level_ptr[level] == m_sum_of_radixes[level + 1] + 1) {
+            m_level_ptr[level] = m_sum_of_radixes[level] + 1;
+            ++level;
+          } else break;
+        }
+
+        std::uint64_t id = m_level_ptr[level];
         m_key_lower_bound = m_queue_min[id];
 
         // Redistribute elements in m_queues[id].
@@ -836,14 +866,13 @@ class em_radix_heap {
           if (m_queues[newid]->push(p))
             m_get_empty_ram_queue_ptr = std::max(m_get_empty_ram_queue_ptr, newid);
           m_queue_min[newid] = std::min(m_queue_min[newid], (std::uint64_t)p.first);
-          if (newid < m_cur_bottom_level_queue_ptr)
-            m_cur_bottom_level_queue_ptr = newid;
         }
+        m_bottom_level_queue_ptr = get_queue_id(m_key_lower_bound);
         m_queues[id]->reset_file();
         m_queues[id]->reset_buffers();
         m_queue_min[id] = std::numeric_limits<std::uint64_t>::max();
       }
-      m_min_compare_ptr = m_cur_bottom_level_queue_ptr;
+      m_min_compare_ptr = m_bottom_level_queue_ptr;
     }
 
   public:
@@ -900,14 +929,14 @@ class em_radix_heap {
 
     // Remove and return the item with the smallest key.
     inline std::pair<key_type, value_type> extract_min() {
-      if (m_queues[m_cur_bottom_level_queue_ptr]->empty())
+      if (m_queues[m_bottom_level_queue_ptr]->empty())
         redistribute();
-      key_type key = m_queues[m_cur_bottom_level_queue_ptr]->front().first;
-      value_type value = m_queues[m_cur_bottom_level_queue_ptr]->front().second;
-      m_queues[m_cur_bottom_level_queue_ptr]->pop();
-      if (m_queues[m_cur_bottom_level_queue_ptr]->empty()) {
-        m_queues[m_cur_bottom_level_queue_ptr]->reset_buffers();
-        m_queues[m_cur_bottom_level_queue_ptr]->reset_file();
+      key_type key = m_queues[m_bottom_level_queue_ptr]->front().first;
+      value_type value = m_queues[m_bottom_level_queue_ptr]->front().second;
+      m_queues[m_bottom_level_queue_ptr]->pop();
+      if (m_queues[m_bottom_level_queue_ptr]->empty()) {
+        m_queues[m_bottom_level_queue_ptr]->reset_buffers();
+        m_queues[m_bottom_level_queue_ptr]->reset_file();
       }
       --m_size;
       return std::make_pair(key, value);
