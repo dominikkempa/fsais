@@ -44,9 +44,9 @@ std::uint64_t create_recursive_text(
 
   // Allocate array with names and `used' bitvector.
   std::uint64_t used_bv_size = (max_permute_block_size + 63) / 64;
-  std::uint64_t *used_bv = (std::uint64_t *)utils::allocate(used_bv_size * sizeof(std::uint64_t));
+  std::uint64_t *used_bv = utils::allocate_array<std::uint64_t>(used_bv_size);
   std::fill(used_bv, used_bv + used_bv_size, (std::uint64_t)0);
-  text_offset_type *names = (text_offset_type *)utils::allocate(max_permute_block_size * sizeof(text_offset_type));
+  text_offset_type *names = utils::allocate_array<text_offset_type>(max_permute_block_size);
   std::fill(names, names + max_permute_block_size, (text_offset_type)0);
 
   // Initialize the writer of text.
@@ -149,7 +149,7 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
     temp_filenames[permute_block_id] = tempfile_basename + "tmp." + utils::random_string_hash();
 
   // Allocate array with positions of minus star suffixes for normal string.
-  text_offset_type *text_sorted_suffixes_for_normal_string = (text_offset_type *)utils::allocate(max_permute_block_size * sizeof(text_offset_type));
+  text_offset_type *text_sorted_suffixes_for_normal_string = utils::allocate_array<text_offset_type>(max_permute_block_size);
   std::fill(text_sorted_suffixes_for_normal_string, text_sorted_suffixes_for_normal_string + max_permute_block_size, (text_offset_type)0);
 
 #ifdef SAIS_DEBUG
@@ -157,9 +157,9 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
 #else
   static const std::uint64_t bufsize = (1UL << 15);
 #endif
-  std::uint64_t *inbuf = (std::uint64_t *)utils::allocate(bufsize * sizeof(std::uint64_t));
+  std::uint64_t *inbuf = utils::allocate_array<std::uint64_t>(bufsize);
   std::fill(inbuf, inbuf + bufsize, 0UL);
-  text_offset_type *outbuf = (text_offset_type *)utils::allocate(bufsize * sizeof(text_offset_type));
+  text_offset_type *outbuf = utils::allocate_array<text_offset_type>(bufsize);
   std::fill(outbuf, outbuf + bufsize, (text_offset_type)0);
 
 
@@ -646,9 +646,11 @@ void em_compute_sa(
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
   fprintf(stderr, "Text length = %lu\n", text_length);
   fprintf(stderr, "RAM use = %lu (%.2LfMiB)\n", ram_use, (1.L * ram_use) / (1L << 20));
-  fprintf(stderr, "Text alphabet size = %lu\n\n", text_alphabet_size);
+  fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
+  fprintf(stderr, "sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
-  fprintf(stderr, "sizeof(char_type) = %lu\n\n\n", sizeof(char_type));
+  fprintf(stderr, "Timestamp = %s\n", utils::get_timestamp().c_str());
+  fprintf(stderr, "\n\n");
 
   long double start = utils::wclock();
   fprintf(stderr, "Enter recursion level 0\n");

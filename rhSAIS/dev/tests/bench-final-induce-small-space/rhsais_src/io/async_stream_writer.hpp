@@ -258,7 +258,7 @@ class async_stream_writer {
       // Allocate buffers.
       std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
       m_items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
-      m_mem = (value_type *)utils::allocate(n_buffers * m_items_per_buf * sizeof(value_type));
+      m_mem = utils::allocate_array<value_type>(n_buffers * m_items_per_buf);
       m_empty_buffers = new buffer_queue_type(n_buffers, m_items_per_buf, m_mem);
       m_full_buffers = new buffer_queue_type(0, 0, NULL);
 

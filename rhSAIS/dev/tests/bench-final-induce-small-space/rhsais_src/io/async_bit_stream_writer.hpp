@@ -104,7 +104,7 @@ class async_bit_stream_writer {
 
       // Initialize buffers.
       m_buf_size = std::max(1UL, bufsize / (2UL * sizeof(std::uint64_t)));
-      m_mem = (std::uint64_t *)utils::allocate(2UL * m_buf_size * sizeof(std::uint64_t));
+      m_mem = utils::allocate_array<std::uint64_t>(2UL * m_buf_size);
       m_active_buf = m_mem;
       m_passive_buf = m_mem + m_buf_size;
 

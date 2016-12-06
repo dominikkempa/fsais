@@ -124,7 +124,7 @@ im_induce_substrings_large_alphabet(
 
 
   // Read block into RAM.
-  char_type *block = (char_type *)utils::allocate(block_size * sizeof(char_type));
+  char_type *block = utils::allocate_array<char_type>(block_size);
   std::fill(block, block + block_size, (char_type)0);
   utils::read_at_offset(block, block_beg, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
@@ -171,7 +171,7 @@ im_induce_substrings_large_alphabet(
   // Compute type_bv that stores whether each of the
   // position is a minus position (true) or not (false).
   std::uint64_t bv_size = (total_block_size + 63) / 64;
-  std::uint64_t *type_bv = (std::uint64_t *)utils::allocate(bv_size * sizeof(std::uint64_t));
+  std::uint64_t *type_bv = utils::allocate_array<std::uint64_t>(bv_size);
   std::fill(type_bv, type_bv + bv_size, 0UL);
   {
     if (is_last_minus) {
@@ -636,7 +636,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Read block into RAM.
-  char_type *block = (char_type *)utils::allocate(block_size * sizeof(char_type));
+  char_type *block = utils::allocate_array<char_type>(block_size);
   std::fill(block, block + block_size, (char_type)0);
   utils::read_at_offset(block, block_beg, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
@@ -683,7 +683,7 @@ im_induce_substrings_small_alphabet(
   // Compute type_bv that stores whether each of the
   // position is a minus position (true) or not (false).
   std::uint64_t bv_size = (total_block_size + 63) / 64;
-  std::uint64_t *type_bv = (std::uint64_t *)utils::allocate(bv_size * sizeof(std::uint64_t));
+  std::uint64_t *type_bv = utils::allocate_array<std::uint64_t>(bv_size);
   std::fill(type_bv, type_bv + bv_size, 0UL);
   {
     if (is_last_minus) {
@@ -727,7 +727,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Compute bucket sizes.
-  ext_block_offset_type *bucket_ptr = (ext_block_offset_type *)utils::allocate(text_alphabet_size * sizeof(ext_block_offset_type));
+  ext_block_offset_type *bucket_ptr = utils::allocate_array<ext_block_offset_type>(text_alphabet_size);
   std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
@@ -762,7 +762,7 @@ im_induce_substrings_small_alphabet(
 
 
   // Allocate buckets.
-  ext_block_offset_type *buckets = (ext_block_offset_type *)utils::allocate(total_bucket_size * sizeof(ext_block_offset_type));
+  ext_block_offset_type *buckets = utils::allocate_array<ext_block_offset_type>(total_bucket_size);
   std::fill(buckets, buckets + total_bucket_size, (ext_block_offset_type)0);
 
 

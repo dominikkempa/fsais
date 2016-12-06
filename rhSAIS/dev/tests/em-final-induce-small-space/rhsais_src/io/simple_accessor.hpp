@@ -30,7 +30,7 @@ class simple_accessor {
       m_file_items = utils::file_size(filename) / sizeof(value_type);
       m_file = utils::file_open_nobuf(filename, "r");
 
-      m_buf = (value_type *)utils::allocate(m_items_per_buf * sizeof(value_type));
+      m_buf = utils::allocate_array<value_type>(m_items_per_buf);
       m_buf_filled = 0;
       m_buf_pos = 0;
       m_bytes_read = 0;

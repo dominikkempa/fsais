@@ -36,6 +36,7 @@
 #include <cstdint>
 #include <cstring>
 #include <cerrno>
+#include <ctime>
 #include <sys/time.h>
 #include <sys/types.h>
 #include <sys/stat.h>
@@ -157,7 +158,7 @@ std::string absolute_path(std::string filename) {
   return std::string(path);
 }
 
-void drop_disk_pages(std::string filename) {
+void empty_page_cache(std::string filename) {
   int fd = open(filename.c_str(), O_RDWR);
   if (fd == -1) {
     std::perror(filename.c_str());
@@ -167,6 +168,11 @@ void drop_disk_pages(std::string filename) {
   lseek(fd, 0L, SEEK_SET);
   posix_fadvise(fd, 0, length, POSIX_FADV_DONTNEED);
   close(fd);
+}
+
+std::string get_timestamp() {
+  std::time_t result = std::time(NULL);
+  return std::string(std::ctime(&result));
 }
 
 std::int32_t random_int32(std::int32_t p, std::int32_t r) {

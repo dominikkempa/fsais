@@ -307,7 +307,7 @@ class async_multi_stream_reader_multipart {
       m_active_buffers = new buffer_type*[n_files];
       m_passive_buffers = new buffer_type*[n_files];
 
-      m_mem = (value_type *)utils::allocate(2UL * n_files * m_items_per_buf * sizeof(value_type));
+      m_mem = utils::allocate_array<value_type>(2UL * n_files * m_items_per_buf);
       {
         value_type *mem = m_mem;
         for (std::uint64_t i = 0; i < n_files; ++i) {

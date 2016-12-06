@@ -269,13 +269,17 @@ class async_multi_stream_writer {
       // Works even with n_free_buffers == 0.
       m_bytes_written = 0;
       m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / sizeof(value_type));
+
+      // Initialize empty buffers.
       std::uint64_t n_bufs = n_free_buffers + n_files;
-      m_mem = (value_type *)utils::allocate(n_bufs * m_items_per_buf * sizeof(value_type));
+      m_mem = utils::allocate_array<value_type>(n_bufs * m_items_per_buf);
       m_mem_ptr = m_mem;
       for (std::uint64_t j = 0; j < n_free_buffers; ++j) {
         m_free_buffers.add(new buffer_type(m_items_per_buf, m_mem_ptr));
         m_mem_ptr += m_items_per_buf;
       }
+
+      // Start the I/O thread.
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
     }
 
@@ -334,7 +338,7 @@ class async_multi_stream_writer {
       lk.unlock();
       m_write_requests.m_cv.notify_one();
 
-      // Wait for the I/O to finish.
+      // Wait for the I/O thread to finish.
       m_io_thread->join();
       delete m_io_thread;
 

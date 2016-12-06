@@ -734,7 +734,7 @@ class em_radix_heap {
       // Request RAM for queues.
       n_ram_queues = std::max(n_ram_queues, m_em_queue_count + 1);
       std::uint64_t n_all_queues = n_ram_queues + k_io_queues;
-      m_mem = (pair_type *)utils::allocate(n_all_queues * items_per_ram_queue * sizeof(pair_type));
+      m_mem = utils::allocate_array<pair_type>(n_all_queues * items_per_ram_queue);
       m_mem_ptr = m_mem;
 
       // Allocate empty RAM queues.

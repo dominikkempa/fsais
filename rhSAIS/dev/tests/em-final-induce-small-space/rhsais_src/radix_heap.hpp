@@ -10,6 +10,8 @@
 #include <numeric>
 #include <algorithm>
 
+#include "utils.hpp"
+
 
 namespace rhsais_private {
 
@@ -188,9 +190,9 @@ class radix_heap {
       std::uint64_t n_pages = max_items / m_pagesize +
         (std::uint64_t)2 * m_queue_count;
 
-      m_pages_mem = (pair_type *)utils::allocate(n_pages * m_pagesize * sizeof(pair_type));
-      m_pages_next = (std::uint64_t *)utils::allocate(n_pages * sizeof(std::uint64_t));
-      m_queue_headers = (queue_header *)utils::allocate(m_queue_count * sizeof(queue_header));
+      m_pages_mem = utils::allocate_array<pair_type>(n_pages * m_pagesize);
+      m_pages_next = utils::allocate_array<std::uint64_t>(n_pages);
+      m_queue_headers = utils::allocate_array<queue_header>(m_queue_count);
       m_empty_pages_list_head = 0;
 
       for (std::uint64_t i = 0; i < m_queue_count; ++i) {

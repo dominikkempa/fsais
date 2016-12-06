@@ -564,8 +564,7 @@ em_induce_minus_star_substrings_small_alphabet(
   std::uint64_t cur_substring_name = 0;
   std::uint64_t cur_bucket_size = 0;
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
-  text_offset_type *symbol_timestamps
-    = (text_offset_type *)utils::allocate(text_alphabet_size * sizeof(text_offset_type));
+  text_offset_type *symbol_timestamps = utils::allocate_array<text_offset_type>(text_alphabet_size);
   std::fill(symbol_timestamps, symbol_timestamps + text_alphabet_size, (text_offset_type)0);
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
     // Extract all minus substrings starting

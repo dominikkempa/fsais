@@ -55,13 +55,19 @@ void deallocate(void *);
 std::uint64_t get_current_ram_allocation();
 std::uint64_t get_peak_ram_allocation();
 
+template<typename value_type>
+value_type *allocate_array(std::uint64_t size) {
+  return (value_type *)allocate(size * sizeof(value_type));
+}
+
 std::FILE *file_open(std::string fname, std::string mode);
 std::FILE *file_open_nobuf(std::string fname, std::string mode);
 std::uint64_t file_size(std::string fname);
 bool file_exists(std::string fname);
 void file_delete(std::string fname);
 std::string absolute_path(std::string fname);
-void drop_disk_pages(std::string filename);
+void empty_page_cache(std::string filename);
+std::string get_timestamp();
 
 template<typename value_type>
 void write_to_file(const value_type *src, std::uint64_t length, std::FILE *f) {
