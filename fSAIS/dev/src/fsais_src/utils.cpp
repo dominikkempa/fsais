@@ -1,8 +1,8 @@
 /**
- * @file    rhsais_src/utils.cpp
+ * @file    fsais_src/utils.cpp
  * @section LICENCE
  *
- * This file is part of rhSAIS v0.1.0
+ * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
  * Copyright (C) 2017
@@ -49,7 +49,7 @@
 #include "utils.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 namespace utils {
 
 std::uint64_t current_ram_allocation;
@@ -217,4 +217,4 @@ std::uint64_t log2floor(std::uint64_t x) {
 }
 
 }  // namespace utils
-}  // namespace rhsais_private
+}  // namespace fsais_private

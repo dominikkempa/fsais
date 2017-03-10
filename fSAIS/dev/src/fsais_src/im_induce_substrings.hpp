@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
-#define __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#ifndef __FSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#define __FSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,7 +21,7 @@
 #include "../uint48.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 //=============================================================================
 // Assumptions:
@@ -1360,6 +1360,6 @@ void im_induce_substrings(
   }
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED

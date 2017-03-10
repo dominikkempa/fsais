@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
-#define __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
+#ifndef __FSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
+#define __FSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
 
 #include <cstdint>
 #include <string>
@@ -7,7 +7,7 @@
 #include <algorithm>
 
 
-namespace rhsais_private {
+namespace fsais_private {
 namespace naive_compute_sa {
 
 template<typename char_type>
@@ -50,6 +50,6 @@ void naive_compute_sa(
 }
 
 }  // namespace naive_compute_sa
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED
+#endif  // __FSAIS_SRC_NAIVE_COMPUTE_SA_HPP_INCLUDED

@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
-#define __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
+#ifndef __FSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
+#define __FSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -17,7 +17,7 @@
 #include "utils.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename ValueType>
 class ram_queue {
@@ -979,6 +979,6 @@ class em_radix_heap {
     }
 };
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED
+#endif  // __FSAIS_SRC_EM_RADIX_HEAP_HPP_INCLUDED

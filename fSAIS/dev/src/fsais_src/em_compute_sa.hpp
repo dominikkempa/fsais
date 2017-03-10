@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
-#define __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
+#ifndef __FSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
+#define __FSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -24,7 +24,7 @@
 #include "../uint48.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename name_type,
   typename text_offset_type>
@@ -859,6 +859,6 @@ void em_compute_sa(
       (1.L * utils::get_peak_ram_allocation()) / (1UL << 20));
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED
+#endif  // __FSAIS_SRC_EM_COMPUTE_SA_HPP_INCULUDED

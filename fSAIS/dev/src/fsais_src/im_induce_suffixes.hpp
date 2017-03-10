@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
-#define __RHSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
+#ifndef __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
+#define __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -22,7 +22,7 @@
 #include "../uint40.hpp"
 #include "../uint48.hpp"
 
-namespace rhsais_private {
+namespace fsais_private {
 
 //=============================================================================
 // Assumptions:
@@ -1455,6 +1455,6 @@ void im_induce_suffixes(
   }
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED

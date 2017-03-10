@@ -1,8 +1,8 @@
 /**
- * @file    rhsais_src/io/async_backward_bit_stream_reader.hpp
+ * @file    fsais_src/io/async_backward_bit_stream_reader.hpp
  * @section LICENCE
  *
- * This file is part of rhSAIS v0.1.0
+ * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
  * Copyright (C) 2017
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __RHSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED
-#define __RHSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED
+#ifndef __FSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED
+#define __FSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED
 
 #include <cstdint>
 #include <string>
@@ -40,7 +40,7 @@
 #include "async_backward_stream_reader.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 class async_backward_bit_stream_reader {
   private:
@@ -87,6 +87,6 @@ class async_backward_bit_stream_reader {
     }
 };
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IO_ASYNC_BACKWARD_BIT_STREAM_READER_HPP_INCLUDED

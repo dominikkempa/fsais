@@ -1,8 +1,8 @@
 /**
- * @file    rhsais_src/io/async_backward_stream_writer_multipart.hpp
+ * @file    fsais_src/io/async_backward_stream_writer_multipart.hpp
  * @section LICENCE
  *
- * This file is part of rhSAIS v0.1.0
+ * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
  * Copyright (C) 2017
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
-#define __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#ifndef __FSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#define __FSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,7 +46,7 @@
 #include "../utils.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename value_type>
 class async_backward_stream_reader_multipart {
@@ -379,6 +379,6 @@ class async_backward_stream_reader_multipart {
     }
 };
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_MULTIPART_HPP_INCLUDED

@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
-#define __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#ifndef __FSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#define __FSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -20,7 +20,7 @@
 #include "em_radix_heap.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -260,6 +260,6 @@ std::uint64_t em_induce_plus_suffixes(
   return n_parts;
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED
+#endif  // __FSAIS_SRC_EM_INDUCE_PLUS_SUFFIXES_HPP_INCLUDED

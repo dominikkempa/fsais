@@ -1,8 +1,8 @@
-#ifndef __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
-#define __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
+#ifndef __FSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
+#define __FSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename S, typename T>
 struct packed_pair {
@@ -21,6 +21,6 @@ struct packed_pair {
   T second;
 } __attribute__((packed));
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_PACKED_PAIR_HPP_INCLUDED
+#endif  // __FSAIS_SRC_PACKED_PAIR_HPP_INCLUDED

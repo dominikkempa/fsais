@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
-#define __RHSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#ifndef __FSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#define __FSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -26,7 +26,7 @@
 #include "../uint48.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -1120,6 +1120,6 @@ em_induce_minus_star_substrings(
       output_count_filename, output_pos_filenames, total_io_volume);
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#endif  // __FSAIS_SRC_EM_INDUCE_MINUS_STAR_SUBSTRINGS_HPP_INCLUDED

@@ -1,5 +1,5 @@
-#ifndef __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
-#define __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#ifndef __FSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#define __FSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -21,7 +21,7 @@
 #include "utils.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename char_type,
   typename text_offset_type,
@@ -712,6 +712,6 @@ std::uint64_t em_induce_plus_star_substrings(
 #endif
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED
+#endif  // __FSAIS_SRC_EM_INDUCE_PLUS_STAR_SUBSTRINGS_HPP_INCLUDED

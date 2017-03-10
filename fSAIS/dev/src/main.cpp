@@ -4,7 +4,7 @@
 #include <string>
 #include <algorithm>
 
-#include "rhsais_src/em_compute_sa.hpp"
+#include "fsais_src/em_compute_sa.hpp"
 #include "uint40.hpp"
 
 
@@ -17,11 +17,11 @@ int main(int argc, char **argv) {
   std::string text_filename = argv[1];
   std::string output_filename = text_filename + ".sa5";
 
-  std::uint64_t text_alphabet_size = 256/*53915629*/;
+  std::uint64_t text_alphabet_size = 256;
   std::uint64_t ram_use = (3584UL << 20);
   std::uint64_t io_volume = 0;
 
-  rhsais_private::em_compute_sa<
+  fsais_private::em_compute_sa<
     char_type,
     text_offset_type>(
         ram_use,
