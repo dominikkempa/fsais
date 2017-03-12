@@ -9,9 +9,9 @@
 #include <sys/stat.h>
 #include <fcntl.h>
 
-#include "rhsais_src/em_compute_sa.hpp"
-#include "rhsais_src/naive_compute_sa.hpp"
-#include "rhsais_src/utils.hpp"
+#include "fsais_src/em_compute_sa.hpp"
+#include "fsais_src/naive_compute_sa.hpp"
+#include "fsais_src/utils.hpp"
 #include "uint24.hpp"
 #include "uint40.hpp"
 #include "uint48.hpp"
@@ -29,26 +29,26 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
   for (std::uint64_t testid = 0; testid < n_testcases; ++testid) {
     if (testid % 10 == 0)
       fprintf(stderr, "%.2Lf%%\r", (100.L * testid) / n_testcases);
-    std::uint64_t text_length = rhsais_private::utils::random_int64(1L, (std::int64_t)max_length);
+    std::uint64_t text_length = fsais_private::utils::random_int64(1L, (std::int64_t)max_length);
 
     // Generate text.
-    if (rhsais_private::utils::random_int64(0L, 1L)) {
+    if (fsais_private::utils::random_int64(0L, 1L)) {
       for (std::uint64_t j = 0; j < text_length; ++j)
-        text[j] = rhsais_private::utils::random_int64(0L, (1L << /*8*/10) - 1);
+        text[j] = fsais_private::utils::random_int64(0L, (1L << /*8*/10) - 1);
     } else {
       for (std::uint64_t j = 0; j < text_length; ++j)
-        text[j] = 'a' + rhsais_private::utils::random_int64(0L, 5L);
+        text[j] = 'a' + fsais_private::utils::random_int64(0L, 5L);
     }
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
 
     std::uint64_t total_io_volume = 0;
-    std::uint64_t ram_use = rhsais_private::utils::random_int64(1L, 1024L);
+    std::uint64_t ram_use = fsais_private::utils::random_int64(1L, 1024L);
 
-    rhsais_private::naive_compute_sa::naive_compute_sa<char_type, text_offset_type>(text, text_length, sa);
+    fsais_private::naive_compute_sa::naive_compute_sa<char_type, text_offset_type>(text, text_length, sa);
 
-    std::string text_filename = "tmp." + rhsais_private::utils::random_string_hash();
-    rhsais_private::utils::write_to_file(text, text_length, text_filename);
-    std::string output_filename = "tmp." + rhsais_private::utils::random_string_hash();
+    std::string text_filename = "tmp." + fsais_private::utils::random_string_hash();
+    fsais_private::utils::write_to_file(text, text_length, text_filename);
+    std::string output_filename = "tmp." + fsais_private::utils::random_string_hash();
 
     // Close stderr.
     int stderr_backup = 0;
@@ -58,7 +58,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     dup2(stderr_temp, 2);
     close(stderr_temp);
 
-    rhsais_private::em_compute_sa<
+    fsais_private::em_compute_sa<
       char_type,
       text_offset_type>(
           ram_use,
@@ -73,7 +73,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     close(stderr_backup);
 
     text_offset_type *computed_sa = new text_offset_type[text_length];
-    rhsais_private::utils::read_from_file(computed_sa, text_length, output_filename);
+    fsais_private::utils::read_from_file(computed_sa, text_length, output_filename);
 
     if (!std::equal(sa, sa + text_length, computed_sa)) {
       fprintf(stderr, "\nError:\n");
@@ -94,8 +94,8 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 
     delete[] computed_sa;
 
-    rhsais_private::utils::file_delete(text_filename);
-    rhsais_private::utils::file_delete(output_filename);
+    fsais_private::utils::file_delete(text_filename);
+    fsais_private::utils::file_delete(output_filename);
   }
 
   delete[] text;

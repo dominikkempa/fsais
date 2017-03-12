@@ -1,8 +1,8 @@
 /**
- * @file    rhsais_src/io/async_backward_stream_writer.hpp
+ * @file    fsais_src/io/async_stream_reader.hpp
  * @section LICENCE
  *
- * This file is part of rhSAIS v0.1.0
+ * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
  * Copyright (C) 2017
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
-#define __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
+#ifndef __FSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED
+#define __FSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -46,10 +46,10 @@
 #include "../utils.hpp"
 
 
-namespace rhsais_private {
+namespace fsais_private {
 
 template<typename value_type>
-class async_backward_stream_reader {
+class async_stream_reader {
   private:
     template<typename T>
     struct buffer {
@@ -59,26 +59,11 @@ class async_backward_stream_reader {
       }
 
       void read_from_file(std::FILE *f) {
-        std::uint64_t filepos = std::ftell(f);
-        if (filepos == 0) m_filled = 0;
-        else {
-          m_filled = std::min(m_size, filepos / sizeof(T));
-          std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
-          utils::read_from_file(m_content, m_filled, f);
-          std::fseek(f, -1UL * m_filled * sizeof(T), SEEK_CUR);
-        }
+        m_filled = std::fread(m_content, sizeof(T), m_size, f);
       }
 
       std::uint64_t size_in_bytes() const {
         return sizeof(T) * m_filled;
-      }
-
-      inline bool empty() const {
-        return (m_filled == 0);
-      }
-
-      inline void set_empty() {
-        m_filled = 0;
       }
 
       T* const m_content;
@@ -207,7 +192,7 @@ class async_backward_stream_reader {
 
   private:
     template<typename T>
-    static void io_thread_code(async_backward_stream_reader<T> *caller) {
+    static void io_thread_code(async_stream_reader<T> *caller) {
       typedef buffer<T> buffer_type;
       while (true) {
         // Wait for an empty buffer (or a stop signal).
@@ -228,30 +213,35 @@ class async_backward_stream_reader {
 
         // Read the data from disk.
         buffer->read_from_file(caller->m_file);
-        if (buffer->empty()) {
-          // If we reached the end of file,
-          // reinsert the buffer into the queue
-          // of empty buffers and exit.
-          caller->m_empty_buffers->push(buffer);
-          caller->m_full_buffers->send_stop_signal();
-          caller->m_full_buffers->m_cv.notify_one();
-          break;
-        } else {
-          // Update the number of bytes read.
-          caller->m_bytes_read += buffer->size_in_bytes();
+        caller->m_bytes_read += buffer->size_in_bytes();
 
+        // Check if we reached the end of file.
+        bool end_of_file = false;
+        if (buffer->m_filled < buffer->m_size)
+          end_of_file = true;
+
+        if (buffer->m_filled > 0) {
           // Add the buffer to the queue of filled buffers.
           caller->m_full_buffers->push(buffer);
           caller->m_full_buffers->m_cv.notify_one();
+        } else {
+          // Reinsert into the queue of empty buffers.
+          caller->m_empty_buffers->push(buffer);
+        }
+
+        // If we reached the end of file -- exit.
+        if (end_of_file == true) {
+          caller->m_full_buffers->send_stop_signal();
+          caller->m_full_buffers->m_cv.notify_one();
+          break;
         }
       }
     }
 
   public:
     void receive_new_buffer() {
-      // Push the current buffer back to the poll of empty buffer.
+      // Push the current buffer back to the poll of empty buffers.
       if (m_cur_buffer != NULL) {
-        m_cur_buffer->set_empty();
         m_empty_buffers->push(m_cur_buffer);
         m_empty_buffers->m_cv.notify_one();
         m_cur_buffer = NULL;
@@ -261,6 +251,7 @@ class async_backward_stream_reader {
       std::unique_lock<std::mutex> lk(m_full_buffers->m_mutex);
       while (m_full_buffers->empty() && !(m_full_buffers->m_signal_stop))
         m_full_buffers->m_cv.wait(lk);
+      m_cur_buffer_pos = 0;
       if (m_full_buffers->empty()) {
         lk.unlock();
         m_cur_buffer_filled = 0;
@@ -269,7 +260,6 @@ class async_backward_stream_reader {
         lk.unlock();
         m_cur_buffer_filled = m_cur_buffer->m_filled;
       }
-      m_cur_buffer_pos = m_cur_buffer_filled;
     }
 
   private:
@@ -283,42 +273,52 @@ class async_backward_stream_reader {
     std::thread *m_io_thread;
 
   public:
+    // Default constructor, reads from stdin.
+    async_stream_reader() {
+      init("", (8UL << 20), 4UL, 0UL);
+    }
+
     // Constructor, default buffer sizes, no skip.
-    async_backward_stream_reader(std::string filename) {
+    async_stream_reader(std::string filename) {
       init(filename, (8UL << 20), 4UL, 0UL);
     }
 
     // Constructor, default buffer sizes, given skip.
-    async_backward_stream_reader(std::string filename,
+    async_stream_reader(std::string filename,
         std::uint64_t n_skip_bytes) {
       init(filename, (8UL << 20), 4UL, n_skip_bytes);
     }
 
     // Constructor, no skip, given buffer sizes.
-    async_backward_stream_reader(std::string filename,
-        std::uint64_t total_buf_size_items, std::uint64_t n_buffers) {
-      init(filename, total_buf_size_items, n_buffers, 0UL);
+    async_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers) {
+      init(filename, total_buf_size_bytes, n_buffers, 0UL);
     }
 
     // Constructor, given buffer sizes and skip.
-    async_backward_stream_reader(std::string filename,
-        std::uint64_t total_buf_size_items, std::uint64_t n_buffers,
+    async_stream_reader(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers,
         std::uint64_t n_skip_bytes) {
-      init(filename, total_buf_size_items, n_buffers, n_skip_bytes);
+      init(filename, total_buf_size_bytes, n_buffers, n_skip_bytes);
     }
 
     // Main initializing function.
-    void init(std::string filename, std::uint64_t total_buf_size_bytes,
-        std::uint64_t n_buffers, std::uint64_t n_skip_bytes) {
+    void init(std::string filename,
+        std::uint64_t total_buf_size_bytes,
+        std::uint64_t n_buffers,
+        std::uint64_t n_skip_bytes) {
       if (n_buffers == 0) {
-        fprintf(stderr, "\nError in async_backward_stream_reader: n_buffers == 0\n");
+        fprintf(stderr, "\nError in async_stream_reader: n_buffers == 0\n");
         std::exit(EXIT_FAILURE);
       }
 
-      m_file = utils::file_open_nobuf(filename.c_str(), "r");
-      std::fseek(m_file, 0, SEEK_END);
-      if (n_skip_bytes > 0)
-        std::fseek(m_file, -1UL * n_skip_bytes, SEEK_CUR);
+      if (filename.empty()) m_file = stdin;
+      else m_file = utils::file_open_nobuf(filename.c_str(), "r");
+
+      if (m_file != stdin && n_skip_bytes > 0)
+        std::fseek(m_file, n_skip_bytes, SEEK_SET);
 
       // Initialize counters.
       m_bytes_read = 0;
@@ -339,50 +339,73 @@ class async_backward_stream_reader {
 
     // Return the next item in the stream.
     inline value_type read() {
-      if (m_cur_buffer_pos == 0)
+      if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
 
-      return m_cur_buffer->m_content[--m_cur_buffer_pos];
+      return m_cur_buffer->m_content[m_cur_buffer_pos++];
     }
 
     // Read 'howmany' items into 'dest'.
     void read(value_type *dest, std::uint64_t howmany) {
       while (howmany > 0) {
-        if (m_cur_buffer_pos == 0)
+        if (m_cur_buffer_pos == m_cur_buffer_filled)
           receive_new_buffer();
 
-        std::uint64_t cur_buf_left = m_cur_buffer_pos;
+        std::uint64_t cur_buf_left = m_cur_buffer_filled - m_cur_buffer_pos;
         std::uint64_t tocopy = std::min(howmany, cur_buf_left);
         for (std::uint64_t i = 0; i < tocopy; ++i)
-          dest[i] = m_cur_buffer->m_content[m_cur_buffer_pos - 1 - i];
-        m_cur_buffer_pos -= tocopy;
+          dest[i] = m_cur_buffer->m_content[m_cur_buffer_pos + i];
+        m_cur_buffer_pos += tocopy;
         dest += tocopy;
         howmany -= tocopy;
       }
     }
 
+    // Skip the next 'howmany' items in the stream.
+    void skip(std::uint64_t howmany) {
+      while (howmany > 0) {
+        if (m_cur_buffer_pos == m_cur_buffer_filled)
+          receive_new_buffer();
+
+        std::uint64_t toskip = std::min(howmany, m_cur_buffer_filled - m_cur_buffer_pos);
+        m_cur_buffer_pos += toskip;
+        howmany -= toskip;
+      }
+    }
+
     // Return the next item in the stream.
     inline value_type peek() {
-      if (m_cur_buffer_pos == 0)
+      if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
 
-      return m_cur_buffer->m_content[m_cur_buffer_pos - 1];
+      return m_cur_buffer->m_content[m_cur_buffer_pos];
     }
 
     // True iff there are no more items in the stream.
     inline bool empty() {
-      if (m_cur_buffer_pos == 0)
+      if (m_cur_buffer_pos == m_cur_buffer_filled)
         receive_new_buffer();
 
-      return (m_cur_buffer_pos == 0);
+      return (m_cur_buffer_pos == m_cur_buffer_filled);
     }
 
+    // Return const ptr to internal buffer.
+    const value_type *get_buf_ptr() const {
+      return m_cur_buffer->m_content;
+    }
+
+    // Return the number of items in the internal buffer.
+    std::uint64_t get_buf_filled() const {
+      return m_cur_buffer_filled;
+    }
+
+    // Performed I/O in bytes.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
 
     // Destructor.
-    ~async_backward_stream_reader() {
+    ~async_stream_reader() {
       // Let the I/O thread know that we're done.
       m_empty_buffers->send_stop_signal();
       m_empty_buffers->m_cv.notify_one();
@@ -404,6 +427,6 @@ class async_backward_stream_reader {
     }
 };
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IO_ASYNC_BACKWARD_STREAM_READER_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IO_ASYNC_STREAM_READER_HPP_INCLUDED

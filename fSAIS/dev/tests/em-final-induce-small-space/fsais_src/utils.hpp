@@ -1,8 +1,8 @@
 /**
- * @file    rhsais_src/utils.hpp
+ * @file    fsais_src/utils.hpp
  * @section LICENCE
  *
- * This file is part of rhSAIS v0.1.0
+ * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
  * Copyright (C) 2017
@@ -31,8 +31,8 @@
  * OTHER DEALINGS IN THE SOFTWARE.
  **/
 
-#ifndef __RHSAIS_SRC_UTILS_HPP_INCLUDED
-#define __RHSAIS_SRC_UTILS_HPP_INCLUDED
+#ifndef __FSAIS_SRC_UTILS_HPP_INCLUDED
+#define __FSAIS_SRC_UTILS_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -41,7 +41,7 @@
 #include <sstream>
 
 
-namespace rhsais_private {
+namespace fsais_private {
 namespace utils {
 
 long double wclock();
@@ -133,6 +133,6 @@ std::string intToStr(int_type x) {
 }
 
 }  // namespace utils
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_UTILS_HPP_INCLUDED
+#endif  // __FSAIS_SRC_UTILS_HPP_INCLUDED

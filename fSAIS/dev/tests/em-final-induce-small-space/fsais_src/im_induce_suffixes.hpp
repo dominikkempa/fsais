@@ -1,5 +1,38 @@
-#ifndef __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
-#define __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+/**
+ * @file    fsais_src/em_induce_suffixes.hpp
+ * @section LICENCE
+ *
+ * This file is part of fSAIS v0.1.0
+ * See: http://www.cs.helsinki.fi/group/pads/
+ *
+ * Copyright (C) 2017
+ *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ *   Dominik Kempa <dominik.kempa (at) gmail.com>
+ *
+ * Permission is hereby granted, free of charge, to any person
+ * obtaining a copy of this software and associated documentation
+ * files (the "Software"), to deal in the Software without
+ * restriction, including without limitation the rights to use,
+ * copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the
+ * Software is furnished to do so, subject to the following
+ * conditions:
+ *
+ * The above copyright notice and this permission notice shall be
+ * included in all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND,
+ * EXPRESS OR IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES
+ * OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE AND
+ * NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR COPYRIGHT
+ * HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY,
+ * WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING
+ * FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR
+ * OTHER DEALINGS IN THE SOFTWARE.
+ **/
+
+#ifndef __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
+#define __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
 
 #include <cstdio>
 #include <cstdlib>
@@ -9,6 +42,8 @@
 #include <queue>
 #include <algorithm>
 
+#include "io/async_backward_stream_reader.hpp"
+#include "io/async_stream_reader.hpp"
 #include "io/async_stream_writer.hpp"
 #include "io/async_stream_writer_multipart.hpp"
 #include "io/async_bit_stream_writer.hpp"
@@ -20,25 +55,20 @@
 #include "../uint40.hpp"
 #include "../uint48.hpp"
 
-
-namespace rhsais_private {
+namespace fsais_private {
 
 //=============================================================================
 // Assumptions:
 // - char_type has to be able to hold any symbol from the text.
-// - text_offset_type can encode integer in range [0..text_length)
-//   not necessarily integer text_length and larger.
-// - block_offset_type can encode integers in range [0..max_block_size).
-// - ext_block_offset_type can encode integer in range [0..2 * max_block_size],
-//   not necessarily largers integers. *** Note the bound is inclusive ***
+// - text_offset_type can encode integer in range [0..2 * text_length)
 //
 // All types are assumed to be unsigned.
 //
 // This version of the function uses
-//   block_size / 4                                      // type bitvector
-// + block_size * sizeof(char_type)                      // text block
-// + 2 * block_size * sizeof(ext_block_offset_type)      // buckets
-// + text_alphabet_size * sizeof(ext_block_offset_type)  // bucket pointers
+//   block_size / 4                                 // type bitvector
+// + block_size * sizeof(char_type)                 // text block
+// + 2 * block_size * sizeof(text_offset_type)      // buckets
+// + text_alphabet_size * sizeof(text_offset_type)  // bucket pointers
 // bytes of RAM.
 //=============================================================================
 // TODO:
@@ -46,8 +76,8 @@ namespace rhsais_private {
 // - reduce the RAM usage for integer array.
 //=============================================================================
 
-struct local_buf_item {
-  local_buf_item() {}
+struct local_buf_item_2 {
+  local_buf_item_2() {}
   std::uint64_t m_head_pos;
   std::uint64_t m_prev_pos_head_char;
   std::uint64_t m_idx_1;
@@ -56,25 +86,31 @@ struct local_buf_item {
   bool m_is_prev_pos_minus;
 };
 
+struct local_buf_item_3 {
+  std::uint64_t m_pos;
+  std::uint64_t m_char;
+};
+
 template<typename char_type,
-  typename block_offset_type,
-  typename ext_block_offset_type>
+  typename text_offset_type>
 std::pair<std::uint64_t, bool>
-im_induce_substrings_large_alphabet(
+im_induce_suffixes_large_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
+    std::uint64_t next_block_leftmost_minus_star_plus_rank,
     std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
+    std::string minus_pos_filename,
+    std::string output_plus_pos_filename,
     std::string output_plus_symbols_filename,
     std::string output_plus_type_filename,
     std::string output_minus_pos_filename,
     std::string output_minus_type_filename,
     std::string output_minus_symbols_filename,
-    std::uint64_t &plus_block_count_target,
     std::uint64_t &minus_block_count_target,
     std::uint64_t &total_io_volume) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
@@ -100,15 +136,11 @@ im_induce_substrings_large_alphabet(
 
   // Check that all types are sufficiently large.
   if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
-    fprintf(stderr, "\nError: char_type in im_induce_substrings_large_alphabet too small!\n");
+    fprintf(stderr, "\nError: char_type in im_induce_suffixes_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
-    fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_large_alphabet too small!\n");
-    std::exit(EXIT_FAILURE);
-  }
-  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2UL) {
-    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_large_alphabet too small!\n");
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length * 2UL) {
+    fprintf(stderr, "\nError: text_offset_type in im_induce_suffixes_large_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -157,10 +189,12 @@ im_induce_substrings_large_alphabet(
 
 
   // Initialize output writers.
+  typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+  output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -211,18 +245,6 @@ im_induce_substrings_large_alphabet(
 
 
 
-
-
-
-  std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
-  bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
-
-
-
-
-
-
-
   std::uint64_t max_char = (std::uint64_t)std::numeric_limits<char_type>::max();
   std::vector<std::uint64_t> radix_logs;
   {
@@ -234,7 +256,29 @@ im_induce_substrings_large_alphabet(
       cur_sum += radix_log;
     }
   }
-  typedef radix_heap<char_type, ext_block_offset_type> heap_type;
+
+
+
+
+
+
+  typedef packed_pair<char_type, text_offset_type> pair_type;
+  typedef std::vector<pair_type> vector_type;
+  vector_type *temp_storage = new vector_type();
+
+
+
+
+
+
+  std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
+  bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
+
+
+
+
+
+  typedef radix_heap<char_type, text_offset_type> heap_type;
   heap_type *heap = new heap_type(radix_logs, lastpos/*XXX ???*/);
 
 
@@ -244,25 +288,93 @@ im_induce_substrings_large_alphabet(
 
 
 
-  // Separatelly handle position lastpos - 1 if it
-  // was in next block and it was minus star.
-  if (lastpos > block_size && is_lastpos_minus) {
-    std::uint64_t i = lastpos - 1;
-    std::uint64_t head_char = text_accessor->access(block_beg + i);
-    heap->push(max_char - head_char, i);
-  }
+  {
+    typedef async_backward_stream_reader<text_offset_type> reader_type;
+    reader_type *reader = new reader_type(minus_pos_filename, (2UL << 20), 4UL);
 
-  for (std::uint64_t iplus = block_size; iplus > 0; iplus--) {
-    std::uint64_t i = iplus - 1;
-    bool is_minus_star = false;
-    if (i == 0) is_minus_star = is_first_minus_star;
-    else is_minus_star = ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 &&
-        (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0);
-
-    if (is_minus_star) {
-      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
-      heap->push(max_char - head_char, i);
+    std::uint64_t items_count = utils::file_size(minus_pos_filename) / sizeof(text_offset_type);
+    if (next_block_leftmost_minus_star_plus_rank == items_count) {
+      // Separatelly handle position lastpos - 1 if it
+      // was in next block and it was minus star.
+      std::uint64_t ii = lastpos - 1;
+      std::uint64_t head_char = text_accessor->access(block_beg + ii);
+      heap->push(max_char - head_char, ii);
     }
+
+    std::uint64_t rank = 0;
+#if 0
+    // Unbuffered version left for readability.
+    while (!reader->empty()) {
+      {
+        std::uint64_t i = reader->read();
+        std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+        heap->push(max_char - head_char, i);
+      }
+
+      ++rank;
+      if (items_count - next_block_leftmost_minus_star_plus_rank == rank) {
+        // Separatelly handle position lastpos - 1 if it
+        // was in next block and it was minus star.
+        std::uint64_t ii = lastpos - 1;
+        std::uint64_t head_char = text_accessor->access(block_beg + ii);
+        heap->push(max_char - head_char, ii);
+      }
+    }
+#else
+#ifdef SAIS_DEBUG
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1L << 15);
+#endif
+    local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
+    text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
+    std::uint64_t items_left = items_count;
+    while (items_left > 0) {
+      // Compute buffer.
+      std::uint64_t filled = std::min(local_bufsize, items_left);
+      reader->read(local_buf_pos, filled);
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = (std::uint64_t)local_buf_pos[t];
+        if (pos >= block_size) pos = 0;
+        local_buf[t].m_pos = pos;
+      }
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = local_buf[t].m_pos;
+        local_buf[t].m_char = block[pos];
+      }
+
+      // Process buffer.
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        {
+          std::uint64_t i = local_buf_pos[t];
+          std::uint64_t head_char = local_buf[t].m_char;
+          if (i >= block_size) head_char = text_accessor->access(block_beg + i);
+          heap->push(max_char - head_char, i);
+        }
+
+        ++rank;
+        if (items_count - next_block_leftmost_minus_star_plus_rank == rank) {
+          // Separatelly handle position lastpos - 1 if it
+          // was in next block and it was minus star.
+          std::uint64_t ii = lastpos - 1;
+          std::uint64_t head_char = text_accessor->access(block_beg + ii);
+          heap->push(max_char - head_char, ii);
+        }
+      }
+
+      // Update items_left.
+      items_left -= filled;
+    }
+    delete[] local_buf;
+    delete[] local_buf_pos;
+#endif
+
+    // Update I/O volume.
+    io_volume += reader->bytes_read();
+
+    // Clean up.
+    delete reader;
+    utils::file_delete(minus_pos_filename);
   }
 
 
@@ -272,10 +384,6 @@ im_induce_substrings_large_alphabet(
 
 
 
-
-  typedef packed_pair<char_type, ext_block_offset_type> pair_type;
-  typedef std::vector<pair_type> vector_type;
-  vector_type *vec2 = new vector_type();
 
 
 
@@ -283,7 +391,7 @@ im_induce_substrings_large_alphabet(
 
 
   // Induce plus suffixes.
-  std::uint64_t local_plus_block_count_target = 0;
+  std::uint64_t local_minus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
@@ -292,23 +400,32 @@ im_induce_substrings_large_alphabet(
     heap->push(max_char - (head_char + 1), i);
   }
   while (!heap->empty()) {
-    std::pair<char_type, ext_block_offset_type> pp = heap->extract_min();
-    char_type head_char = max_char - (std::uint64_t)pp.first;
+    std::pair<char_type, text_offset_type> pp = heap->extract_min();
     std::uint64_t head_pos = pp.second;
     std::uint64_t prev_pos = head_pos - 1;
+    std::uint64_t head_char = max_char - (std::uint64_t)pp.first;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
-    std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && !is_prev_pos_minus) ? prev_pos : 0;
-    std::uint64_t prev_pos_head_char = block[temp_idx];
+    std::uint64_t idx = (0 < head_pos && prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
 
-    if (!is_head_minus) head_char = (std::uint64_t)head_char - 1;
-    if (!seen_block_beg && head_pos < block_size) ++local_plus_block_count_target;
-    if (head_pos == 0) seen_block_beg = true;
-    if (!is_head_minus) {
-      bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
-      if (head_pos < block_size) output_plus_type_writer->write(is_head_star);
-      if (is_head_star) vec2->push_back(pair_type((char_type)(head_char + 1), (ext_block_offset_type)head_pos));
+    if (!is_head_minus) head_char -= 1;
+    if (is_head_minus) {
+      if (head_pos < block_size) {
+        bool is_head_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+        if (is_head_star) {
+          if (!seen_block_beg) ++local_minus_block_count_target;
+          if (head_pos == 0) seen_block_beg = true;
+        }
+      }
+    } else {
+      bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+      if (head_pos < block_size) {
+        output_plus_pos_writer->write(head_pos);
+        output_plus_type_writer->write(is_head_star);
+      }
+      if (is_head_star) temp_storage->push_back(pair_type((char_type)(head_char + 1), (text_offset_type)head_pos));
     }
     if (head_pos > 0) {
       if (!is_prev_pos_minus) {
@@ -318,31 +435,26 @@ im_induce_substrings_large_alphabet(
       }
     } else if (block_beg > 0) {
       bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
-      if (is_head_minus == is_head_star)
-        output_plus_symbols_writer->write(block_prec_symbol);
+      if (is_head_minus == is_head_star) output_plus_symbols_writer->write(block_prec_symbol);
     }
   }
   delete heap;
   if (!seen_block_beg)
-    local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
 
-  heap_type *heap2 = new heap_type(radix_logs, lastpos/*XXX ???*/);
-  std::reverse(vec2->begin(), vec2->end());
-  for (std::uint64_t t = 0; t < vec2->size(); ++t)
-    heap2->push((*vec2)[t].first, (*vec2)[t].second);
-
-  delete vec2;  // XXX vec2 -- declare as array, and include into the normal flow of things.
 
 
   // Update I/O volume.
-  io_volume += output_plus_symbols_writer->bytes_written() + 
+  io_volume += output_plus_pos_writer->bytes_written() +
+    output_plus_symbols_writer->bytes_written() +
     output_plus_type_writer->bytes_written();
 
 
 
   // Clean up.
+  delete output_plus_pos_writer;
   delete output_plus_symbols_writer;
   delete output_plus_type_writer;
 
@@ -352,7 +464,7 @@ im_induce_substrings_large_alphabet(
 
 
   // Initialize output writers.
-  typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
+  typedef async_stream_writer_multipart<text_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
   output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
@@ -365,9 +477,19 @@ im_induce_substrings_large_alphabet(
 
 
 
+  heap_type *heap2 = new heap_type(radix_logs, lastpos/*XXX ???*/);
+  std::reverse(temp_storage->begin(), temp_storage->end());
+  for (std::uint64_t t = 0; t < temp_storage->size(); ++t)
+    heap2->push((*temp_storage)[t].first, (*temp_storage)[t].second);
+  delete temp_storage;
+
+
+
+
+
+
+
   // Induce minus suffixes.
-  std::uint64_t local_minus_block_count_target = 0;
-  seen_block_beg = false;
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
@@ -375,23 +497,19 @@ im_induce_substrings_large_alphabet(
     heap2->push(head_char, i);
   }
   while (!heap2->empty()) {
-    std::pair<char_type, ext_block_offset_type> pp = heap2->extract_min();
-    std::uint64_t head_char = pp.first;
+    std::pair<char_type, text_offset_type> pp = heap2->extract_min();
     std::uint64_t head_pos = pp.second;
     std::uint64_t prev_pos = head_pos - 1;
 
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
-    std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && is_prev_pos_minus) ? prev_pos : 0;
-    std::uint64_t prev_pos_head_char = block[temp_idx];
+    std::uint64_t idx = (prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
 
-    if (!is_head_minus) --head_char;
-    if (!seen_block_beg && head_pos < block_size) ++local_minus_block_count_target;
-    if (head_pos == 0) seen_block_beg = true;
     if (is_head_minus && head_pos < block_size) {
       bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
       output_minus_type_writer->write(is_star);
-      if (is_star) output_minus_pos_writer->write(head_pos);
+      output_minus_pos_writer->write(head_pos);
     }
     if (head_pos > 0) {
       if (is_prev_pos_minus) {
@@ -405,14 +523,10 @@ im_induce_substrings_large_alphabet(
     }
   }
   delete heap2;
-  if (!seen_block_beg)
-    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
-
 
 
 
   // Update reference variables.
-  plus_block_count_target = local_plus_block_count_target;
   minus_block_count_target = local_minus_block_count_target;
 
 
@@ -467,27 +581,27 @@ im_induce_substrings_large_alphabet(
 }
 
 template<typename char_type,
-  typename block_offset_type,
-  typename ext_block_offset_type>
-void im_induce_substrings_large_alphabet(
+  typename text_offset_type>
+void im_induce_suffixes_large_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
+    std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &output_plus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "    IM induce substrings (large alphabet):\n");
-  fprintf(stderr, "      sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
+  fprintf(stderr, "    IM induce suffixes (large alphabet):\n");
   long double start = utils::wclock();
 
 #ifdef SAIS_DEBUG
@@ -504,24 +618,25 @@ void im_induce_substrings_large_alphabet(
     std::uint64_t block_beg = block_id * max_block_size;
 
     std::pair<std::uint64_t, bool > ret;
-    ret = im_induce_substrings_large_alphabet<
+    ret = im_induce_suffixes_large_alphabet<
       char_type,
-      block_offset_type,
-      ext_block_offset_type>(
+      text_offset_type>(
           text_alphabet_size,
           text_length,
           max_block_size,
           block_beg,
           next_block_leftmost_minus_star,
+          next_block_leftmost_minus_star_plus_rank[block_id],
           max_part_size,
           is_last_minus,
           text_filename,
+          minus_pos_filenames[block_id],
+          output_plus_pos_filenames[block_id],
           output_plus_symbols_filenames[block_id],
           output_plus_type_filenames[block_id],
           output_minus_pos_filenames[block_id],
           output_minus_type_filenames[block_id],
           output_minus_symbols_filenames[block_id],
-          plus_block_count_targets[block_id],
           minus_block_count_targets[block_id],
           io_volume);
 
@@ -539,54 +654,25 @@ void im_induce_substrings_large_alphabet(
 }
 
 template<typename char_type,
-  typename block_offset_type>
-void im_induce_substrings_large_alphabet(
-    std::uint64_t text_alphabet_size,
-    std::uint64_t text_length,
-    std::uint64_t initial_text_length,
-    std::uint64_t max_block_size,
-    std::string text_filename,
-    std::vector<std::string> &output_plus_symbols_filenames,
-    std::vector<std::string> &output_plus_type_filenames,
-    std::vector<std::string> &output_minus_pos_filenames,
-    std::vector<std::string> &output_minus_type_filenames,
-    std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
-    std::vector<std::uint64_t> &minus_block_count_targets,
-    std::uint64_t &total_io_volume) {
-  if (max_block_size < (1UL << 31))
-    im_induce_substrings_large_alphabet<char_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-  else if (max_block_size < (1UL < 39))
-    im_induce_substrings_large_alphabet<char_type, block_offset_type, uint40>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-  else
-    im_induce_substrings_large_alphabet<char_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-}
-
-template<typename char_type,
-  typename block_offset_type,
-  typename ext_block_offset_type>
+  typename text_offset_type>
 std::pair<std::uint64_t, bool>
-im_induce_substrings_small_alphabet(
+im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t max_block_size,
     std::uint64_t block_beg,
     std::uint64_t next_block_leftmost_minus_star_plus,
+    std::uint64_t next_block_leftmost_minus_star_plus_rank,
     std::uint64_t max_part_size,
     bool is_last_minus,
     std::string text_filename,
+    std::string minus_pos_filename,
+    std::string output_plus_pos_filename,
     std::string output_plus_symbols_filename,
     std::string output_plus_type_filename,
     std::string output_minus_pos_filename,
     std::string output_minus_type_filename,
     std::string output_minus_symbols_filename,
-    std::uint64_t &plus_block_count_target,
     std::uint64_t &minus_block_count_target,
     std::uint64_t &total_io_volume) {
   std::uint64_t block_end = std::min(text_length, block_beg + max_block_size);
@@ -612,15 +698,11 @@ im_induce_substrings_small_alphabet(
 
   // Check that all types are sufficiently large.
   if ((std::uint64_t)std::numeric_limits<char_type>::max() < text_alphabet_size - 1) {
-    fprintf(stderr, "\nError: char_type in im_induce_substrings_small_alphabet too small!\n");
+    fprintf(stderr, "\nError: char_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
-  if ((std::uint64_t)std::numeric_limits<block_offset_type>::max() < max_block_size - 1) {
-    fprintf(stderr, "\nError: block_offset_type in im_induce_substrings_small_alphabet too small!\n");
-    std::exit(EXIT_FAILURE);
-  }
-  if ((std::uint64_t)std::numeric_limits<ext_block_offset_type>::max() < max_block_size / 2UL) {
-    fprintf(stderr, "\nError: ext_block_offset_type in im_induce_substrings_small_alphabet too small!\n");
+  if ((std::uint64_t)std::numeric_limits<text_offset_type>::max() < text_length * 2UL) {
+    fprintf(stderr, "\nError: text_offset_type in im_induce_suffixes_small_alphabet too small!\n");
     std::exit(EXIT_FAILURE);
   }
 
@@ -668,11 +750,13 @@ im_induce_substrings_small_alphabet(
 
 
 
+  // Initialize output writers.
+  typedef async_stream_writer_multipart<text_offset_type> output_plus_pos_writer_type;
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+  output_plus_pos_writer_type *output_plus_pos_writer = new output_plus_pos_writer_type(output_plus_pos_filename, max_part_size, (2UL << 20), 4UL);
   output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
-
+  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -727,8 +811,8 @@ im_induce_substrings_small_alphabet(
 
 
   // Compute bucket sizes.
-  ext_block_offset_type *bucket_ptr = utils::allocate_array<ext_block_offset_type>(text_alphabet_size);
-  std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (ext_block_offset_type)0);
+  text_offset_type *bucket_ptr = utils::allocate_array<text_offset_type>(text_alphabet_size);
+  std::fill(bucket_ptr, bucket_ptr + text_alphabet_size, (text_offset_type)0);
   std::uint64_t lastpos = block_size + next_block_leftmost_minus_star_plus;
   bool is_lastpos_minus = (type_bv[(lastpos - 1) >> 6] & (1UL << ((lastpos - 1) & 63)));
   for (std::uint64_t i = 0; i < lastpos; ++i) {
@@ -762,8 +846,9 @@ im_induce_substrings_small_alphabet(
 
 
   // Allocate buckets.
-  ext_block_offset_type *buckets = utils::allocate_array<ext_block_offset_type>(total_bucket_size);
-  std::fill(buckets, buckets + total_bucket_size, (ext_block_offset_type)0);
+  text_offset_type *buckets = utils::allocate_array<text_offset_type>(total_bucket_size);
+  std::fill(buckets, buckets + total_bucket_size, (text_offset_type)0);
+
 
 
 
@@ -774,31 +859,104 @@ im_induce_substrings_small_alphabet(
 
   // Add minus positions at the beginning of buckets.
   std::uint64_t zero_item_pos = total_bucket_size;
-  for (std::uint64_t i = 0; i < block_size; ++i) {
-    bool is_minus_star = false;
-    if (i == 0) is_minus_star = is_first_minus_star;
-    else is_minus_star = ((type_bv[i >> 6] & (1UL << (i & 63))) > 0 &&
-        (type_bv[(i - 1) >> 6] & (1UL << ((i - 1) & 63))) == 0);
+  {
+    typedef async_stream_reader<text_offset_type> reader_type;
+    reader_type *reader = new reader_type(minus_pos_filename, (2UL << 20), 4UL);
+    std::uint64_t rank = 0;
+#if 0
+    // Unubuffered version left for readability.
+    while (!reader->empty()) {
+      if (next_block_leftmost_minus_star_plus_rank == rank) {
+        // Separatelly handle position lastpos - 1 if it
+        // was in next block and it was minus star.
+        std::uint64_t ii = lastpos - 1;
+        std::uint64_t head_char = text_accessor->access(block_beg + ii);
+        std::uint64_t ptr = bucket_ptr[head_char];
+        buckets[ptr++] = ii;
+        bucket_ptr[head_char] = ptr;
+      }
+      ++rank;
 
-    if (is_minus_star) {
-      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+      {
+        std::uint64_t i = reader->read();
+        std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+        std::uint64_t ptr = bucket_ptr[head_char];
+        if (i == 0) {
+          zero_item_pos = ptr++;
+          buckets[zero_item_pos] = 1;
+        } else buckets[ptr++] = i;
+        bucket_ptr[head_char] = ptr;
+      }
+    }
+#else
+#ifdef SAIS_DEBUG
+    std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
+#else
+    static const std::uint64_t local_bufsize = (1L << 15);
+#endif
+    local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
+    text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
+    std::uint64_t items_left = utils::file_size(minus_pos_filename) / sizeof(text_offset_type);
+    while (items_left > 0) {
+      // Compute buffer.
+      std::uint64_t filled = std::min(local_bufsize, items_left);
+      reader->read(local_buf_pos, filled);
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = (std::uint64_t)local_buf_pos[t];
+        if (pos >= block_size) pos = 0;
+        local_buf[t].m_pos = pos;
+      }
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        std::uint64_t pos = local_buf[t].m_pos;
+        local_buf[t].m_char = block[pos];
+      }
+
+      // Process buffer.
+      for (std::uint64_t t = 0; t < filled; ++t) {
+        if (next_block_leftmost_minus_star_plus_rank == rank) {
+          // Separatelly handle position lastpos - 1 if it
+          // was in next block and it was minus star.
+          std::uint64_t ii = lastpos - 1;
+          std::uint64_t head_char = text_accessor->access(block_beg + ii);
+          std::uint64_t ptr = bucket_ptr[head_char];
+          buckets[ptr++] = ii;
+          bucket_ptr[head_char] = ptr;
+        }
+        ++rank;
+        std::uint64_t i = local_buf_pos[t];
+        std::uint64_t head_char = local_buf[t].m_char;
+        if (i >= block_size) head_char = text_accessor->access(block_beg + i);
+        std::uint64_t ptr = bucket_ptr[head_char];
+        if (i == 0) {
+          zero_item_pos = ptr++;
+          buckets[zero_item_pos] = 1;
+        } else buckets[ptr++] = i;
+        bucket_ptr[head_char] = ptr;
+      }
+
+      // Update items_left.
+      items_left -= filled;
+    }
+    delete[] local_buf;
+    delete[] local_buf_pos;
+#endif
+
+    if (next_block_leftmost_minus_star_plus_rank == rank) {
+      // Separatelly handle position lastpos - 1 if it
+      // was in next block and it was minus star.
+      std::uint64_t ii = lastpos - 1;
+      std::uint64_t head_char = text_accessor->access(block_beg + ii);
       std::uint64_t ptr = bucket_ptr[head_char];
-      if (i == 0) {
-        zero_item_pos = ptr++;
-        buckets[zero_item_pos] = 1;
-      } else buckets[ptr++] = i;
+      buckets[ptr++] = ii;
       bucket_ptr[head_char] = ptr;
     }
-  }
 
-  // Separatelly handle position lastpos - 1 if it
-  // was in next block and it was minus star.
-  if (lastpos > block_size && is_lastpos_minus) {
-    std::uint64_t i = lastpos - 1;
-    std::uint64_t head_char = text_accessor->access(block_beg + i);
-    std::uint64_t ptr = bucket_ptr[head_char];
-    buckets[ptr++] = i;
-    bucket_ptr[head_char] = ptr;
+    // Update I/O volume.
+    io_volume += reader->bytes_read();
+
+    // Clean up.
+    delete reader;
+    utils::file_delete(minus_pos_filename);
   }
 
 
@@ -823,8 +981,12 @@ im_induce_substrings_small_alphabet(
 
 
 
+
+
+
+
   // Induce plus suffixes.
-  std::uint64_t local_plus_block_count_target = 0;
+  std::uint64_t local_minus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
     // Add the last suffix if it was a plus type.
@@ -838,62 +1000,66 @@ im_induce_substrings_small_alphabet(
     bucket_ptr[head_char] = ptr;
   }
 #if 0
-  // The non-buffered version is kept for readability.
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
     std::uint64_t i = iplus - 1;
     if ((std::uint64_t)buckets[i] == 0) continue;
 
-    // Process buckets[i] ========================================================================================================================
-    {
-      std::uint64_t head_pos = buckets[i];
-      if (i == zero_item_pos) head_pos = 0;
-      std::uint64_t prev_pos = head_pos - 1;
+    std::uint64_t head_pos = buckets[i];
+    if (i == zero_item_pos) head_pos = 0;
+    std::uint64_t prev_pos = head_pos - 1;
+    bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
+    bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
+    std::uint64_t idx = (0 < head_pos && prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
 
-      bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
-      bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
-      std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && !is_prev_pos_minus) ? prev_pos : 0;
-      std::uint64_t prev_pos_head_char = block[temp_idx];
+    if (is_head_minus) {
+      // Erase the item (minus substring) from bucket.
+      buckets[i] = 0;
+      if (i == zero_item_pos)
+        zero_item_pos = total_bucket_size;
 
-      if (!seen_block_beg && head_pos < block_size)
-        ++local_plus_block_count_target;
-      if (head_pos == 0) seen_block_beg = true;
-
-
-      if (is_head_minus) {
-        // Erase the item (minus substring) from bucket.
+      if (head_pos < block_size) {
+        bool is_head_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+        if (is_head_star) {
+          // Here we visit all minus star suffixes staring in a block in min-rev order.
+          // A good opportunity to update block_count_target.
+          if (!seen_block_beg)
+            ++local_minus_block_count_target;
+          if (head_pos == 0) seen_block_beg = true;
+        }
+      }
+    } else if (head_pos < block_size) {
+      output_plus_pos_writer->write(head_pos);
+      bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+      output_plus_type_writer->write(is_head_star);
+      if (!is_head_star) {
+        // Erase the item (non-star plus substring) from the bucket.
         buckets[i] = 0;
         if (i == zero_item_pos)
           zero_item_pos = total_bucket_size;
-      } else if (head_pos < block_size) {
-        bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
-        output_plus_type_writer->write(is_head_star);
-        if (!is_head_star) {
-          // Erase the item (non-star plus substring) from the bucket.
-          buckets[i] = 0;
-          if (i == zero_item_pos)
-            zero_item_pos = total_bucket_size;
-        }
-      }
-      if (head_pos > 0) {
-        if (!is_prev_pos_minus) {
-          if (prev_pos >= block_size)
-            prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
-          std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
-          if (prev_pos == 0) {
-            zero_item_pos = --ptr;
-            buckets[zero_item_pos] = 1;
-          } else buckets[--ptr] = prev_pos;
-          bucket_ptr[prev_pos_head_char] = ptr;
-          if (head_pos < block_size)
-            output_plus_symbols_writer->write(prev_pos_head_char);
-        }
-      } else if (block_beg > 0) {
-        bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
-        if (is_head_minus == is_head_star)
-          output_plus_symbols_writer->write(block_prec_symbol);
       }
     }
-    //==========================================================================================================================================
+
+    if (head_pos > 0) {
+      if (!is_prev_pos_minus) {
+        // Correct the value of prev_pos_char.
+        if (prev_pos >= block_size)
+          prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+        std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
+        if (prev_pos == 0) {
+          zero_item_pos = --ptr;
+          buckets[zero_item_pos] = 1;
+        } else buckets[--ptr] = prev_pos;
+        bucket_ptr[prev_pos_head_char] = ptr;
+
+        if (head_pos < block_size)
+          output_plus_symbols_writer->write(prev_pos_head_char);
+      }
+    } else if (block_beg > 0) {
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      if (is_head_minus == is_head_star)
+        output_plus_symbols_writer->write(block_prec_symbol);
+    }
   }
 #else
   {
@@ -902,7 +1068,7 @@ im_induce_substrings_small_alphabet(
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
-    local_buf_item *local_buf = new local_buf_item[local_bufsize];
+    local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
     while (iplus > 0) {
       // Skip empty positions.
@@ -938,21 +1104,24 @@ im_induce_substrings_small_alphabet(
         bool is_head_minus = local_buf[j].m_is_head_minus;
         bool is_prev_pos_minus = local_buf[j].m_is_prev_pos_minus;
 
-        // Process next item in the bucket.
-        if (!seen_block_beg && head_pos < block_size)
-          ++local_plus_block_count_target;
-        if (head_pos == 0) seen_block_beg = true;
         if (is_head_minus) {
-          // Erase the item (minus substring) from bucket.
-          buckets[i] = 0;
+          buckets[i] = 0;  // erase the item
           if (i == zero_item_pos)
             zero_item_pos = total_bucket_size;
+          if (head_pos < block_size) {
+            bool is_head_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
+            if (is_head_star) {  // here we visi all minus star substrings so we can update block_count_target
+              if (!seen_block_beg)
+                ++local_minus_block_count_target;
+              if (head_pos == 0) seen_block_beg = true;
+            }
+          }
         } else if (head_pos < block_size) {
-          bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+          output_plus_pos_writer->write(head_pos);
+          bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
           output_plus_type_writer->write(is_head_star);
           if (!is_head_star) {
-            // Erase the item (non-star plus substring) from the bucket.
-            buckets[i] = 0;
+            buckets[i] = 0;  // erase the non-star plus substring
             if (i == zero_item_pos)
               zero_item_pos = total_bucket_size;
           }
@@ -981,21 +1150,39 @@ im_induce_substrings_small_alphabet(
   }
 #endif
   if (!seen_block_beg)
-    local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
+    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
 
 
 
   // Update I/O volume.
-  io_volume += output_plus_symbols_writer->bytes_written() + 
+  io_volume += output_plus_pos_writer->bytes_written() +
+    output_plus_symbols_writer->bytes_written() + 
     output_plus_type_writer->bytes_written();
 
 
 
   // Clean up.
+  delete output_plus_pos_writer;
   delete output_plus_symbols_writer;
   delete output_plus_type_writer;
+
+
+
+
+
+  // Initialize output writers.
+  typedef async_stream_writer_multipart<text_offset_type> output_minus_pos_writer_type;
+  typedef async_bit_stream_writer output_minus_type_writer_type;
+  typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
+  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
+  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+
+
+
+
 
 
 
@@ -1016,26 +1203,10 @@ im_induce_substrings_small_alphabet(
 
 
 
-  // Initialize output writers.
-  typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
-  typedef async_bit_stream_writer output_minus_type_writer_type;
-  typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
-
-
-
-
-
-
-
 
 
 
   // Induce minus suffixes.
-  std::uint64_t local_minus_block_count_target = 0;
-  seen_block_beg = false;
   if (is_lastpos_minus) {
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
@@ -1050,42 +1221,35 @@ im_induce_substrings_small_alphabet(
 #if 0
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
     if ((std::uint64_t)buckets[i] == 0) continue;
-
-    // Random accesses.
     std::uint64_t head_pos = buckets[i];
     if (i == zero_item_pos) head_pos = 0;
     std::uint64_t prev_pos = head_pos - 1;
+
     bool is_head_minus = (type_bv[head_pos >> 6] & (1UL << (head_pos & 63)));
     bool is_prev_pos_minus = (!head_pos) ? false : (type_bv[prev_pos >> 6] & (1UL << (prev_pos & 63)));
-    std::uint64_t temp_idx = (0 < head_pos && prev_pos < block_size && is_prev_pos_minus) ? prev_pos : 0;
-    std::uint64_t prev_pos_head_char = block[temp_idx];
-
-    if (!seen_block_beg && head_pos < block_size)
-      ++local_minus_block_count_target;
-    if (head_pos == 0) seen_block_beg = true;
+    std::uint64_t idx = (prev_pos < block_size) ? prev_pos : 0;
+    std::uint64_t prev_pos_head_char = block[idx];
 
     if (is_head_minus && head_pos < block_size) {
       bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
       output_minus_type_writer->write(is_star);
-      if (is_star) output_minus_pos_writer->write(head_pos);
+      output_minus_pos_writer->write(head_pos);
     }
-
     if (head_pos > 0) {
       if (is_prev_pos_minus) {
-        if (prev_pos >= block_size) prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+        if (prev_pos >= block_size)
+          prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
         std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
         if (prev_pos == 0) {
           zero_item_pos = ptr++;
           buckets[zero_item_pos] = 1;
         } else buckets[ptr++] = prev_pos;
         bucket_ptr[prev_pos_head_char] = ptr;
-
         if (head_pos < block_size)
           output_minus_symbols_writer->write(prev_pos_head_char);
       }
     } else if (block_beg > 0) {
-      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
-        ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+      bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
       if (is_head_minus ^ is_head_star)
         output_minus_symbols_writer->write(block_prec_symbol);
     }
@@ -1097,7 +1261,7 @@ im_induce_substrings_small_alphabet(
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
-    local_buf_item *local_buf = new local_buf_item[local_bufsize];
+    local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t i = 0;
     while (i < total_bucket_size) {
       // Skip empty positions.
@@ -1132,32 +1296,26 @@ im_induce_substrings_small_alphabet(
         bool is_head_minus = local_buf[j].m_is_head_minus;
         bool is_prev_pos_minus = local_buf[j].m_is_prev_pos_minus;
 
-        if (!seen_block_beg && head_pos < block_size)
-          ++local_minus_block_count_target;
-        if (head_pos == 0) seen_block_beg = true;
-
         if (is_head_minus && head_pos < block_size) {
           bool is_star = ((head_pos > 0 && !is_prev_pos_minus) || (!head_pos && block_beg > 0 && (std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]));
           output_minus_type_writer->write(is_star);
-          if (is_star) output_minus_pos_writer->write(head_pos);
+          output_minus_pos_writer->write(head_pos);
         }
-
         if (head_pos > 0) {
           if (is_prev_pos_minus) {
-            if (prev_pos >= block_size) prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
+            if (prev_pos >= block_size)
+              prev_pos_head_char = text_accessor->access(block_beg + prev_pos);
             std::uint64_t ptr = bucket_ptr[prev_pos_head_char];
             if (prev_pos == 0) {
               zero_item_pos = ptr++;
               buckets[zero_item_pos] = 1;
             } else buckets[ptr++] = prev_pos;
             bucket_ptr[prev_pos_head_char] = ptr;
-
             if (head_pos < block_size)
               output_minus_symbols_writer->write(prev_pos_head_char);
           }
         } else if (block_beg > 0) {
-          bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
-            ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+          bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
           if (is_head_minus ^ is_head_star)
             output_minus_symbols_writer->write(block_prec_symbol);
         }
@@ -1166,14 +1324,10 @@ im_induce_substrings_small_alphabet(
     delete[] local_buf;
   }
 #endif
-  if (!seen_block_beg)
-    local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
-
 
 
 
   // Update reference variables.
-  plus_block_count_target = local_plus_block_count_target;
   minus_block_count_target = local_minus_block_count_target;
 
 
@@ -1217,7 +1371,6 @@ im_induce_substrings_small_alphabet(
 
 
 
-
   // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s\n", total_time,
@@ -1231,27 +1384,27 @@ im_induce_substrings_small_alphabet(
 }
 
 template<typename char_type,
-  typename block_offset_type,
-  typename ext_block_offset_type>
-void im_induce_substrings_small_alphabet(
+  typename text_offset_type>
+void im_induce_suffixes_small_alphabet(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
+    std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &output_plus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume) {
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
   std::uint64_t io_volume = 0;
 
-  fprintf(stderr, "    IM induce substrings (small alphabet):\n");
-  fprintf(stderr, "      sizeof(ext_block_offset_type) = %lu\n", sizeof(ext_block_offset_type));
+  fprintf(stderr, "    IM induce suffixes (small alphabet):\n");
   long double start = utils::wclock();
 
 #ifdef SAIS_DEBUG
@@ -1268,24 +1421,25 @@ void im_induce_substrings_small_alphabet(
     std::uint64_t block_beg = block_id * max_block_size;
 
     std::pair<std::uint64_t, bool > ret;
-    ret = im_induce_substrings_small_alphabet<
+    ret = im_induce_suffixes_small_alphabet<
       char_type,
-      block_offset_type,
-      ext_block_offset_type>(
+      text_offset_type>(
           text_alphabet_size,
           text_length,
           max_block_size,
           block_beg,
           next_block_leftmost_minus_star,
+          next_block_leftmost_minus_star_plus_rank[block_id],
           max_part_size,
           is_last_minus,
           text_filename,
+          minus_pos_filenames[block_id],
+          output_plus_pos_filenames[block_id],
           output_plus_symbols_filenames[block_id],
           output_plus_type_filenames[block_id],
           output_minus_pos_filenames[block_id],
           output_minus_type_filenames[block_id],
           output_minus_symbols_filenames[block_id],
-          plus_block_count_targets[block_id],
           minus_block_count_targets[block_id],
           io_volume);
 
@@ -1303,63 +1457,37 @@ void im_induce_substrings_small_alphabet(
 }
 
 template<typename char_type,
-  typename block_offset_type>
-void im_induce_substrings_small_alphabet(
+  typename text_offset_type>
+void im_induce_suffixes(
     std::uint64_t text_alphabet_size,
     std::uint64_t text_length,
     std::uint64_t initial_text_length,
     std::uint64_t max_block_size,
+    std::vector<std::uint64_t> &next_block_leftmost_minus_star_plus_rank,
     std::string text_filename,
+    std::vector<std::string> &minus_pos_filenames,
+    std::vector<std::string> &output_plus_pos_filenames,
     std::vector<std::string> &output_plus_symbols_filenames,
     std::vector<std::string> &output_plus_type_filenames,
     std::vector<std::string> &output_minus_pos_filenames,
     std::vector<std::string> &output_minus_type_filenames,
     std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
-    std::vector<std::uint64_t> &minus_block_count_targets,
-    std::uint64_t &total_io_volume) {
-  if (max_block_size < (1UL << 31))
-    im_induce_substrings_small_alphabet<char_type, block_offset_type, std::uint32_t>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-  else if (max_block_size < (1UL < 39))
-    im_induce_substrings_small_alphabet<char_type, block_offset_type, uint40>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-  else
-    im_induce_substrings_small_alphabet<char_type, block_offset_type, std::uint64_t>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
-}
-
-template<typename char_type,
-  typename block_offset_type>
-void im_induce_substrings(
-    std::uint64_t text_alphabet_size,
-    std::uint64_t text_length,
-    std::uint64_t initial_text_length,
-    std::uint64_t max_block_size,
-    std::string text_filename,
-    std::vector<std::string> &output_plus_symbols_filenames,
-    std::vector<std::string> &output_plus_type_filenames,
-    std::vector<std::string> &output_minus_pos_filenames,
-    std::vector<std::string> &output_minus_type_filenames,
-    std::vector<std::string> &output_minus_symbols_filenames,
-    std::vector<std::uint64_t> &plus_block_count_targets,
     std::vector<std::uint64_t> &minus_block_count_targets,
     std::uint64_t &total_io_volume,
     bool is_small_alphabet) {
   if (is_small_alphabet) {
-    im_induce_substrings_small_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+    im_induce_suffixes_small_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length, initial_text_length,
+        max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
+        output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   } else {
-    im_induce_substrings_large_alphabet<char_type, block_offset_type>(text_alphabet_size, text_length, initial_text_length,
-        max_block_size, text_filename, output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames,
-        output_minus_type_filenames, output_minus_symbols_filenames, plus_block_count_targets, minus_block_count_targets, total_io_volume);
+    im_induce_suffixes_large_alphabet<char_type, text_offset_type>(text_alphabet_size, text_length, initial_text_length,
+        max_block_size, next_block_leftmost_minus_star_plus_rank, text_filename, minus_pos_filenames, output_plus_pos_filenames,
+        output_plus_symbols_filenames, output_plus_type_filenames, output_minus_pos_filenames, output_minus_type_filenames,
+        output_minus_symbols_filenames, minus_block_count_targets, total_io_volume);
   }
 }
 
-}  // namespace rhsais_private
+}  // namespace fsais_private
 
-#endif  // __RHSAIS_SRC_IM_INDUCE_SUBSTRINGS_HPP_INCLUDED
+#endif  // __FSAIS_SRC_IM_INDUCE_SUFFIXES_HPP_INCLUDED
