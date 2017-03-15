@@ -183,8 +183,12 @@ std::uint64_t em_induce_plus_star_substrings_large_alphabet(
       }
     }
 
+    // Stop I/O thread.
+    reader->stop_reading();
+
     // Update I/O volume.
-    io_volume += reader->bytes_read();
+    io_volume +=
+      reader->bytes_read();
 
     // Clean up.
     delete reader;
@@ -306,21 +310,31 @@ std::uint64_t em_induce_plus_star_substrings_large_alphabet(
     prev_tail_name = tail_name;
   }
 
+  // Handle special case.
   if (empty_output == false) {
     output_count_writer->write(cur_bucket_size);
     for (std::uint64_t ch = (std::uint64_t)prev_written_head_char; ch > 0; --ch)
       output_count_writer->write(0);
   }
 
+  // Stop I/O thread.
+  symbols_reader->stop_reading();
+  plus_type_reader->stop_reading();
+  output_diff_writer->stop_writing();
+
   // Update I/O volume.
-  io_volume += radix_heap->io_volume() +
-    plus_type_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_diff_writer->bytes_written() +
+  io_volume +=
+    radix_heap->io_volume() +
+    plus_type_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() +
+    output_diff_writer->bytes_written() +
     output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Compute return value.
-  std::uint64_t n_parts = output_pos_writer->get_parts_count();
+  std::uint64_t n_parts =
+    output_pos_writer->get_parts_count();
 
   // Clean up.
   delete output_count_writer;
@@ -330,10 +344,14 @@ std::uint64_t em_induce_plus_star_substrings_large_alphabet(
   delete plus_type_reader;
   delete radix_heap;
 
+  // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
+  // Return result.
   return n_parts;
 }
 
@@ -507,8 +525,12 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
       }
     }
 
+    // Stop I/O thread.
+    reader->stop_reading();
+
     // Update I/O volume.
-    io_volume += reader->bytes_read();
+    io_volume +=
+      reader->bytes_read();
 
     // Clean up.
     delete reader;
@@ -584,6 +606,7 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
 
     if (is_head_plus) {
       head_char = (std::uint64_t)head_char - 1;
+
       // Note the +1 below. This is because we want the item in bucket c from the input to be processed.
       // after the items that were inserted in the line below. One way to do this is to insert items from
       // the input with a key decreased by one. Since we might not be able to always decrease, instead
@@ -645,10 +668,18 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
       output_count_writer->write(0);
   }
 
+  // Stop I/O thread.
+  symbols_reader->stop_reading();
+  plus_type_reader->stop_reading();
+  output_diff_writer->stop_writing();
+
   // Update I/O volume.
-  io_volume += radix_heap->io_volume() +
-    plus_type_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_diff_writer->bytes_written() +
+  io_volume +=
+    radix_heap->io_volume() +
+    plus_type_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() +
+    output_diff_writer->bytes_written() +
     output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
@@ -665,8 +696,10 @@ std::uint64_t em_induce_plus_star_substrings_small_alphabet(
   delete radix_heap;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
   return n_parts;
 }
@@ -721,6 +754,7 @@ std::uint64_t em_induce_plus_star_substrings(
     std::vector<std::string> &symbols_filenames,
     std::uint64_t &total_io_volume) {
   ram_use = std::max(3UL, ram_use);
+
 #ifdef SAIS_DEBUG
   if (utils::random_int64(0L, 1L))
     return em_induce_plus_star_substrings_small_alphabet<char_type, text_offset_type, block_id_type>(text_length,

@@ -294,6 +294,7 @@ im_induce_suffixes_large_alphabet(
 
     std::uint64_t items_count = utils::file_size(minus_pos_filename) / sizeof(text_offset_type);
     if (next_block_leftmost_minus_star_plus_rank == items_count) {
+
       // Separatelly handle position lastpos - 1 if it
       // was in next block and it was minus star.
       std::uint64_t ii = lastpos - 1;
@@ -302,7 +303,9 @@ im_induce_suffixes_large_alphabet(
     }
 
     std::uint64_t rank = 0;
+
 #if 0
+
     // Unbuffered version left for readability.
     while (!reader->empty()) {
       {
@@ -321,15 +324,18 @@ im_induce_suffixes_large_alphabet(
       }
     }
 #else
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1L << 15);
 #endif
+
     local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
     text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
     std::uint64_t items_left = items_count;
     while (items_left > 0) {
+
       // Compute buffer.
       std::uint64_t filled = std::min(local_bufsize, items_left);
       reader->read(local_buf_pos, filled);
@@ -354,6 +360,7 @@ im_induce_suffixes_large_alphabet(
 
         ++rank;
         if (items_count - next_block_leftmost_minus_star_plus_rank == rank) {
+
           // Separatelly handle position lastpos - 1 if it
           // was in next block and it was minus star.
           std::uint64_t ii = lastpos - 1;
@@ -369,8 +376,12 @@ im_induce_suffixes_large_alphabet(
     delete[] local_buf_pos;
 #endif
 
+    // Stop I/O thread.
+    reader->stop_reading();
+
     // Update I/O volume.
-    io_volume += reader->bytes_read();
+    io_volume +=
+      reader->bytes_read();
 
     // Clean up.
     delete reader;
@@ -394,6 +405,7 @@ im_induce_suffixes_large_alphabet(
   std::uint64_t local_minus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
+
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -444,6 +456,9 @@ im_induce_suffixes_large_alphabet(
 
 
 
+  // Stop I/O thread.
+  output_plus_type_writer->stop_writing();
+
 
 
   // Update I/O volume.
@@ -491,6 +506,7 @@ im_induce_suffixes_large_alphabet(
 
   // Induce minus suffixes.
   if (is_lastpos_minus) {
+
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -530,6 +546,8 @@ im_induce_suffixes_large_alphabet(
   minus_block_count_target = local_minus_block_count_target;
 
 
+  // Stop I/O thread.
+  output_minus_type_writer->stop_writing();
 
 
 
@@ -649,8 +667,10 @@ void im_induce_suffixes_large_alphabet(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -864,6 +884,7 @@ im_induce_suffixes_small_alphabet(
     reader_type *reader = new reader_type(minus_pos_filename, (2UL << 20), 4UL);
     std::uint64_t rank = 0;
 #if 0
+
     // Unubuffered version left for readability.
     while (!reader->empty()) {
       if (next_block_leftmost_minus_star_plus_rank == rank) {
@@ -889,15 +910,18 @@ im_induce_suffixes_small_alphabet(
       }
     }
 #else
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1L << 15);
 #endif
+
     local_buf_item_3 *local_buf = new local_buf_item_3[local_bufsize];
     text_offset_type *local_buf_pos = new text_offset_type[local_bufsize];
     std::uint64_t items_left = utils::file_size(minus_pos_filename) / sizeof(text_offset_type);
     while (items_left > 0) {
+
       // Compute buffer.
       std::uint64_t filled = std::min(local_bufsize, items_left);
       reader->read(local_buf_pos, filled);
@@ -914,6 +938,7 @@ im_induce_suffixes_small_alphabet(
       // Process buffer.
       for (std::uint64_t t = 0; t < filled; ++t) {
         if (next_block_leftmost_minus_star_plus_rank == rank) {
+
           // Separatelly handle position lastpos - 1 if it
           // was in next block and it was minus star.
           std::uint64_t ii = lastpos - 1;
@@ -942,6 +967,7 @@ im_induce_suffixes_small_alphabet(
 #endif
 
     if (next_block_leftmost_minus_star_plus_rank == rank) {
+
       // Separatelly handle position lastpos - 1 if it
       // was in next block and it was minus star.
       std::uint64_t ii = lastpos - 1;
@@ -951,8 +977,12 @@ im_induce_suffixes_small_alphabet(
       bucket_ptr[head_char] = ptr;
     }
 
+    // Stop I/O thread.
+    reader->stop_reading();
+
     // Update I/O volume.
-    io_volume += reader->bytes_read();
+    io_volume +=
+      reader->bytes_read();
 
     // Clean up.
     delete reader;
@@ -989,6 +1019,7 @@ im_induce_suffixes_small_alphabet(
   std::uint64_t local_minus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
+
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -999,6 +1030,7 @@ im_induce_suffixes_small_alphabet(
     } else buckets[--ptr] = i;
     bucket_ptr[head_char] = ptr;
   }
+
 #if 0
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
     std::uint64_t i = iplus - 1;
@@ -1063,14 +1095,17 @@ im_induce_suffixes_small_alphabet(
   }
 #else
   {
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
+
     local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
     while (iplus > 0) {
+
       // Skip empty positions.
       while (iplus > 0 && (std::uint64_t)buckets[iplus - 1] == 0) --iplus;
 
@@ -1149,10 +1184,14 @@ im_induce_suffixes_small_alphabet(
     delete[] local_buf;
   }
 #endif
+
   if (!seen_block_beg)
     local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
+
+  // Stop I/O thread.
+  output_plus_type_writer->stop_writing();
 
 
 
@@ -1208,6 +1247,7 @@ im_induce_suffixes_small_alphabet(
 
   // Induce minus suffixes.
   if (is_lastpos_minus) {
+
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -1218,6 +1258,7 @@ im_induce_suffixes_small_alphabet(
     } else buckets[ptr++] = i;
     bucket_ptr[head_char] = ptr;
   }
+
 #if 0
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
     if ((std::uint64_t)buckets[i] == 0) continue;
@@ -1256,14 +1297,17 @@ im_induce_suffixes_small_alphabet(
   }
 #else
   {
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
+
     local_buf_item_2 *local_buf = new local_buf_item_2[local_bufsize];
     std::uint64_t i = 0;
     while (i < total_bucket_size) {
+
       // Skip empty positions.
       while (i < total_bucket_size && (std::uint64_t)buckets[i] == 0) ++i;
 
@@ -1331,6 +1375,9 @@ im_induce_suffixes_small_alphabet(
   minus_block_count_target = local_minus_block_count_target;
 
 
+
+  // Stop I/O thread.
+  output_minus_type_writer->stop_writing();
 
 
 

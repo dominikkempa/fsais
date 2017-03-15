@@ -153,6 +153,7 @@ std::uint64_t em_induce_plus_suffixes(
   typedef async_backward_stream_reader<text_offset_type> minus_count_reader_type;
   typedef async_backward_stream_reader_multipart<std::uint16_t> minus_pos_reader_type;
   minus_count_reader_type *minus_count_reader = new minus_count_reader_type(minus_count_filename, 4UL * computed_buf_size, 4UL);
+
 #ifdef SAIS_DEBUG
   minus_pos_reader_type *minus_pos_reader = NULL;
   {
@@ -187,6 +188,7 @@ std::uint64_t em_induce_plus_suffixes(
   std::uint64_t max_part_size = std::max((1UL << 20), (text_length * sizeof(text_offset_type)) / 40UL);
   fprintf(stderr, "      Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
 #endif
+
   typedef async_stream_writer_multipart<text_offset_type> output_pos_writer_type;
   typedef async_bit_stream_writer output_type_writer_type;
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
@@ -208,6 +210,7 @@ std::uint64_t em_induce_plus_suffixes(
 
   // Induce plus suffixes.
   while (!radix_heap->empty() || !minus_count_reader->empty()) {
+
     // Process plus suffixes.
     while (!radix_heap->empty() && radix_heap->min_compare(max_char - head_char)) {
       std::pair<char_type, block_id_type> p = radix_heap->extract_min();
@@ -262,12 +265,24 @@ std::uint64_t em_induce_plus_suffixes(
       output_count_writer->write(0);
   }
 
+  // Stop I/O thread.
+  plus_pos_reader->stop_reading();
+  symbols_reader->stop_reading();
+  minus_pos_reader->stop_reading();
+  minus_count_reader->stop_reading();
+  output_type_writer->stop_writing();
+
   // Update I/O volume.
-  std::uint64_t io_volume = radix_heap->io_volume() +
-    minus_pos_reader->bytes_read() + minus_count_reader->bytes_read() +
-    plus_type_reader->bytes_read() + plus_pos_reader->bytes_read() +
-    symbols_reader->bytes_read() + output_pos_writer->bytes_written() +
-    output_type_writer->bytes_written() + output_count_writer->bytes_written();
+  std::uint64_t io_volume =
+    radix_heap->io_volume() +
+    minus_pos_reader->bytes_read() +
+    minus_count_reader->bytes_read() +
+    plus_type_reader->bytes_read() +
+    plus_pos_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() +
+    output_type_writer->bytes_written() +
+    output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Compute return value.
@@ -286,8 +301,10 @@ std::uint64_t em_induce_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
   // Return the number of parts.
   return n_parts;

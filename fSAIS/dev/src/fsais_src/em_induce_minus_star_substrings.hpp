@@ -213,6 +213,7 @@ em_induce_minus_star_substrings_large_alphabet(
   std::vector<std::uint64_t> block_count(n_blocks, 0UL);
 
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
+
     // Process minus substrings.
     if (cur_symbol == (std::uint64_t)last_text_symbol) {
       std::uint64_t head_char = cur_symbol;
@@ -349,6 +350,7 @@ em_induce_minus_star_substrings_large_alphabet(
     if (!plus_count_reader->empty())
       plus_substr_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_substr_count; ++i) {
+
       // Compute pos_block_id and prev_pos_block_id.
       std::uint64_t pos_block_id = plus_pos_reader->read();
       ++block_count[pos_block_id];
@@ -370,12 +372,25 @@ em_induce_minus_star_substrings_large_alphabet(
   if (cur_bucket_size > 0)
     output_count_writer->write(cur_bucket_size);
 
+  // Stop I/O thread.
+  minus_pos_reader->stop_reading();
+  symbols_reader->stop_reading();
+  minus_type_reader->stop_reading();
+  plus_pos_reader->stop_reading();
+  plus_count_reader->stop_reading();
+  plus_diff_reader->stop_reading();
+
   // Update I/O volume.
-  io_volume += radix_heap->io_volume() +
-    plus_pos_reader->bytes_read() +  plus_count_reader->bytes_read() +
-    plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
-    minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
+  io_volume +=
+    radix_heap->io_volume() +
+    plus_pos_reader->bytes_read() +
+    plus_count_reader->bytes_read() +
+    plus_diff_reader->bytes_read() +
+    minus_type_reader->bytes_read() +
+    minus_pos_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() +
+    output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -390,8 +405,10 @@ em_induce_minus_star_substrings_large_alphabet(
   delete radix_heap;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
   return diff_items_written;
 }
@@ -583,7 +600,8 @@ em_induce_minus_star_substrings_small_alphabet(
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id)
     output_pos_writer->add_file(output_pos_filenames[permute_block_id]);
   typedef async_stream_writer<text_offset_type> output_count_writer_type;
-  output_count_writer_type *output_count_writer = new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
+  output_count_writer_type *output_count_writer =
+    new output_count_writer_type(output_count_filename, 4UL * computed_buf_size, 4UL);
 
   // Induce minus substrings.
   bool empty_output = true;
@@ -600,6 +618,7 @@ em_induce_minus_star_substrings_small_alphabet(
   text_offset_type *symbol_timestamps = utils::allocate_array<text_offset_type>(text_alphabet_size);
   std::fill(symbol_timestamps, symbol_timestamps + text_alphabet_size, (text_offset_type)0);
   while (cur_symbol <= (std::uint64_t)last_text_symbol || !plus_count_reader->empty() || !radix_heap->empty()) {
+
     // Extract all minus substrings starting
     // with cur_symbol from the heap.
     {
@@ -731,6 +750,7 @@ em_induce_minus_star_substrings_small_alphabet(
     if (!plus_count_reader->empty())
       plus_substr_count = plus_count_reader->read();
     for (std::uint64_t i = 0; i < plus_substr_count; ++i) {
+
       // Compute pos_block_id and prev_pos_block_id.
       std::uint64_t pos_block_id = plus_pos_reader->read();
       ++block_count[pos_block_id];
@@ -760,12 +780,25 @@ em_induce_minus_star_substrings_small_alphabet(
   if (cur_bucket_size > 0)
     output_count_writer->write(cur_bucket_size);
 
+  // Stop I/O thread.
+  minus_pos_reader->stop_reading();
+  symbols_reader->stop_reading();
+  minus_type_reader->stop_reading();
+  plus_pos_reader->stop_reading();
+  plus_count_reader->stop_reading();
+  plus_diff_reader->stop_reading();
+
   // Update I/O volume.
-  io_volume += radix_heap->io_volume() +
-    plus_pos_reader->bytes_read() + plus_count_reader->bytes_read() +
-    plus_diff_reader->bytes_read() + minus_type_reader->bytes_read() +
-    minus_pos_reader->bytes_read() + symbols_reader->bytes_read() +
-    output_pos_writer->bytes_written() + output_count_writer->bytes_written();
+  io_volume +=
+    radix_heap->io_volume() +
+    plus_pos_reader->bytes_read() +
+    plus_count_reader->bytes_read() +
+    plus_diff_reader->bytes_read() +
+    minus_type_reader->bytes_read() +
+    minus_pos_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    output_pos_writer->bytes_written() +
+    output_count_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -781,8 +814,10 @@ em_induce_minus_star_substrings_small_alphabet(
   delete radix_heap;
 
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
   return diff_items_written;
 }
@@ -957,6 +992,7 @@ em_induce_minus_star_substrings(
   // Read last symbol of text.
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  total_io_volume += sizeof(char_type);
 
   // Induce minus star substrings.
   std::uint64_t n_names = em_induce_minus_star_substrings<
@@ -1071,6 +1107,7 @@ em_induce_minus_star_substrings(
     std::vector<std::string> &output_pos_filenames,
     std::uint64_t &total_io_volume) {
   ram_use = std::max(3UL, ram_use);
+
 #ifdef SAIS_DEBUG
   std::uint64_t max_block_size = 0;
   std::uint64_t n_blocks = 0;
@@ -1085,6 +1122,7 @@ em_induce_minus_star_substrings(
       tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, is_small_alphabet);
 #else
   if (text_alphabet_size * sizeof(text_offset_type) <= ram_use / 3) {
+
     // Binary search for the largest block size that
     // can be processed using the given ram_budget.
     std::uint64_t low = 1, high = text_length + 1;
@@ -1108,6 +1146,7 @@ em_induce_minus_star_substrings(
         text_alphabet_size, max_block_size, ram_use, max_permute_block_size, text_filename,
         tempfile_basename, output_count_filename, output_pos_filenames, total_io_volume, true);
   } else {
+
     // Binary search for the largest block size that
     // can be processed using the given ram_budget.
     std::uint64_t low = 1, high = text_length + 1;

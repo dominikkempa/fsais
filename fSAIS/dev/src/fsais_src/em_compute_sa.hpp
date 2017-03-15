@@ -106,8 +106,12 @@ std::uint64_t create_recursive_text(
         used_bv[pos >> 6] |= (1UL << (pos & 63));
       }
 
+      // Stop the I/O thread.
+      reader->stop_reading();
+
       // Update I/O volume.
-      io_volume += reader->bytes_read();
+      io_volume +=
+        reader->bytes_read();
 
       // Clean up.
       delete reader;
@@ -146,8 +150,10 @@ std::uint64_t create_recursive_text(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
-      (1.l * io_volume / (1l << 20)) / total_time, (1.L *total_io_volume) / initial_text_length);
+  fprintf(stderr, "time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n",
+      total_time, (1.l * io_volume / (1l << 20)) / total_time,
+      (1.L *total_io_volume) / initial_text_length);
 
   // Return result.
   return new_text_length;
@@ -190,6 +196,7 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
 #else
   static const std::uint64_t bufsize = (1UL << 15);
 #endif
+
   std::uint64_t *inbuf = utils::allocate_array<std::uint64_t>(bufsize);
   std::fill(inbuf, inbuf + bufsize, 0UL);
   text_offset_type *outbuf = utils::allocate_array<text_offset_type>(bufsize);
@@ -197,6 +204,7 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
 
 
   for (std::uint64_t permute_block_id = 0; permute_block_id < n_permute_blocks; ++permute_block_id) {
+
     // Read text sorted minus star suffixes for normal string from file.
     std::uint64_t n_suffixes = utils::file_size(text_sorted_minus_star_suffixes_for_normal_string_filenames[permute_block_id]) / sizeof(text_offset_type);
     utils::read_from_file(text_sorted_suffixes_for_normal_string, n_suffixes,
@@ -227,9 +235,13 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
       items_left -= filled;
     }
 
+    // Stop the I/O thread.
+    lex_sorted_suffixes_for_recursive_string_reader->stop_reading();
+
     // Update I/O volume.
-    io_volume += lex_sorted_suffixes_for_recursive_string_reader->bytes_read()
-      + lex_sorted_minus_star_suffixes_for_normal_string_writer->bytes_written();
+    io_volume +=
+      lex_sorted_suffixes_for_recursive_string_reader->bytes_read() +
+      lex_sorted_minus_star_suffixes_for_normal_string_writer->bytes_written();
 
     // Clean up.
     delete lex_sorted_suffixes_for_recursive_string_reader;
@@ -279,6 +291,7 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
   std::uint64_t max_part_size = std::max((1UL << 20), text_length / 10UL);
   fprintf(stderr, "    Max part size = %lu (%.1LfMiB)\n", max_part_size, (1.L * max_part_size) / (1UL << 20));
 #endif
+
   typedef async_stream_writer_multipart<std::uint16_t> lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type;
   lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type *lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer
     = new lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer_type(
@@ -303,8 +316,14 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
     }
   }
 
+  // Stop I/O thread.
+  lex_sorted_suffixes_for_recursive_string_block_ids_reader->stop_reading();
+  lex_sorted_minus_star_suffixes_for_normal_string_reader->stop_reading();
+
+
   // Update I/O volume.
-  io_volume += lex_sorted_suffixes_for_recursive_string_block_ids_reader->bytes_read() +
+  io_volume +=
+    lex_sorted_suffixes_for_recursive_string_block_ids_reader->bytes_read() +
     lex_sorted_minus_star_suffixes_for_normal_string_reader->bytes_read() +
     lex_sorted_minus_star_suffixes_for_normal_string_writer->bytes_written() +
     lex_sorted_minus_star_suffixes_for_normal_string_block_ids_writer->bytes_written();
@@ -324,8 +343,10 @@ std::uint64_t permute_minus_star_suffixes_for_normal_string_from_text_to_lex_ord
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "    Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.l * io_volume / (1l << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "    Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.l * io_volume / (1l << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 
   // Return the number of parts.
   return n_parts;
@@ -349,6 +370,7 @@ void temp_compute_sa(
   // Naive implementation.
   char_type *text = new char_type[text_length];
   utils::read_from_file(text, text_length, text_filename);
+  io_volume += text_length * sizeof(char_type);
   text_offset_type *sa = new text_offset_type[text_length];
   naive_compute_sa::naive_compute_sa<char_type, text_offset_type>(text, text_length, sa);
 
@@ -372,7 +394,8 @@ void temp_compute_sa(
   }
 
   // Update I/O volume.
-  io_volume += pos_writer->bytes_written() +
+  io_volume +=
+    pos_writer->bytes_written() +
     block_id_writer->bytes_written();
   total_io_volume += io_volume;
 
@@ -398,6 +421,7 @@ void compute_sa(
     std::vector<std::string> &input_lex_sorted_suffixes_filenames,
     std::uint64_t &total_io_volume,
     std::uint64_t recursion_level = 1) {
+
 #ifdef SAIS_DEBUG
   std::uint64_t max_permute_block_size = 0;
   std::uint64_t n_permute_blocks = 0;
@@ -884,12 +908,32 @@ void em_compute_sa(
   // Print summary.
   long double total_time = utils::wclock() - start;
   fprintf(stderr, "\n\nComputation finished. Summary:\n");
-  fprintf(stderr, "  Total time = %.2Lfs\n", total_time);
-  fprintf(stderr, "  Relative runtime = %.2Lfs/MiB\n", (1.L * total_time) / (text_length / (1L << 20)));
-  fprintf(stderr, "  I/O volume = %.1Lf bytes/symbol\n", (1.L * total_io_volume) / text_length);
-  fprintf(stderr, "  RAM allocation: cur = %.2LfMiB, peak = %.2LfMiB\n",
-      (1.L * utils::get_current_ram_allocation()) / (1UL << 20),
+  fprintf(stderr, "  Absolute time = %.2Lfs\n", total_time);
+  fprintf(stderr, "  Relative time = %.2Lfus/symbol\n",
+      (1000000.L * total_time) / text_length);
+  fprintf(stderr, "  I/O volume = %lu bytes (%.2Lf bytes/symbol)\n",
+      total_io_volume, (1.L * total_io_volume) / text_length);
+
+#ifdef MONITOR_DISK_USAGE
+  fprintf(stderr, "  Internal I/O volume counter = %lu\n",
+      utils::get_current_io_volume());
+#ifdef SAIS_DEBUG
+  if (total_io_volume != utils::get_current_io_volume()) {
+    fprintf(stderr, "\nError: computed I/O volume = %lu, correct I/O volume = %lu\n",
+        total_io_volume, utils::get_current_io_volume());
+  }
+#endif
+#endif
+
+  fprintf(stderr, "  RAM allocation: cur = %lu bytes, peak = %.2LfMiB\n",
+      utils::get_current_ram_allocation(),
       (1.L * utils::get_peak_ram_allocation()) / (1UL << 20));
+
+#ifdef MONITOR_DISK_USAGE
+  fprintf(stderr, "  Disk allocation: cur = %.2LfGiB, peak = %.2LfGiB\n",
+      (1.L * utils::get_current_disk_allocation()) / (1UL << 30),
+      (1.L * utils::get_peak_disk_allocation()) / (1UL << 30));
+#endif
 }
 
 }  // namespace fsais_private

@@ -71,7 +71,7 @@ class async_backward_stream_reader_multipart {
         return (filepos == m_filled * sizeof(T));
       }
 
-      std::uint64_t size_in_bytes() const {
+      inline std::uint64_t size_in_bytes() const {
         return sizeof(T) * m_filled;
       }
 
@@ -126,8 +126,13 @@ class async_backward_stream_reader_multipart {
           --m_filled;
         }
 
-        inline bool empty() const { return (m_filled == 0); }
-        inline std::uint64_t size() const { return m_filled; }
+        inline bool empty() const {
+          return (m_filled == 0);
+        }
+
+        inline std::uint64_t size() const {
+          return m_filled;
+        }
 
         ~circular_queue() {
           delete[] m_data;
@@ -138,15 +143,19 @@ class async_backward_stream_reader_multipart {
           T *new_data = new T[2 * m_size];
           std::uint64_t left = m_filled;
           m_filled = 0;
+
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
+
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
             left -= tocopy;
             m_filled += tocopy;
           }
+
           m_head = m_filled;
           m_tail = 0;
           m_size <<= 1;
@@ -159,8 +168,10 @@ class async_backward_stream_reader_multipart {
     struct buffer_queue {
       typedef buffer<T> buffer_type;
 
-      buffer_queue(std::uint64_t n_buffers,
-          std::uint64_t items_per_buf, T *mem) {
+      buffer_queue(
+          std::uint64_t n_buffers,
+          std::uint64_t items_per_buf,
+          T *mem) {
         m_signal_stop = false;
         for (std::uint64_t i = 0; i < n_buffers; ++i) {
           m_queue.push(new buffer_type(items_per_buf, mem));
@@ -192,7 +203,9 @@ class async_backward_stream_reader_multipart {
         m_signal_stop = true;
       }
 
-      inline bool empty() const { return m_queue.empty(); }
+      inline bool empty() const {
+        return m_queue.empty();
+      }
 
       circular_queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
@@ -209,9 +222,11 @@ class async_backward_stream_reader_multipart {
 
   private:
     template<typename T>
-    static void io_thread_code(async_backward_stream_reader_multipart<T> *caller) {
+    static void io_thread_code(
+        async_backward_stream_reader_multipart<T> *caller) {
       typedef buffer<T> buffer_type;
       while (true) {
+
         // Wait for an empty buffer (or a stop signal).
         std::unique_lock<std::mutex> lk(caller->m_empty_buffers->m_mutex);
         while (caller->m_empty_buffers->empty() &&
@@ -219,6 +234,7 @@ class async_backward_stream_reader_multipart {
           caller->m_empty_buffers->m_cv.wait(lk);
 
         if (caller->m_empty_buffers->empty()) {
+
           // We received the stop signal -- exit.
           lk.unlock();
           break;
@@ -236,6 +252,7 @@ class async_backward_stream_reader_multipart {
 
         bool no_more_data = buffer->read_from_file(caller->m_file);
         if (buffer->empty()) {
+
           // Here we assume that any multipart writer produces
           // zero files, if no write operation was called.
           fprintf(stderr, "\nError: empty buffer in async_backward_stream_reader_multipart!\n");
@@ -247,6 +264,7 @@ class async_backward_stream_reader_multipart {
         caller->m_full_buffers->m_cv.notify_one();
 
         if (no_more_data) {
+
           // We reached the beginning of file.
           std::fclose(caller->m_file);
           caller->m_file = NULL;
@@ -264,7 +282,8 @@ class async_backward_stream_reader_multipart {
 
   public:
     void receive_new_buffer() {
-      // Push the current buffer back to the poll of empty buffer.
+
+      // Push the current buffer back to the poll of empty buffers.
       if (m_cur_buffer != NULL) {
         m_cur_buffer->set_empty();
         m_empty_buffers->push(m_cur_buffer);
@@ -325,9 +344,13 @@ class async_backward_stream_reader_multipart {
       m_file = NULL;
       m_filename = filename;
 
+      // Computer optimal buffer size.
+      std::uint64_t buf_size_bytes =
+        std::max((std::uint64_t)1, total_buf_size_bytes / n_buffers);
+      std::uint64_t items_per_buf =
+        utils::disk_block_size<value_type>(buf_size_bytes);
+
       // Allocate buffers.
-      std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
-      std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
       m_mem = utils::allocate_array<value_type>(n_buffers * items_per_buf);
       m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf, m_mem);
       m_full_buffers = new buffer_queue_type(0, 0, NULL);
@@ -340,28 +363,33 @@ class async_backward_stream_reader_multipart {
 
     // Return the next item in the stream.
     inline value_type read() {
-      m_bytes_read += sizeof(value_type);
+      m_bytes_read += sizeof(value_type);  // XXX why here?
       if (m_cur_buffer_left == 0)
         receive_new_buffer();
 
       return m_cur_buffer->m_content[--m_cur_buffer_left];
     }
 
+    // Return the performed I/O in bytes.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
 
-    // Destructor.
-    ~async_backward_stream_reader_multipart() {
+    // Stop the I/O thread, now the user can
+    // cafely call the bytes_read() method.
+    void stop_reading() {
       if (m_io_thread != NULL) {
-        // Let the I/O thread know that we're done.
         m_empty_buffers->send_stop_signal();
         m_empty_buffers->m_cv.notify_one();
-
-        // Wait for the thread to finish.
         m_io_thread->join();
         delete m_io_thread;
+        m_io_thread = NULL;
       }
+    }
+
+    // Destructor.
+    ~async_backward_stream_reader_multipart() {
+      stop_reading();
 
       // Clean up.
       delete m_empty_buffers;

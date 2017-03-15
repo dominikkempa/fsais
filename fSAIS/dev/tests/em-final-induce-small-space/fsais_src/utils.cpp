@@ -43,6 +43,7 @@
 #include <fcntl.h>
 #include <unistd.h>
 #include <string>
+#include <mutex>
 #include <fstream>
 #include <algorithm>
 
@@ -52,25 +53,58 @@
 namespace fsais_private {
 namespace utils {
 
+std::mutex io_mutex;
+std::mutex allocator_mutex;
 std::uint64_t current_ram_allocation;
+std::uint64_t current_io_volume;
+std::uint64_t current_disk_allocation;
 std::uint64_t peak_ram_allocation;
+std::uint64_t peak_disk_allocation;
 
 void *allocate(std::uint64_t bytes) {
+  std::lock_guard<std::mutex> lk(allocator_mutex);
   std::uint8_t *ptr = (std::uint8_t *)malloc(bytes + 8);
   std::uint64_t *ptr64 = (std::uint64_t *)ptr;
   *ptr64 = bytes;
   std::uint8_t *ret = ptr + 8;
   current_ram_allocation += bytes;
-  peak_ram_allocation = std::max(peak_ram_allocation, current_ram_allocation);
+  peak_ram_allocation =
+    std::max(peak_ram_allocation,
+        current_ram_allocation);
   return (void *)ret;
 }
 
+void *aligned_allocate(std::uint64_t bytes, std::uint64_t align) {
+  std::uint8_t *ptr = (std::uint8_t *)allocate(bytes + (align - 1) + 8);
+  std::uint8_t *ptr2 = ptr + 8;
+  std::uint64_t n_blocks = ((std::uint64_t)ptr2 + align - 1) / align;
+  ptr2 = (std::uint8_t *)(n_blocks * align);
+  std::uint64_t *ptr64 = (std::uint64_t *)(ptr2 - 8);
+  *ptr64 = (std::uint64_t)ptr;
+  return (void *)ptr2;
+}
+
 void deallocate(void *tab) {
+  std::lock_guard<std::mutex> lk(allocator_mutex);
   std::uint8_t *ptr = (std::uint8_t *)tab - 8;
   std::uint64_t *ptr64 = (std::uint64_t *)ptr;
   std::uint64_t bytes = *ptr64;
   current_ram_allocation -= bytes;
   free(ptr);
+}
+
+void aligned_deallocate(void *tab) {
+  std::uint8_t *ptr = (std::uint8_t *)tab;
+  std::uint64_t *ptr64 = (std::uint64_t *)(ptr - 8);
+  deallocate((void *)(*ptr64));
+}
+
+void initialize_stats() {
+  current_ram_allocation = 0;
+  current_disk_allocation = 0;
+  current_io_volume = 0;
+  peak_ram_allocation = 0;
+  peak_disk_allocation = 0;
 }
 
 std::uint64_t get_current_ram_allocation() {
@@ -79,6 +113,18 @@ std::uint64_t get_current_ram_allocation() {
 
 std::uint64_t get_peak_ram_allocation() {
   return peak_ram_allocation;
+}
+
+std::uint64_t get_current_io_volume() {
+  return current_io_volume;
+}
+
+std::uint64_t get_current_disk_allocation() {
+  return current_disk_allocation;
+}
+
+std::uint64_t get_peak_disk_allocation() {
+  return peak_disk_allocation;
 }
 
 long double wclock() {
@@ -135,6 +181,12 @@ bool file_exists(std::string filename) {
 }
 
 void file_delete(std::string filename) {
+
+#ifdef MONITOR_DISK_USAGE
+  std::lock_guard<std::mutex> lk(io_mutex);
+  current_disk_allocation -= file_size(filename);
+#endif
+
   int res = std::remove(filename.c_str());
   if (res != 0) {
     std::perror(filename.c_str());
@@ -186,12 +238,14 @@ std::int64_t random_int64(std::int64_t p, std::int64_t r) {
   return p + z % (r - p + 1);
 }
 
-void fill_random_string(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma) {
+void fill_random_string(std::uint8_t* &s,
+    std::uint64_t length, std::uint64_t sigma) {
   for (std::uint64_t i = 0; i < length; ++i)
     s[i] = random_int32(0, sigma - 1);
 }
 
-void fill_random_letters(std::uint8_t* &s, std::uint64_t length, std::uint64_t sigma) {
+void fill_random_letters(std::uint8_t* &s,
+    std::uint64_t length, std::uint64_t sigma) {
   fill_random_string(s, length, sigma);
   for (std::uint64_t i = 0; i < length; ++i)
     s[i] += 'a';

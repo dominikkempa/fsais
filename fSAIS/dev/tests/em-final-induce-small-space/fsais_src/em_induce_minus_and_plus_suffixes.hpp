@@ -156,6 +156,7 @@ void em_induce_minus_and_plus_suffixes(
   typedef async_backward_stream_reader_multipart<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
+
 #ifdef SAIS_DEBUG
   plus_pos_reader_type *plus_pos_reader = NULL;
   {
@@ -166,6 +167,7 @@ void em_induce_minus_and_plus_suffixes(
 #else
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, 4UL * computed_buf_size, 4UL);
 #endif
+
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 
@@ -193,6 +195,7 @@ void em_induce_minus_and_plus_suffixes(
   radix_heap->push(last_text_symbol, (text_length - 1) / max_block_size);
   std::uint64_t cur_symbol = 0;
   while (!plus_count_reader->empty() || !radix_heap->empty()) {
+
     // Process minus suffixes.
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
       std::pair<char_type, block_id_type> p = radix_heap->extract_min();
@@ -230,11 +233,23 @@ void em_induce_minus_and_plus_suffixes(
     ++cur_symbol;
   }
 
+  // Stop I/O thread.
+  minus_pos_reader->stop_reading();
+  symbols_reader->stop_reading();
+  minus_type_reader->stop_reading();
+  plus_pos_reader->stop_reading();
+  plus_type_reader->stop_reading();
+  plus_count_reader->stop_reading();
+
   // Update I/O volume.
-  std::uint64_t io_volume = radix_heap->io_volume() +
-    plus_pos_reader->bytes_read() + plus_type_reader->bytes_read() +
-    plus_count_reader->bytes_read() + minus_pos_reader->bytes_read() +
-    minus_type_reader->bytes_read() + symbols_reader->bytes_read() +
+  std::uint64_t io_volume =
+    radix_heap->io_volume() +
+    plus_pos_reader->bytes_read() +
+    plus_type_reader->bytes_read() +
+    plus_count_reader->bytes_read() +
+    minus_pos_reader->bytes_read() +
+    minus_type_reader->bytes_read() +
+    symbols_reader->bytes_read() +
     output_writer->bytes_written();
   total_io_volume += io_volume;
 
@@ -250,8 +265,10 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -279,6 +296,7 @@ void em_induce_minus_and_plus_suffixes(
 
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  total_io_volume += sizeof(char_type);
 
   std::vector<std::string> plus_type_filenames(n_blocks);
   std::vector<std::string> minus_type_filenames(n_blocks);
@@ -507,6 +525,7 @@ void em_induce_minus_and_plus_suffixes(
   typedef async_backward_stream_reader_multipart<text_offset_type> plus_pos_reader_type;
   typedef async_backward_bit_stream_reader plus_type_reader_type;
   typedef async_backward_stream_reader<text_offset_type> plus_count_reader_type;
+
 #ifdef SAIS_DEBUG
   plus_pos_reader_type *plus_pos_reader = NULL;
   {
@@ -517,6 +536,7 @@ void em_induce_minus_and_plus_suffixes(
 #else
   plus_pos_reader_type *plus_pos_reader = new plus_pos_reader_type(plus_pos_filename, plus_pos_n_parts, 4UL * computed_buf_size, 4UL);
 #endif
+
   plus_type_reader_type *plus_type_reader = new plus_type_reader_type(plus_type_filename, 4UL * computed_buf_size, 4UL);
   plus_count_reader_type *plus_count_reader = new plus_count_reader_type(plus_count_filename, 4UL * computed_buf_size, 4UL);
 
@@ -542,7 +562,8 @@ void em_induce_minus_and_plus_suffixes(
   for (std::uint64_t i = 0; i < block_count.size(); ++i)
     pos_writer->add_file(input_lex_sorted_suffixes_filenames[i]);
   typedef async_stream_writer<std::uint16_t> block_id_writer_type;
-  block_id_writer_type *block_id_writer = new block_id_writer_type(input_lex_sorted_suffixes_block_ids_filename, 4UL * computed_buf_size, 4UL);
+  block_id_writer_type *block_id_writer =
+    new block_id_writer_type(input_lex_sorted_suffixes_block_ids_filename, 4UL * computed_buf_size, 4UL);
 
   // Compute sum of prev blocks for block_count.
   std::vector<std::uint64_t> sum_of_prev_blocks(block_count.size());
@@ -578,6 +599,7 @@ void em_induce_minus_and_plus_suffixes(
   radix_heap->push(last_text_symbol, (text_length - 1) / max_block_size);
   std::uint64_t cur_symbol = 0;
   while (!plus_count_reader->empty() || !radix_heap->empty()) {
+
     // Process minus suffixes.
     while (!radix_heap->empty() && radix_heap->min_compare(cur_symbol)) {
       std::pair<char_type, block_id_type> p = radix_heap->extract_min();
@@ -588,7 +610,8 @@ void em_induce_minus_and_plus_suffixes(
 
       {
         std::uint64_t output_block_id = lookup_table[head_pos >> lookup_block_size_log];
-        while (output_block_id < block_count.size() && sum_of_prev_blocks[output_block_id] + block_count[output_block_id] <= head_pos)
+        while (output_block_id < block_count.size() &&
+            sum_of_prev_blocks[output_block_id] + block_count[output_block_id] <= head_pos)
           ++output_block_id;
         std::uint64_t block_offset = head_pos - sum_of_prev_blocks[output_block_id];
         block_id_writer->write(output_block_id);
@@ -632,12 +655,25 @@ void em_induce_minus_and_plus_suffixes(
     ++cur_symbol;
   }
 
+  // Stop I/O thread.
+  minus_pos_reader->stop_reading();
+  symbols_reader->stop_reading();
+  minus_type_reader->stop_reading();
+  plus_pos_reader->stop_reading();
+  plus_type_reader->stop_reading();
+  plus_count_reader->stop_reading();
+
   // Update I/O volume.
-  std::uint64_t io_volume = radix_heap->io_volume() +
-    plus_pos_reader->bytes_read() + plus_type_reader->bytes_read() +
-    plus_count_reader->bytes_read() + minus_pos_reader->bytes_read() +
-    minus_type_reader->bytes_read() + symbols_reader->bytes_read() +
-    block_id_writer->bytes_written() + pos_writer->bytes_written();
+  std::uint64_t io_volume =
+    radix_heap->io_volume() +
+    plus_pos_reader->bytes_read() +
+    plus_type_reader->bytes_read() +
+    plus_count_reader->bytes_read() +
+    minus_pos_reader->bytes_read() +
+    minus_type_reader->bytes_read() +
+    symbols_reader->bytes_read() +
+    block_id_writer->bytes_written() +
+    pos_writer->bytes_written();
   total_io_volume += io_volume;
 
   // Clean up.
@@ -653,10 +689,11 @@ void em_induce_minus_and_plus_suffixes(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 }
-
 
 template<typename char_type,
   typename text_offset_type,
@@ -686,6 +723,7 @@ void em_induce_minus_and_plus_suffixes(
 
   char_type last_text_symbol;
   utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  total_io_volume += sizeof(char_type);
 
   std::vector<std::string> plus_type_filenames(n_blocks);
   std::vector<std::string> minus_type_filenames(n_blocks);
@@ -752,7 +790,8 @@ void em_induce_minus_and_plus_suffixes(
 
   utils::file_delete(minus_count_filename);
   for (std::uint64_t i = 0; i < n_blocks; ++i)
-    if (utils::file_exists(plus_type_filenames[i])) utils::file_delete(plus_type_filenames[i]);
+    if (utils::file_exists(plus_type_filenames[i]))
+      utils::file_delete(plus_type_filenames[i]);
 
   em_induce_minus_and_plus_suffixes<
     char_type,
@@ -780,7 +819,8 @@ void em_induce_minus_and_plus_suffixes(
   utils::file_delete(plus_type_filename);
   utils::file_delete(plus_count_filename);
   for (std::uint64_t j = 0; j < n_blocks; ++j)
-    if (utils::file_exists(minus_type_filenames[j])) utils::file_delete(minus_type_filenames[j]);
+    if (utils::file_exists(minus_type_filenames[j]))
+      utils::file_delete(minus_type_filenames[j]);
 }
 
 template<typename char_type,

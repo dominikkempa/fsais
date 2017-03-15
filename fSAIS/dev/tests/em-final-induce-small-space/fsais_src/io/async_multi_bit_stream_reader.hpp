@@ -83,6 +83,10 @@ class async_multi_bit_stream_reader {
       return (m_buffers[i].m_data & (1UL << (m_buffers[i].m_pos++))) > 0;
     }
 
+    void stop_reading() {
+      m_internal_reader->stop_reading();
+    }
+
     inline std::uint64_t bytes_read() const {
       return m_internal_reader->bytes_read();
     }

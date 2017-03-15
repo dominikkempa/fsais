@@ -369,8 +369,12 @@ im_induce_substrings_large_alphabet(
   delete vec2;  // XXX vec2 -- declare as array, and include into the normal flow of things.
 
 
+  // Stop I/O thread.
+  output_plus_type_writer->stop_writing();
+
   // Update I/O volume.
-  io_volume += output_plus_symbols_writer->bytes_written() + 
+  io_volume +=
+    output_plus_symbols_writer->bytes_written() +
     output_plus_type_writer->bytes_written();
 
 
@@ -388,9 +392,12 @@ im_induce_substrings_large_alphabet(
   typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+  output_minus_pos_writer_type *output_minus_pos_writer =
+    new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
+  output_minus_type_writer_type *output_minus_type_writer =
+    new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer =
+    new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -451,9 +458,13 @@ im_induce_substrings_large_alphabet(
 
 
 
+  // Stop I/O thread.
+  output_minus_type_writer->stop_writing();
+
 
   // Update I/O volume.
-  io_volume += output_minus_pos_writer->bytes_written() +
+  io_volume +=
+    output_minus_pos_writer->bytes_written() +
     output_minus_type_writer->bytes_written() +
     output_minus_symbols_writer->bytes_written() +
     text_accessor->bytes_read();
@@ -461,9 +472,10 @@ im_induce_substrings_large_alphabet(
 
 
 
-
   // Update total I/O volume.
   total_io_volume += io_volume;
+
+
 
 
 
@@ -567,8 +579,10 @@ void im_induce_substrings_large_alphabet(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,
@@ -703,8 +717,10 @@ im_induce_substrings_small_alphabet(
 
   typedef async_stream_writer_multipart<char_type> output_plus_symbols_writer_type;
   typedef async_bit_stream_writer output_plus_type_writer_type;
-  output_plus_symbols_writer_type *output_plus_symbols_writer = new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
-  output_plus_type_writer_type *output_plus_type_writer = new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
+  output_plus_symbols_writer_type *output_plus_symbols_writer =
+    new output_plus_symbols_writer_type(output_plus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+  output_plus_type_writer_type *output_plus_type_writer =
+    new output_plus_type_writer_type(output_plus_type_filename, (2UL << 20), 4UL);
 
 
 
@@ -724,10 +740,16 @@ im_induce_substrings_small_alphabet(
       type_bv[i >> 6] |= (1UL << (i & 63));
     }
     bool is_next_minus = is_last_minus;
-    std::uint64_t next_char = (next_block_size == 0) ? block[block_size - 1] : text_accessor->access(block_end + next_block_size - 1);
+    std::uint64_t next_char =
+      (next_block_size == 0) ?
+      block[block_size - 1] :
+      text_accessor->access(block_end + next_block_size - 1);
     for (std::uint64_t iplus = total_block_size - 1; iplus > 0; --iplus) {
       std::uint64_t i = iplus - 1;
-      std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
+      std::uint64_t head_char =
+        (i < block_size) ?
+        block[i] :
+        text_accessor->access(block_beg + i);
       bool is_minus = (head_char == next_char) ? is_next_minus : (head_char > next_char);
       if (is_minus)
         type_bv[i >> 6] |= (1UL << (i & 63));
@@ -838,9 +860,6 @@ im_induce_substrings_small_alphabet(
 
 
 
-
-
-
   // Move pointers at the end of each bucket.
   for (std::uint64_t ch = 0; ch < text_alphabet_size; ++ch) {
     std::uint64_t next_bucket_beg = (ch + 1 == text_alphabet_size) ? total_bucket_size : (std::uint64_t)bucket_ptr[ch + 1];
@@ -860,6 +879,7 @@ im_induce_substrings_small_alphabet(
   std::uint64_t local_plus_block_count_target = 0;
   bool seen_block_beg = false;
   if (!is_lastpos_minus) {
+
     // Add the last suffix if it was a plus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -870,6 +890,9 @@ im_induce_substrings_small_alphabet(
     } else buckets[--ptr] = i;
     bucket_ptr[head_char] = ptr;
   }
+
+
+
 #if 0
   // The non-buffered version is kept for readability.
   for (std::uint64_t iplus = total_bucket_size; iplus > 0; --iplus) {
@@ -930,20 +953,24 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
+
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t iplus = total_bucket_size;
     while (iplus > 0) {
+
       // Skip empty positions.
       while (iplus > 0 && (std::uint64_t)buckets[iplus - 1] == 0) --iplus;
 
       // Compute buffer.
       std::uint64_t local_buf_filled = 0;
-      while (local_buf_filled < local_bufsize && iplus > 0 && (std::uint64_t)buckets[iplus - 1] != 0) {
+      while (local_buf_filled < local_bufsize &&
+          iplus > 0 && (std::uint64_t)buckets[iplus - 1] != 0) {
         --iplus;
         std::uint64_t head_pos = buckets[iplus];
         if (iplus == zero_item_pos) head_pos = 0;
@@ -976,14 +1003,19 @@ im_induce_substrings_small_alphabet(
           ++local_plus_block_count_target;
         if (head_pos == 0) seen_block_beg = true;
         if (is_head_minus) {
+
           // Erase the item (minus substring) from bucket.
           buckets[i] = 0;
           if (i == zero_item_pos)
             zero_item_pos = total_bucket_size;
         } else if (head_pos < block_size) {
-          bool is_head_star = ((head_pos > 0 && is_prev_pos_minus) || (!head_pos && block_beg && (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
+          bool is_head_star =
+            ((head_pos > 0 && is_prev_pos_minus) ||
+             (!head_pos && block_beg &&
+              (std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]));
           output_plus_type_writer->write(is_head_star);
           if (!is_head_star) {
+
             // Erase the item (non-star plus substring) from the bucket.
             buckets[i] = 0;
             if (i == zero_item_pos)
@@ -1004,7 +1036,10 @@ im_induce_substrings_small_alphabet(
               output_plus_symbols_writer->write(prev_pos_head_char);
           }
         } else if (block_beg > 0) {
-          bool is_head_star = is_head_minus ? ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) : ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
+          bool is_head_star =
+            is_head_minus ?
+            ((std::uint64_t)block_prec_symbol < (std::uint64_t)block[0]) :
+            ((std::uint64_t)block_prec_symbol > (std::uint64_t)block[0]);
           if (is_head_minus == is_head_star)
             output_plus_symbols_writer->write(block_prec_symbol);
         }
@@ -1013,16 +1048,21 @@ im_induce_substrings_small_alphabet(
     delete[] local_buf;
   }
 #endif
+
   if (!seen_block_beg)
     local_plus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
+  // Stop I/O thread.
+  output_plus_type_writer->stop_writing();
 
 
 
   // Update I/O volume.
-  io_volume += output_plus_symbols_writer->bytes_written() + 
+  io_volume +=
+    output_plus_symbols_writer->bytes_written() +
     output_plus_type_writer->bytes_written();
+
 
 
 
@@ -1053,9 +1093,12 @@ im_induce_substrings_small_alphabet(
   typedef async_stream_writer_multipart<block_offset_type> output_minus_pos_writer_type;
   typedef async_bit_stream_writer output_minus_type_writer_type;
   typedef async_stream_writer_multipart<char_type> output_minus_symbols_writer_type;
-  output_minus_pos_writer_type *output_minus_pos_writer = new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
-  output_minus_type_writer_type *output_minus_type_writer = new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
-  output_minus_symbols_writer_type *output_minus_symbols_writer = new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
+  output_minus_pos_writer_type *output_minus_pos_writer =
+    new output_minus_pos_writer_type(output_minus_pos_filename, max_part_size, (2UL << 20), 4UL);
+  output_minus_type_writer_type *output_minus_type_writer =
+    new output_minus_type_writer_type(output_minus_type_filename, (2UL << 20), 4UL);
+  output_minus_symbols_writer_type *output_minus_symbols_writer =
+    new output_minus_symbols_writer_type(output_minus_symbols_filename, max_part_size, (2UL << 20), 4UL);
 
 
 
@@ -1070,6 +1113,7 @@ im_induce_substrings_small_alphabet(
   std::uint64_t local_minus_block_count_target = 0;
   seen_block_beg = false;
   if (is_lastpos_minus) {
+
     // Add the last suffix if it was a minus type.
     std::uint64_t i = lastpos - 1;
     std::uint64_t head_char = (i < block_size) ? block[i] : text_accessor->access(block_beg + i);
@@ -1080,6 +1124,7 @@ im_induce_substrings_small_alphabet(
     } else buckets[ptr++] = i;
     bucket_ptr[head_char] = ptr;
   }
+
 #if 0
   for (std::uint64_t i = 0; i < total_bucket_size; ++i) {
     if ((std::uint64_t)buckets[i] == 0) continue;
@@ -1125,14 +1170,17 @@ im_induce_substrings_small_alphabet(
   }
 #else
   {
+
 #ifdef SAIS_DEBUG
     std::uint64_t local_bufsize = utils::random_int64(1L, 10L);
 #else
     static const std::uint64_t local_bufsize = (1UL << 15);
 #endif
+
     local_buf_item *local_buf = new local_buf_item[local_bufsize];
     std::uint64_t i = 0;
     while (i < total_bucket_size) {
+
       // Skip empty positions.
       while (i < total_bucket_size && (std::uint64_t)buckets[i] == 0) ++i;
 
@@ -1199,10 +1247,13 @@ im_induce_substrings_small_alphabet(
     delete[] local_buf;
   }
 #endif
+
   if (!seen_block_beg)
     local_minus_block_count_target = std::numeric_limits<std::uint64_t>::max();
 
 
+  // Stop I/O thread.
+  output_minus_type_writer->stop_writing();
 
 
   // Update reference variables.
@@ -1214,7 +1265,8 @@ im_induce_substrings_small_alphabet(
 
 
   // Update I/O volume.
-  io_volume += output_minus_pos_writer->bytes_written() +
+  io_volume +=
+    output_minus_pos_writer->bytes_written() +
     output_minus_type_writer->bytes_written() +
     output_minus_symbols_writer->bytes_written() +
     text_accessor->bytes_read();
@@ -1331,8 +1383,10 @@ void im_induce_substrings_small_alphabet(
 
   // Print summary.
   long double total_time = utils::wclock() - start;
-  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, total I/O vol = %.1Lf bytes/symbol (of initial text)\n", total_time,
-      (1.L * io_volume / (1L << 20)) / total_time, (1.L * total_io_volume) / initial_text_length);
+  fprintf(stderr, "      Total time = %.2Lfs, I/O = %.2LfMiB/s, "
+      "total I/O vol = %.1Lf bytes/symbol (of initial text)\n",
+      total_time, (1.L * io_volume / (1L << 20)) / total_time,
+      (1.L * total_io_volume) / initial_text_length);
 }
 
 template<typename char_type,

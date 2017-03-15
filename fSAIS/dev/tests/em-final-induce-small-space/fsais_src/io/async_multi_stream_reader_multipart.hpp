@@ -60,11 +60,16 @@ class async_multi_stream_reader_multipart {
       }
 
       void read_from_file(std::FILE *f) {
-        m_filled = std::fread(m_content, sizeof(T), m_size, f);
+        utils::read_from_file(m_content, m_size, m_filled, f);
       }
 
-      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
-      inline bool empty() const { return m_filled == 0; }
+      inline std::uint64_t size_in_bytes() const {
+        return sizeof(T) * m_filled;
+      }
+
+      inline bool empty() const {
+        return (m_filled == 0);
+      }
 
       T* const m_content;
       const std::uint64_t m_size;
@@ -110,8 +115,13 @@ class async_multi_stream_reader_multipart {
           --m_filled;
         }
 
-        inline bool empty() const { return (m_filled == 0); }
-        inline std::uint64_t size() const { return m_filled; }
+        inline bool empty() const {
+          return (m_filled == 0);
+        }
+
+        inline std::uint64_t size() const {
+          return m_filled;
+        }
 
         ~circular_queue() {
           delete[] m_data;
@@ -122,15 +132,19 @@ class async_multi_stream_reader_multipart {
           T *new_data = new T[2 * m_size];
           std::uint64_t left = m_filled;
           m_filled = 0;
+
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
+
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
             left -= tocopy;
             m_filled += tocopy;
           }
+
           m_head = m_filled;
           m_tail = 0;
           m_size <<= 1;
@@ -167,7 +181,9 @@ class async_multi_stream_reader_multipart {
         m_requests.push(request);
       }
 
-      inline bool empty() const { return m_requests.empty(); }
+      inline bool empty() const {
+        return m_requests.empty();
+      }
 
       circular_queue<request_type> m_requests;  // Must have FIFO property
       std::condition_variable m_cv;
@@ -177,10 +193,12 @@ class async_multi_stream_reader_multipart {
 
   private:
     template<typename T>
-    static void async_io_thread_code(async_multi_stream_reader_multipart<T> *caller) {
+    static void async_io_thread_code(
+        async_multi_stream_reader_multipart<T> *caller) {
       typedef buffer<T> buffer_type;
       typedef request<buffer_type> request_type;
       while (true) {
+
         // Wait for request or until 'no more requests' flag is set.
         std::unique_lock<std::mutex> lk(caller->m_read_requests.m_mutex);
         while (caller->m_read_requests.empty() &&
@@ -189,6 +207,7 @@ class async_multi_stream_reader_multipart {
 
         if (caller->m_read_requests.empty() &&
             caller->m_read_requests.m_no_more_requests) {
+
           // No more requests -- exit.
           lk.unlock();
           break;
@@ -231,7 +250,8 @@ class async_multi_stream_reader_multipart {
 
         // Update the status of the buffer
         // and notify the waiting thread.
-        std::unique_lock<std::mutex> lk2(caller->m_mutexes[request.m_file_id]);
+        std::unique_lock<std::mutex> lk2(
+            caller->m_mutexes[request.m_file_id]);
         request.m_buffer->m_is_filled = true;
         lk2.unlock();
         caller->m_cvs[request.m_file_id].notify_one();
@@ -269,12 +289,13 @@ class async_multi_stream_reader_multipart {
     }
 
     void receive_new_buffer(std::uint64_t file_id) {
+
       // Wait for the I/O thread to finish reading passive buffer.
       std::unique_lock<std::mutex> lk(m_mutexes[file_id]);
       while (m_passive_buffers[file_id]->m_is_filled == false)
         m_cvs[file_id].wait(lk);
 
-      // Swap active and bassive buffers.
+      // Swap active and passive buffers.
       std::swap(m_active_buffers[file_id], m_passive_buffers[file_id]);
       m_active_buffer_pos[file_id] = 0;
       m_passive_buffers[file_id]->m_is_filled = false;
@@ -285,10 +306,14 @@ class async_multi_stream_reader_multipart {
     }
 
   public:
-    async_multi_stream_reader_multipart(std::uint64_t number_of_files,
+    async_multi_stream_reader_multipart(
+        std::uint64_t number_of_files,
         std::uint64_t buf_size_bytes = (std::uint64_t)(1 << 19)) {
+
+      // Sanity check.
       if (number_of_files == 0) {
-        fprintf(stderr, "\nError in async_multi_stream_reader_multipart: number_of_files == 0\n");
+        fprintf(stderr, "\nError in async_multi_stream_reader_multipart: "
+            "number_of_files == 0\n");
         std::exit(EXIT_FAILURE);
       }
 
@@ -296,8 +321,12 @@ class async_multi_stream_reader_multipart {
       n_files = number_of_files;
       m_files_added = 0;
       m_bytes_read = 0;
-      m_items_per_buf = std::max(1UL, buf_size_bytes / (2UL * sizeof(value_type)));
 
+      // Computer optimal buffer size.
+      buf_size_bytes = std::max((std::uint64_t)1, buf_size_bytes / 2);
+      m_items_per_buf = utils::disk_block_size<value_type>(buf_size_bytes);
+
+      // Allocate arrays storing info about each file.
       m_mutexes = new std::mutex[n_files];
       m_cvs = new std::condition_variable[n_files];
       m_active_buffer_pos = new std::uint64_t[n_files];
@@ -307,7 +336,9 @@ class async_multi_stream_reader_multipart {
       m_active_buffers = new buffer_type*[n_files];
       m_passive_buffers = new buffer_type*[n_files];
 
-      m_mem = utils::allocate_array<value_type>(2UL * n_files * m_items_per_buf);
+      // Allocate buffers.
+      std::uint64_t toallocate = 2 * n_files * m_items_per_buf;
+      m_mem = utils::allocate_array<value_type>(toallocate);
       {
         value_type *mem = m_mem;
         for (std::uint64_t i = 0; i < n_files; ++i) {
@@ -319,10 +350,11 @@ class async_multi_stream_reader_multipart {
         }
       }
 
+      // Start the I/O thread.
       m_io_thread = new std::thread(async_io_thread_code<value_type>, this);
     }
 
-    // The added file gets the next available ID (file IDs start from 0).
+    // The added file gets the next available ID (starting from 0).
     void add_file(std::string filename) {
       m_filenames[m_files_added] = filename;
       m_files[m_files_added] = NULL;
@@ -343,18 +375,23 @@ class async_multi_stream_reader_multipart {
       return m_bytes_read;
     }
 
+    // Stop the I/O thread, now the user can
+    // cafely call the bytes_read() method.
+    void stop_reading() {
+      if (m_io_thread != NULL) {
+        std::unique_lock<std::mutex> lk(m_read_requests.m_mutex);
+        m_read_requests.m_no_more_requests = true;
+        lk.unlock();
+        m_read_requests.m_cv.notify_one();
+        m_io_thread->join();
+        delete m_io_thread;
+        m_io_thread = NULL;
+      }
+    }
+
     // Destructor.
     ~async_multi_stream_reader_multipart() {
-      // Let the I/O thread know that there
-      // won't be any more requests.
-      std::unique_lock<std::mutex> lk(m_read_requests.m_mutex);
-      m_read_requests.m_no_more_requests = true;
-      lk.unlock();
-      m_read_requests.m_cv.notify_one();
-
-      // Wait for the I/O to finish.
-      m_io_thread->join();
-      delete m_io_thread;
+      stop_reading();
 
       // Delete buffers.
       for (std::uint64_t i = 0; i < n_files; ++i) {
@@ -363,6 +400,7 @@ class async_multi_stream_reader_multipart {
       }
 
       // Rest of the cleanup.
+      utils::deallocate(m_mem);
       delete[] m_active_buffers;
       delete[] m_passive_buffers;
       delete[] m_mutexes;
@@ -371,7 +409,6 @@ class async_multi_stream_reader_multipart {
       delete[] m_files;
       delete[] m_filenames;
       delete[] m_cur_part;
-      utils::deallocate(m_mem);
     }
 };
 

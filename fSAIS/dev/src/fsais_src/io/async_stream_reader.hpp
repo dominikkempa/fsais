@@ -59,11 +59,19 @@ class async_stream_reader {
       }
 
       void read_from_file(std::FILE *f) {
-        m_filled = std::fread(m_content, sizeof(T), m_size, f);
+        utils::read_from_file(m_content, m_size, m_filled, f);
       }
 
-      std::uint64_t size_in_bytes() const {
+      inline std::uint64_t size_in_bytes() const {
         return sizeof(T) * m_filled;
+      }
+
+      inline bool empty() const {
+        return (m_filled == 0);
+      }
+
+      inline bool full() const {
+        return (m_filled == m_size);
       }
 
       T* const m_content;
@@ -109,8 +117,13 @@ class async_stream_reader {
           --m_filled;
         }
 
-        inline bool empty() const { return (m_filled == 0); }
-        inline std::uint64_t size() const { return m_filled; }
+        inline bool empty() const {
+          return (m_filled == 0);
+        }
+
+        inline std::uint64_t size() const {
+          return m_filled;
+        }
 
         ~circular_queue() {
           delete[] m_data;
@@ -121,15 +134,19 @@ class async_stream_reader {
           T *new_data = new T[2 * m_size];
           std::uint64_t left = m_filled;
           m_filled = 0;
+
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
+
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
             left -= tocopy;
             m_filled += tocopy;
           }
+
           m_head = m_filled;
           m_tail = 0;
           m_size <<= 1;
@@ -142,8 +159,10 @@ class async_stream_reader {
     struct buffer_queue {
       typedef buffer<T> buffer_type;
 
-      buffer_queue(std::uint64_t n_buffers,
-          std::uint64_t items_per_buf, T *mem) {
+      buffer_queue(
+          std::uint64_t n_buffers,
+          std::uint64_t items_per_buf,
+          T *mem) {
         m_signal_stop = false;
         for (std::uint64_t i = 0; i < n_buffers; ++i) {
           m_queue.push(new buffer_type(items_per_buf, mem));
@@ -175,7 +194,9 @@ class async_stream_reader {
         m_signal_stop = true;
       }
 
-      inline bool empty() const { return m_queue.empty(); }
+      inline bool empty() const {
+        return m_queue.empty();
+      }
 
       circular_queue<buffer_type*> m_queue;  // Must have FIFO property
       std::condition_variable m_cv;
@@ -195,6 +216,7 @@ class async_stream_reader {
     static void io_thread_code(async_stream_reader<T> *caller) {
       typedef buffer<T> buffer_type;
       while (true) {
+
         // Wait for an empty buffer (or a stop signal).
         std::unique_lock<std::mutex> lk(caller->m_empty_buffers->m_mutex);
         while (caller->m_empty_buffers->empty() &&
@@ -202,6 +224,7 @@ class async_stream_reader {
           caller->m_empty_buffers->m_cv.wait(lk);
 
         if (caller->m_empty_buffers->empty()) {
+
           // We received the stop signal -- exit.
           lk.unlock();
           break;
@@ -217,14 +240,16 @@ class async_stream_reader {
 
         // Check if we reached the end of file.
         bool end_of_file = false;
-        if (buffer->m_filled < buffer->m_size)
+        if (!buffer->full())
           end_of_file = true;
 
-        if (buffer->m_filled > 0) {
+        if (!buffer->empty()) {
+
           // Add the buffer to the queue of filled buffers.
           caller->m_full_buffers->push(buffer);
           caller->m_full_buffers->m_cv.notify_one();
         } else {
+
           // Reinsert into the queue of empty buffers.
           caller->m_empty_buffers->push(buffer);
         }
@@ -240,6 +265,7 @@ class async_stream_reader {
 
   public:
     void receive_new_buffer() {
+
       // Push the current buffer back to the poll of empty buffers.
       if (m_cur_buffer != NULL) {
         m_empty_buffers->push(m_cur_buffer);
@@ -273,6 +299,7 @@ class async_stream_reader {
     std::thread *m_io_thread;
 
   public:
+
     // Default constructor, reads from stdin.
     async_stream_reader() {
       init("", (8UL << 20), 4UL, 0UL);
@@ -285,8 +312,8 @@ class async_stream_reader {
 
     // Constructor, default buffer sizes, given skip.
     async_stream_reader(std::string filename,
-        std::uint64_t n_skip_bytes) {
-      init(filename, (8UL << 20), 4UL, n_skip_bytes);
+        std::uint64_t n_skip_items) {
+      init(filename, (8UL << 20), 4UL, n_skip_items);
     }
 
     // Constructor, no skip, given buffer sizes.
@@ -300,25 +327,31 @@ class async_stream_reader {
     async_stream_reader(std::string filename,
         std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers,
-        std::uint64_t n_skip_bytes) {
-      init(filename, total_buf_size_bytes, n_buffers, n_skip_bytes);
+        std::uint64_t n_skip_items) {
+      init(filename, total_buf_size_bytes, n_buffers, n_skip_items);
     }
 
     // Main initializing function.
-    void init(std::string filename,
+    void init(
+        std::string filename,
         std::uint64_t total_buf_size_bytes,
         std::uint64_t n_buffers,
-        std::uint64_t n_skip_bytes) {
+        std::uint64_t n_skip_items) {
+
+      // Sanity check.
       if (n_buffers == 0) {
-        fprintf(stderr, "\nError in async_stream_reader: n_buffers == 0\n");
+        fprintf(stderr, "\nError in async_stream_reader: "
+            "n_buffers == 0\n");
         std::exit(EXIT_FAILURE);
       }
 
+      // Open/assign the input file.
       if (filename.empty()) m_file = stdin;
       else m_file = utils::file_open_nobuf(filename.c_str(), "r");
 
-      if (m_file != stdin && n_skip_bytes > 0)
-        std::fseek(m_file, n_skip_bytes, SEEK_SET);
+      // Reposition the file pointer if necessary.
+      if (m_file != stdin && n_skip_items > 0)
+        std::fseek(m_file, n_skip_items * sizeof(value_type), SEEK_SET);
 
       // Initialize counters.
       m_bytes_read = 0;
@@ -326,9 +359,13 @@ class async_stream_reader {
       m_cur_buffer_filled = 0;
       m_cur_buffer = NULL;
 
+      // Computer optimal buffer size.
+      std::uint64_t buf_size_bytes =
+        std::max((std::uint64_t)1, total_buf_size_bytes / n_buffers);
+      std::uint64_t items_per_buf =
+        utils::disk_block_size<value_type>(buf_size_bytes);
+
       // Allocate buffers.
-      std::uint64_t total_buf_size_items = total_buf_size_bytes / sizeof(value_type);
-      std::uint64_t items_per_buf = std::max(1UL, total_buf_size_items / n_buffers);
       m_mem = utils::allocate_array<value_type>(n_buffers * items_per_buf);
       m_empty_buffers = new buffer_queue_type(n_buffers, items_per_buf, m_mem);
       m_full_buffers = new buffer_queue_type(0, 0, NULL);
@@ -367,7 +404,8 @@ class async_stream_reader {
         if (m_cur_buffer_pos == m_cur_buffer_filled)
           receive_new_buffer();
 
-        std::uint64_t toskip = std::min(howmany, m_cur_buffer_filled - m_cur_buffer_pos);
+        std::uint64_t toskip = std::min(howmany,
+            m_cur_buffer_filled - m_cur_buffer_pos);
         m_cur_buffer_pos += toskip;
         howmany -= toskip;
       }
@@ -399,24 +437,37 @@ class async_stream_reader {
       return m_cur_buffer_filled;
     }
 
-    // Performed I/O in bytes.
+    // Return the performed I/O in bytes. Unlike in the
+    // writer classes (where m_bytes_written is updated
+    // in the write methods), here m_bytes_read is updated
+    // in the I/O thread. This is to correctly account
+    // for the read-ahead operations in cases where user
+    // did not read the whole file. In those cases, however,
+    // the user must call the stop_reading() method before
+    // calling bytes_read() to obtain the correct result.
     inline std::uint64_t bytes_read() const {
       return m_bytes_read;
     }
 
+    // Stop the I/O thread, now the user can
+    // cafely call the bytes_read() method.
+    void stop_reading() {
+      if (m_io_thread != NULL) {
+        m_empty_buffers->send_stop_signal();
+        m_empty_buffers->m_cv.notify_one();
+        m_io_thread->join();
+        delete m_io_thread;
+        m_io_thread = NULL;
+      }
+    }
+
     // Destructor.
     ~async_stream_reader() {
-      // Let the I/O thread know that we're done.
-      m_empty_buffers->send_stop_signal();
-      m_empty_buffers->m_cv.notify_one();
-
-      // Wait for the thread to finish.
-      m_io_thread->join();
+      stop_reading();
 
       // Clean up.
       delete m_empty_buffers;
       delete m_full_buffers;
-      delete m_io_thread;
       if (m_file != stdin)
         std::fclose(m_file);
 
