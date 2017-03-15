@@ -35,6 +35,7 @@
 #define __FSAIS_SRC_IO_ASYNC_MULTI_STREAM_WRITER_HPP_INCLUDED
 
 #include <cstdio>
+#include <cstdlib>
 #include <cstdint>
 #include <vector>
 #include <string>
@@ -63,12 +64,25 @@ class async_multi_stream_writer {
         m_filled = 0;
       }
 
-      inline bool empty() const { return m_filled == 0; }
-      inline bool full() const { return m_filled == m_size; }
-      inline std::uint64_t size_in_bytes() const { return sizeof(T) * m_filled; }
+      inline bool empty() const {
+        return (m_filled == 0);
+      }
+
+      inline bool full() const {
+        return (m_filled == m_size);
+      }
+
+      inline std::uint64_t size_in_bytes() const {
+        return sizeof(T) * m_filled;
+      }
+
+      inline std::uint64_t free_space() const {
+        return m_size - m_filled;
+      }
 
       T* const m_content;
       const std::uint64_t m_size;
+
       std::uint64_t m_filled;
     };
 
@@ -109,8 +123,13 @@ class async_multi_stream_writer {
           --m_filled;
         }
 
-        inline bool empty() const { return (m_filled == 0); }
-        inline std::uint64_t size() const { return m_filled; }
+        inline bool empty() const {
+          return (m_filled == 0);
+        }
+
+        inline std::uint64_t size() const {
+          return m_filled;
+        }
 
         ~circular_queue() {
           delete[] m_data;
@@ -121,15 +140,19 @@ class async_multi_stream_writer {
           T *new_data = new T[2 * m_size];
           std::uint64_t left = m_filled;
           m_filled = 0;
+
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
+
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
             left -= tocopy;
             m_filled += tocopy;
           }
+
           m_head = m_filled;
           m_tail = 0;
           m_size <<= 1;
@@ -166,7 +189,9 @@ class async_multi_stream_writer {
         m_requests.push(request);
       }
 
-      inline bool empty() const { return m_requests.empty(); }
+      inline bool empty() const {
+        return m_requests.empty();
+      }
 
       circular_queue<request_type> m_requests;  // Must have FIFO property
       std::condition_variable m_cv;
@@ -176,6 +201,7 @@ class async_multi_stream_writer {
 
     template<typename buffer_type>
     struct buffer_collection {
+
       // Separate method to allow locking.
       inline void add(buffer_type *buffer) {
         std::lock_guard<std::mutex> lk(m_mutex);
@@ -188,7 +214,9 @@ class async_multi_stream_writer {
         return ret;
       }
 
-      inline bool empty() const { return m_buffers.empty(); }
+      inline bool empty() const {
+        return m_buffers.empty();
+      }
 
       std::vector<buffer_type*> m_buffers;
       std::condition_variable m_cv;
@@ -201,6 +229,7 @@ class async_multi_stream_writer {
       typedef buffer<T> buffer_type;
       typedef request<buffer_type> request_type;
       while (true) {
+
         // Wait for request or until 'no more requests' flag is set.
         std::unique_lock<std::mutex> lk(caller->m_write_requests.m_mutex);
         while (caller->m_write_requests.empty() &&
@@ -209,6 +238,7 @@ class async_multi_stream_writer {
 
         if (caller->m_write_requests.empty() &&
             caller->m_write_requests.m_no_more_requests) {
+
           // No more requests -- exit.
           lk.unlock();
           break;
@@ -223,8 +253,8 @@ class async_multi_stream_writer {
 
         // Add the (now empty) buffer to the collection
         // of empty buffers and notify the waiting thread.
-        caller->m_free_buffers.add(request.m_buffer);
-        caller->m_free_buffers.m_cv.notify_one();
+        caller->m_empty_buffers.add(request.m_buffer);
+        caller->m_empty_buffers.m_cv.notify_one();
       }
     }
 
@@ -239,7 +269,7 @@ class async_multi_stream_writer {
     value_type *m_mem_ptr;
     std::vector<std::FILE*> m_files;
     std::vector<buffer_type*> m_buffers;
-    buffer_collection<buffer_type> m_free_buffers;
+    buffer_collection<buffer_type> m_empty_buffers;
     request_queue<request_type> m_write_requests;
     std::thread *m_io_thread;
 
@@ -252,30 +282,39 @@ class async_multi_stream_writer {
     }
 
     // Get a free buffer from the collection of free buffers.
-    buffer_type* get_free_buffer() {
-      std::unique_lock<std::mutex> lk(m_free_buffers.m_mutex);
-      while (m_free_buffers.empty())
-        m_free_buffers.m_cv.wait(lk);
-      buffer_type *ret = m_free_buffers.get();
+    buffer_type* get_empty_buffer() {
+      std::unique_lock<std::mutex> lk(m_empty_buffers.m_mutex);
+      while (m_empty_buffers.empty())
+        m_empty_buffers.m_cv.wait(lk);
+      buffer_type *ret = m_empty_buffers.get();
       lk.unlock();
       return ret;
     }
 
   public:
-    async_multi_stream_writer(std::uint64_t n_files,
-        std::uint64_t bufsize_per_file_in_bytes = (1UL << 20),
-        std::uint64_t n_free_buffers = 4UL) {
-      // Initialize basic parameters.
-      // Works even with n_free_buffers == 0.
-      m_bytes_written = 0;
-      m_items_per_buf = std::max(1UL, bufsize_per_file_in_bytes / sizeof(value_type));
+    async_multi_stream_writer(
+        std::uint64_t n_files,
+        std::uint64_t buf_size_bytes = (std::uint64_t)(1 << 20),
+        std::uint64_t n_empty_buffers = (std::uint64_t)4) {
 
-      // Initialize empty buffers.
-      std::uint64_t n_bufs = n_free_buffers + n_files;
+      // Sanity check.
+      if (n_files == 0) {
+        fprintf(stderr, "\nError in async_multi_stream_writer: "
+            "n_files == 0\n");
+        std::exit(EXIT_FAILURE);
+      }
+
+      // Initialize basic parameters.
+      // Works even with n_empty_buffers == 0.
+      m_bytes_written = 0;
+      m_items_per_buf = utils::disk_block_size<value_type>(buf_size_bytes);
+
+      // Allocate buffers.
+      std::uint64_t n_bufs = n_empty_buffers + n_files;
       m_mem = utils::allocate_array<value_type>(n_bufs * m_items_per_buf);
       m_mem_ptr = m_mem;
-      for (std::uint64_t j = 0; j < n_free_buffers; ++j) {
-        m_free_buffers.add(new buffer_type(m_items_per_buf, m_mem_ptr));
+      for (std::uint64_t j = 0; j < n_empty_buffers; ++j) {
+        m_empty_buffers.add(new buffer_type(m_items_per_buf, m_mem_ptr));
         m_mem_ptr += m_items_per_buf;
       }
 
@@ -292,27 +331,33 @@ class async_multi_stream_writer {
     }
 
     // Write value to i-th file.
-    void write_to_ith_file(std::uint64_t i, value_type value) {
+    inline void write_to_ith_file(std::uint64_t i, value_type value) {
+
+      // We count I/O volume here (and not in the thread doing I/O) to
+      // avoid the situation, where user call bytes_written(), but the
+      // I/O thread is still writing the last buffer.
       m_bytes_written += sizeof(value_type);
       m_buffers[i]->m_content[m_buffers[i]->m_filled++] = value;
       if (m_buffers[i]->full()) {
         issue_write_request(i);
-        m_buffers[i] = get_free_buffer();
+        m_buffers[i] = get_empty_buffer();
       }
     }
 
     // Write values[0..length) to i-th file.
-    void write_to_ith_file(std::uint64_t i, const value_type *values, std::uint64_t length) {
+    inline void write_to_ith_file(std::uint64_t i,
+        const value_type *values, std::uint64_t length) {
       m_bytes_written += length * sizeof(value_type);
       while (length > 0) {
-        std::uint64_t towrite = std::min(length, m_items_per_buf - m_buffers[i]->m_filled);
-        std::copy(values, values + towrite, m_buffers[i]->m_content + m_buffers[i]->m_filled);
-        m_buffers[i]->m_filled += towrite;
-        length -= towrite;
-        values += towrite;
+        std::uint64_t tocopy = std::min(length, m_buffers[i]->free_space());
+        std::copy(values, values + tocopy,
+            m_buffers[i]->m_content + m_buffers[i]->m_filled);
+        m_buffers[i]->m_filled += tocopy;
+        values += tocopy;
+        length -= tocopy;
         if (m_buffers[i]->full()) {
           issue_write_request(i);
-          m_buffers[i] = get_free_buffer();
+          m_buffers[i] = get_empty_buffer();
         }
       }
     }
@@ -324,6 +369,7 @@ class async_multi_stream_writer {
 
     // Destructor.
     ~async_multi_stream_writer() {
+
       // Flush all buffers.
       std::uint64_t n_buffers = m_buffers.size();
       for (std::uint64_t file_id = 0; file_id < n_buffers; ++file_id) {
@@ -348,9 +394,9 @@ class async_multi_stream_writer {
         std::fclose(m_files[file_id]);
       }
 
-      // Delete free buffers.
-      while (!(m_free_buffers.empty())) {
-        buffer_type *buf = m_free_buffers.get();
+      // Delete empty buffers.
+      while (!(m_empty_buffers.empty())) {
+        buffer_type *buf = m_empty_buffers.get();
         delete buf;
       }
 

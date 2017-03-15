@@ -105,6 +105,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
 int main() {
   srand(time(0) + getpid());
   for (std::uint64_t max_length = 1; max_length <= (1L << 13); max_length *= 2)
-    test(30, max_length);
+    test(100, max_length);
   fprintf(stderr, "All tests passed.\n");
 }

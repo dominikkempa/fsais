@@ -100,16 +100,23 @@ class async_bit_stream_writer {
     }
 
   public:
-    async_bit_stream_writer(std::string filename,
-        std::uint64_t bufsize, std::uint64_t n_buffers) {
+    async_bit_stream_writer(
+        std::string filename,
+        std::uint64_t buf_size_bytes,
+        std::uint64_t n_buffers) {
+
       (void)n_buffers;  // unused now.
       m_file = utils::file_open_nobuf(filename.c_str(), "w");
 
-      // Initialize buffers.
-      m_buf_size = std::max(1UL, bufsize / (2UL * sizeof(std::uint64_t)));
-      m_mem = utils::allocate_array<std::uint64_t>(2UL * m_buf_size);
+      // Compute optimal buffer size.
+      buf_size_bytes = std::max((std::uint64_t)1, buf_size_bytes / 2);
+      m_items_per_buf =
+        utils::disk_block_size<std::uint64_t>(buf_size_bytes);
+
+      // Allocate buffers.
+      m_mem = utils::allocate_array<std::uint64_t>(2UL * m_items_per_buf);
       m_active_buf = m_mem;
-      m_passive_buf = m_mem + m_buf_size;
+      m_passive_buf = m_mem + m_items_per_buf;
 
       m_active_buf[0] = 0;
       m_bit_pos = 0;
@@ -142,7 +149,7 @@ class async_bit_stream_writer {
         // If the active buffer was full, send it to I/O thread.
         // This function may wait a bit until the I/O thread
         // finishes writing the previous passive buffer.
-        if (m_active_buf_filled == m_buf_size)
+        if (m_active_buf_filled == m_items_per_buf)
           send_active_buf_to_write();
 
         // Clear all bits in the current byte.
@@ -182,7 +189,7 @@ class async_bit_stream_writer {
     std::uint64_t *m_active_buf;
     std::uint64_t *m_passive_buf;
 
-    std::uint64_t m_buf_size;
+    std::uint64_t m_items_per_buf;
     std::uint64_t m_bit_pos;
     std::uint64_t m_active_buf_filled;
     std::uint64_t m_passive_buf_filled;
