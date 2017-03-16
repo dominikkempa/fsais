@@ -41,7 +41,6 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
     }
     std::uint64_t text_alphabet_size = (std::uint64_t)(*std::max_element(text, text + text_length)) + 1;
 
-    std::uint64_t total_io_volume = 0;
     std::uint64_t ram_use = fsais_private::utils::random_int64(1L, 1024L);
 
     fsais_private::naive_compute_sa::naive_compute_sa<char_type, text_offset_type>(text, text_length, sa);
@@ -64,8 +63,7 @@ void test(std::uint64_t n_testcases, std::uint64_t max_length) {
           ram_use,
           text_alphabet_size,
           text_filename,
-          output_filename,
-          total_io_volume);
+          output_filename);
 
     // Restore stderr.
     std::fflush(stderr);

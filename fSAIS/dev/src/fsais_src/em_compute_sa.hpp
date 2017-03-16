@@ -665,8 +665,9 @@ void em_compute_sa(
     std::uint64_t ram_use,
     std::uint64_t text_alphabet_size,
     std::string text_filename,
-    std::string output_filename,
-    std::uint64_t &total_io_volume) {
+    std::string output_filename) {
+
+  std::uint64_t total_io_volume = 0;
   std::uint64_t text_length = utils::file_size(text_filename) / sizeof(char_type);
 
 #ifdef SAIS_DEBUG
