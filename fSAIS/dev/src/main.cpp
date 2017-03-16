@@ -51,7 +51,7 @@ int main(int argc, char **argv) {
   std::string output_filename = text_filename + ".sa5";
 
   std::uint64_t text_alphabet_size = 256;
-  std::uint64_t ram_use = (50UL << 20);
+  std::uint64_t ram_use = (1000UL << 20);
   std::uint64_t io_volume = 0;
 
   fsais_private::em_compute_sa<

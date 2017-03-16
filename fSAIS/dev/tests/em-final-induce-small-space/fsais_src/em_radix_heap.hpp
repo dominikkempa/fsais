@@ -126,9 +126,12 @@ class ram_queue {
     void refill(ram_queue_type *q) {
       while (m_size < m_max_size && q->m_size > 0) {
         std::uint64_t can_move = m_max_size - std::max(m_size, m_end);
-        std::uint64_t q_can_move = std::min(q->m_max_size - q->m_beg, q->m_size);
+        std::uint64_t q_can_move =
+          std::min(q->m_max_size - q->m_beg, q->m_size);
         std::uint64_t tomove = std::min(can_move, q_can_move);
-        std::copy(q->m_data + q->m_beg, q->m_data + q->m_beg + tomove, m_data + m_end);
+
+        std::copy(q->m_data + q->m_beg,
+            q->m_data + q->m_beg + tomove, m_data + m_end);
         m_size += tomove;
         m_end += tomove;
         if (m_end == m_max_size)
@@ -220,7 +223,8 @@ class em_queue {
           m_filled = 0;
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
@@ -268,7 +272,11 @@ class em_queue {
     }
 
   public:
-    em_queue(std::uint64_t items_per_ram_queue, std::string filename, radix_heap_type *radix_heap) {
+    em_queue(
+        std::uint64_t items_per_ram_queue,
+        std::string filename,
+        radix_heap_type *radix_heap) {
+
       m_radix_heap = radix_heap;
       m_size = 0;
       m_io_volume = 0;
@@ -305,6 +313,7 @@ class em_queue {
           m_tail_ram_queue = NULL;
         } else if (m_file_head == m_file_size && m_full_ram_queues.empty() &&
             m_head_ram_queue != NULL && !m_head_ram_queue->full()) {
+
           // Try to bypass I/O and make room in the tail ram queue
           // by moving elements directly into head ram queue.
           if (2 * m_head_ram_queue->size() <= m_items_per_ram_queue) {
@@ -337,14 +346,17 @@ class em_queue {
 
     inline value_type& front() {
       if (m_head_ram_queue == NULL) {
+
         // Check where to look for the next item.
         if (m_file_head == m_file_size) {
+
           // The next item is in RAM.
           if (!m_full_ram_queues.empty()) {
             m_head_ram_queue = m_full_ram_queues.front();
             m_full_ram_queues.pop();
           } else std::swap(m_head_ram_queue, m_tail_ram_queue);
         } else {
+
           // The next item is on disk.
           // NOTE: it is crucial that fseek occurs after the call
           // to get_empty_ram_queue(), since in extreme case, that
@@ -352,12 +364,14 @@ class em_queue {
           // the empty ram queue was obtained by flushing one of the
           // full ram queues corresponding to this em_queue).
           m_head_ram_queue = m_radix_heap->get_empty_ram_queue();
-          m_radix_heap->issue_read_request(m_head_ram_queue, m_file_head * sizeof(value_type), m_file);
+          m_radix_heap->issue_read_request(m_head_ram_queue,
+              m_file_head * sizeof(value_type), m_file);
           m_io_volume += m_head_ram_queue->size_in_bytes();
           m_file_head += m_head_ram_queue->size();
         }
       } else if (m_head_ram_queue->empty()) {
         if (m_file_head == m_file_size) {
+
           // The next item is in RAM.
           m_radix_heap->add_empty_ram_queue(m_head_ram_queue);
           m_head_ram_queue = NULL;
@@ -366,8 +380,10 @@ class em_queue {
             m_full_ram_queues.pop();
           } else std::swap(m_head_ram_queue, m_tail_ram_queue);
         } else {
+
           // The next item is on disk.
-          m_radix_heap->issue_read_request(m_head_ram_queue, m_file_head * sizeof(value_type), m_file);
+          m_radix_heap->issue_read_request(m_head_ram_queue,
+              m_file_head * sizeof(value_type), m_file);
           m_io_volume += m_head_ram_queue->size_in_bytes();
           m_file_head += m_head_ram_queue->size();
         }
@@ -430,6 +446,7 @@ class em_queue {
     }
 
     ~em_queue() {
+
       // Close and delete the file.
       std::fclose(m_file);
       if (utils::file_exists(m_filename))
@@ -497,7 +514,8 @@ class em_radix_heap {
           m_filled = 0;
           while (left > 0) {
             std::uint64_t tocopy = std::min(left, m_size - m_tail);
-            std::copy(m_data + m_tail, m_data + m_tail + tocopy, new_data + m_filled);
+            std::copy(m_data + m_tail,
+                m_data + m_tail + tocopy, new_data + m_filled);
             m_tail += tocopy;
             if (m_tail == m_size)
               m_tail = 0;
@@ -627,6 +645,7 @@ class em_radix_heap {
       typedef ram_queue<pair_type> ram_queue_type;
       typedef io_request<ram_queue_type> req_type;
       while (true) {
+
         // Wait for request or until 'no more requests' flag is set.
         std::unique_lock<std::mutex> lk(caller->m_io_request_queue.m_mutex);
         while (caller->m_io_request_queue.empty() &&
@@ -635,6 +654,7 @@ class em_radix_heap {
 
         if (caller->m_io_request_queue.empty() &&
             caller->m_io_request_queue.m_no_more_requests) {
+
           // No more requests -- exit.
           lk.unlock();
           break;
@@ -706,11 +726,18 @@ class em_radix_heap {
     std::vector<ram_queue_type*> m_empty_ram_queues;
 
   private:
-    void init(std::vector<std::uint64_t> radix_logs, std::string filename,
-        std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
-      std::uint64_t radix_logs_sum = std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
+    void init(
+        std::vector<std::uint64_t> radix_logs,
+        std::string filename,
+        std::uint64_t n_ram_queues,
+        std::uint64_t items_per_ram_queue) {
+
+      std::uint64_t radix_logs_sum =
+        std::accumulate(radix_logs.begin(), radix_logs.end(), 0UL);
+
       if (radix_logs_sum == 0) {
-        fprintf(stderr, "\nError: radix_logs_sum == 0 in radix_heap constructor!\n");
+        fprintf(stderr, "\nError: radix_logs_sum == 0 "
+            "in radix_heap constructor!\n");
         std::exit(EXIT_FAILURE);
       }
 
@@ -744,7 +771,8 @@ class em_radix_heap {
         m_level_ptr[i] = m_sum_of_radixes[i] + 1;
         sum_of_radixes += (1UL << radix_logs[radix_logs.size() - 1 - i]);
       }
-      m_sum_of_radixes[radix_logs.size()] = sum_of_radixes - radix_logs.size();
+      m_sum_of_radixes[radix_logs.size()] =
+        sum_of_radixes - radix_logs.size();
 
       m_size = 0;
       m_key_lower_bound = 0;
@@ -759,7 +787,8 @@ class em_radix_heap {
       for (std::uint64_t i = 0; i < m_em_queue_count; ++i) {
         std::string queue_filename = filename + ".queue." +
           utils::intToStr(i) + "." + utils::random_string_hash();
-        m_queues[i] = new em_queue_type(items_per_ram_queue, queue_filename, this);
+        m_queues[i] = new em_queue_type(items_per_ram_queue,
+            queue_filename, this);
       }
       m_queue_min = std::vector<std::uint64_t>(m_em_queue_count,
           std::numeric_limits<std::uint64_t>::max());
@@ -767,25 +796,33 @@ class em_radix_heap {
       // Request RAM for queues.
       n_ram_queues = std::max(n_ram_queues, m_em_queue_count + 1);
       std::uint64_t n_all_queues = n_ram_queues + k_io_queues;
-      m_mem = utils::allocate_array<pair_type>(n_all_queues * items_per_ram_queue);
+      std::uint64_t toalloc = n_all_queues * items_per_ram_queue;
+      m_mem = utils::allocate_array<pair_type>(toalloc);
       m_mem_ptr = m_mem;
 
       // Allocate empty RAM queues.
       for (std::uint64_t j = 0; j < n_ram_queues; ++j) {
-        m_empty_ram_queues.push_back(new ram_queue_type(items_per_ram_queue, m_mem_ptr));
+        m_empty_ram_queues.push_back(
+            new ram_queue_type(items_per_ram_queue, m_mem_ptr));
         m_mem_ptr += items_per_ram_queue;
       }
 
       // Allocate collection of empty I/O queue.
-      m_empty_io_queues = new ram_queue_collection_type(k_io_queues, items_per_ram_queue, m_mem_ptr);
+      m_empty_io_queues = new ram_queue_collection_type(k_io_queues,
+          items_per_ram_queue, m_mem_ptr);
       m_mem_ptr += k_io_queues * items_per_ram_queue;
 
       // Start I/O thread.
-      m_io_thread = new std::thread(async_io_thread_code<key_type, value_type>, this);
+      m_io_thread =
+        new std::thread(async_io_thread_code<key_type, value_type>, this);
     }
 
     // Note: the read request is blocking!
-    void issue_read_request(ram_queue_type *q, std::uint64_t pos, std::FILE *f) {
+    void issue_read_request(
+        ram_queue_type *q,
+        std::uint64_t pos,
+        std::FILE *f) {
+
       // Creare read request.
       request_type req(q, f, read_request, pos);
       m_read_io_request_complete = false;
@@ -804,6 +841,7 @@ class em_radix_heap {
     // Note: the write request is non-blocking!
     // Returns the new, empty ram queue.
     ram_queue_type* issue_write_request(ram_queue_type *q, std::FILE *f) {
+
       // Creat write request.
       request_type req(q, f, write_request);
 
@@ -828,8 +866,10 @@ class em_radix_heap {
       if (x == m_key_lower_bound)
         return (x & (m_bottom_level_radix - 1));
 
-      std::uint64_t level_id = m_bin_len_to_level_id[64 - __builtin_clzll(x ^ m_key_lower_bound)];
-      std::uint64_t bucket_id = (x >> m_sum_of_radix_logs[level_id]) & m_level_mask[level_id];
+      std::uint64_t level_id =
+        m_bin_len_to_level_id[64 - __builtin_clzll(x ^ m_key_lower_bound)];
+      std::uint64_t bucket_id =
+        (x >> m_sum_of_radix_logs[level_id]) & m_level_mask[level_id];
       std::uint64_t queue_id = m_sum_of_radixes[level_id] + bucket_id;
 
       return queue_id;
@@ -837,13 +877,15 @@ class em_radix_heap {
 
     ram_queue_type* get_empty_ram_queue() {
       if (m_empty_ram_queues.empty()) {
+
         // The loop below is correct, because every time, during the push()
         // operation on one of the queues we check, whether m_full_ram_queues
         // just became non-empty, and if yes, the push returns true, which
         // causes the update of m_get_empty_ram_queue_ptr.
 
 #ifdef SAIS_DEBUG
-        for (std::uint64_t j = m_get_empty_ram_queue_ptr + 1; j < m_em_queue_count; ++j) {
+        for (std::uint64_t j = m_get_empty_ram_queue_ptr + 1;
+            j < m_em_queue_count; ++j) {
           if (m_queues[j]->full_ram_queue_available()) {
             fprintf(stderr, "Error: m_get_empty_ram_queue_ptr incorrect!\n");
             std::exit(EXIT_FAILURE);
@@ -853,7 +895,8 @@ class em_radix_heap {
 
         while (!m_queues[m_get_empty_ram_queue_ptr]->full_ram_queue_available())
           --m_get_empty_ram_queue_ptr;
-        m_empty_ram_queues.push_back(m_queues[m_get_empty_ram_queue_ptr]->flush_front_ram_queue());
+        m_empty_ram_queues.push_back(
+            m_queues[m_get_empty_ram_queue_ptr]->flush_front_ram_queue());
       }
 
       ram_queue_type *q = m_empty_ram_queues.back();
@@ -866,15 +909,19 @@ class em_radix_heap {
     }
 
     void redistribute() {
-      while (m_bottom_level_queue_ptr < m_bottom_level_radix && m_queues[m_bottom_level_queue_ptr]->empty())
-        m_queue_min[m_bottom_level_queue_ptr++] = std::numeric_limits<std::uint64_t>::max();
+      while (m_bottom_level_queue_ptr < m_bottom_level_radix &&
+          m_queues[m_bottom_level_queue_ptr]->empty())
+        m_queue_min[m_bottom_level_queue_ptr++] =
+          std::numeric_limits<std::uint64_t>::max();
 
       if (m_bottom_level_queue_ptr < m_bottom_level_radix) {
         m_key_lower_bound = m_queue_min[m_bottom_level_queue_ptr];
       } else {
+
         // Find the non-empty queue with the smallest id.
         std::uint64_t level = 1;
         while (true) {
+
           // Scan current level.
           while (m_level_ptr[level] < m_sum_of_radixes[level + 1] + 1 &&
               m_queues[m_level_ptr[level]]->empty())
@@ -897,8 +944,10 @@ class em_radix_heap {
           pair_type p = m_queues[id]->front(); m_queues[id]->pop();
           std::uint64_t newid = get_queue_id(p.first);
           if (m_queues[newid]->push(p))
-            m_get_empty_ram_queue_ptr = std::max(m_get_empty_ram_queue_ptr, newid);
-          m_queue_min[newid] = std::min(m_queue_min[newid], (std::uint64_t)p.first);
+            m_get_empty_ram_queue_ptr =
+              std::max(m_get_empty_ram_queue_ptr, newid);
+          m_queue_min[newid] =
+            std::min(m_queue_min[newid], (std::uint64_t)p.first);
         }
         m_bottom_level_queue_ptr = get_queue_id(m_key_lower_bound);
         m_queues[id]->reset_file();
@@ -909,32 +958,48 @@ class em_radix_heap {
     }
 
   public:
-    em_radix_heap(std::vector<std::uint64_t> radix_logs, std::string filename, std::uint64_t ram_use) {
+    em_radix_heap(
+        std::vector<std::uint64_t> radix_logs,
+        std::string filename,
+        std::uint64_t ram_use) {
+
       std::uint64_t em_queue_count = (radix_logs.size() - 1);
       for (std::uint64_t i = 0; i < radix_logs.size(); ++i)
         em_queue_count += (1UL << radix_logs[i]);
       std::uint64_t required_ram_queues_count = em_queue_count + 1;
 
       // Decide on the size of a single ram queue and their number.
-      if ((required_ram_queues_count + k_io_queues) * k_opt_single_queue_size_bytes <= ram_use) {
+      if ((required_ram_queues_count + k_io_queues) *
+          k_opt_single_queue_size_bytes <= ram_use) {
+
         // Best case, we can allocate at least the required
         // number of ram queues of optimal size.
-        std::uint64_t ram_for_nonio_ram_queues = ram_use - k_io_queues * k_opt_single_queue_size_bytes;
-        std::uint64_t n_ram_queues = ram_for_nonio_ram_queues / k_opt_single_queue_size_bytes;
-        std::uint64_t items_per_ram_queue = std::max(1UL, k_opt_single_queue_size_bytes / sizeof(pair_type));
+        std::uint64_t ram_for_nonio_ram_queues =
+          ram_use - k_io_queues * k_opt_single_queue_size_bytes;
+        std::uint64_t n_ram_queues =
+          ram_for_nonio_ram_queues / k_opt_single_queue_size_bytes;
+        std::uint64_t items_per_ram_queue =
+          utils::disk_block_size<pair_type>(k_opt_single_queue_size_bytes);
         init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
       } else {
+
         // Not enough RAM to use optimal queue size. We shrink
         // the queue size and allocate only the required amount.
-        std::uint64_t single_queue_size_bytes = ram_use / (required_ram_queues_count + k_io_queues);
-        std::uint64_t n_ram_queues = required_ram_queues_count;
-        std::uint64_t items_per_ram_queue = std::max(1UL, single_queue_size_bytes / sizeof(pair_type));
+        std::uint64_t single_queue_size_bytes =
+          ram_use / (required_ram_queues_count + k_io_queues);
+        std::uint64_t n_ram_queues =
+          required_ram_queues_count;
+        std::uint64_t items_per_ram_queue =
+          utils::disk_block_size<pair_type>(single_queue_size_bytes);
         init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
       }
     }
 
-    em_radix_heap(std::vector<std::uint64_t> radix_logs, std::string filename,
-        std::uint64_t n_ram_queues, std::uint64_t items_per_ram_queue) {
+    em_radix_heap(
+        std::vector<std::uint64_t> radix_logs,
+        std::string filename,
+        std::uint64_t n_ram_queues,
+        std::uint64_t items_per_ram_queue) {
       init(radix_logs, filename, n_ram_queues, items_per_ram_queue);
     }
 
@@ -991,6 +1056,7 @@ class em_radix_heap {
     }
 
     ~em_radix_heap() {
+
       // Let the I/O thread know it should finish.
       std::unique_lock<std::mutex> lk(m_io_request_queue.m_mutex);
       m_io_request_queue.m_no_more_requests = true;
