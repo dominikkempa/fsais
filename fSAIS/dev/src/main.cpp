@@ -58,8 +58,9 @@ void usage(int status) {
 "  -m, --mem=MEM           use MEM bytes of RAM for computation. Metric and IEC\n"
 "                          suffixes are recognized, e.g., -l 10k, -l 1Mi, -l 3G\n"
 "                          gives MEM = 10^4, 2^20, 3*10^6. Default: 3584Mi\n"
-"  -o, --output=OUTFILE    specify output filename. Default: FILE.lcpX, where\n"
-"                          X = integer size, see the -i flag\n",
+"  -o, --output=OUTFILE    specify output filename. Default: FILE.saX, where\n"
+"                          X = integer size used to encode the suffix array\n"
+"                          (5 bytes by default)\n",
 
     program_name);
 
