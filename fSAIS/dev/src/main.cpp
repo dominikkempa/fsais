@@ -144,13 +144,9 @@ int main(int argc, char **argv) {
   program_name = argv[0];
 
   static struct option long_options[] = {
-    {"charsize", required_argument, NULL, 'c'},
-    {"fast",     no_argument,       NULL, 'f'},
     {"help",     no_argument,       NULL, 'h'},
-    {"intsize",  required_argument, NULL, 'i'},
     {"mem",      required_argument, NULL, 'm'},
     {"output",   required_argument, NULL, 'o'},
-    {"sa",       required_argument, NULL, 's'},
     {NULL,       0,                 NULL, 0}
   };
 
