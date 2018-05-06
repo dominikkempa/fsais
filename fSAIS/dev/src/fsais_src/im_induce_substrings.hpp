@@ -159,7 +159,8 @@ im_induce_substrings_large_alphabet(
   // Read block into RAM.
   char_type *block = utils::allocate_array<char_type>(block_size);
   std::fill(block, block + block_size, (char_type)0);
-  utils::read_at_offset(block, block_beg, block_size, text_filename);
+  std::uint64_t block_beg_offset = sizeof(char_type) * block_beg;
+  utils::read_at_offset(block, block_beg_offset, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
 
 
@@ -685,7 +686,8 @@ im_induce_substrings_small_alphabet(
   // Read block into RAM.
   char_type *block = utils::allocate_array<char_type>(block_size);
   std::fill(block, block + block_size, (char_type)0);
-  utils::read_at_offset(block, block_beg, block_size, text_filename);
+  std::uint64_t block_beg_offset = sizeof(char_type) * block_beg;
+  utils::read_at_offset(block, block_beg_offset, block_size, text_filename);
   io_volume += block_size * sizeof(char_type);
 
 

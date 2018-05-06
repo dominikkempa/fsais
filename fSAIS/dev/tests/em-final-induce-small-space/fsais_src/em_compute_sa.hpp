@@ -700,6 +700,13 @@ void em_compute_sa(
   std::uint64_t n_blocks = (text_length + max_block_size - 1) / max_block_size;
 #endif
 
+  // Turn paths absolute.
+  text_filename = utils::absolute_path(text_filename);
+  output_filename = utils::absolute_path(output_filename);
+
+  // Print initial messages.
+  fprintf(stderr, "Running fSAIS v0.1.0\n");
+  fprintf(stderr, "Timestamp = %s", utils::get_timestamp().c_str());
   fprintf(stderr, "Text filename = %s\n", text_filename.c_str());
   fprintf(stderr, "Output filename = %s\n", output_filename.c_str());
   fprintf(stderr, "Text length = %lu\n", text_length);
@@ -707,9 +714,9 @@ void em_compute_sa(
   fprintf(stderr, "Text alphabet size = %lu\n", text_alphabet_size);
   fprintf(stderr, "sizeof(char_type) = %lu\n", sizeof(char_type));
   fprintf(stderr, "sizeof(text_offset_type) = %lu\n", sizeof(text_offset_type));
-  fprintf(stderr, "Timestamp = %s\n", utils::get_timestamp().c_str());
   fprintf(stderr, "\n\n");
 
+  // Start the timer.
   long double start = utils::wclock();
   fprintf(stderr, "Enter recursion level 0\n");
 

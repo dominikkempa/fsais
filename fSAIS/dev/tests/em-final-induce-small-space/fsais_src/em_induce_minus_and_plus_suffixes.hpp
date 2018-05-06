@@ -295,7 +295,10 @@ void em_induce_minus_and_plus_suffixes(
   fprintf(stderr, "    sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
-  utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  std::uint64_t last_text_symbol_offset =
+    sizeof(char_type) * (text_length - 1);
+  utils::read_at_offset(&last_text_symbol,
+      last_text_symbol_offset, 1, text_filename);
   total_io_volume += sizeof(char_type);
 
   std::vector<std::string> plus_type_filenames(n_blocks);
@@ -722,7 +725,10 @@ void em_induce_minus_and_plus_suffixes(
   fprintf(stderr, "    sizeof(block_id_type) = %lu\n", sizeof(block_id_type));
 
   char_type last_text_symbol;
-  utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  std::uint64_t last_text_symbol_offset =
+    sizeof(char_type) * (text_length - 1);
+  utils::read_at_offset(&last_text_symbol,
+      last_text_symbol_offset, 1, text_filename);
   total_io_volume += sizeof(char_type);
 
   std::vector<std::string> plus_type_filenames(n_blocks);

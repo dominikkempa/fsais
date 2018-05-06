@@ -49,12 +49,17 @@ class uint48 {
     uint48(const uint48& a) : low(a.low), high(a.high) {}
     uint48(const std::int32_t& a) : low(a), high(0) {}
     uint48(const std::uint32_t& a) : low(a), high(0) {}
-    uint48(const std::uint64_t& a) : low(a & 0xFFFFFFFF), high((a >> 32) & 0xFFFF) {}
-    uint48(const std::int64_t& a) : low(a & 0xFFFFFFFFL), high((a >> 32) & 0xFFFF) {}
+    uint48(const std::uint64_t& a) :
+      low(a & 0xFFFFFFFF), high((a >> 32) & 0xFFFF) {}
+    uint48(const std::int64_t& a) :
+      low(a & 0xFFFFFFFFL), high((a >> 32) & 0xFFFF) {}
 
-    inline operator uint64_t() const { return (((std::uint64_t)high) << 32) | (std::uint64_t)low; }
-    inline bool operator == (const uint48& b) const { return (low == b.low) && (high == b.high); }
-    inline bool operator != (const uint48& b) const { return (low != b.low) || (high != b.high); }
+    inline operator uint64_t() const {
+      return (((std::uint64_t)high) << 32) | (std::uint64_t)low; }
+    inline bool operator == (const uint48& b) const {
+      return (low == b.low) && (high == b.high); }
+    inline bool operator != (const uint48& b) const {
+      return (low != b.low) || (high != b.high); }
 } __attribute__((packed));
 
 namespace std {

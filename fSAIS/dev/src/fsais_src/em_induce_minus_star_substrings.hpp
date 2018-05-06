@@ -991,7 +991,10 @@ em_induce_minus_star_substrings(
 
   // Read last symbol of text.
   char_type last_text_symbol;
-  utils::read_at_offset(&last_text_symbol, text_length - 1, 1, text_filename);
+  std::uint64_t last_text_symbol_offset =
+    sizeof(char_type) * (text_length - 1);
+  utils::read_at_offset(&last_text_symbol,
+      last_text_symbol_offset, 1, text_filename);
   total_io_volume += sizeof(char_type);
 
   // Induce minus star substrings.
