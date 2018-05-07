@@ -92,10 +92,10 @@ void naive_compute_sa(
   for (std::uint64_t i = 0; i < text_length; ++i)
     substrings.push_back(
         substring_type(text, i, text_length - i, text_length));
-    std::sort(substrings.begin(), substrings.end());
 
-    for (std::uint64_t i = 0; i < text_length; ++i)
-      sa[i] = substrings[i].m_beg;
+  std::sort(substrings.begin(), substrings.end());
+  for (std::uint64_t i = 0; i < text_length; ++i)
+    sa[i] = substrings[i].m_beg;
 }
 
 }  // namespace naive_compute_sa
