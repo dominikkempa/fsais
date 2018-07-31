@@ -5,8 +5,7 @@
  * This file is part of fSAIS v0.1.0
  * See: http://www.cs.helsinki.fi/group/pads/
  *
- * Copyright (C) 2017
- *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
+ * Copyright (C) 2017-2018
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *
  * Permission is hereby granted, free of charge, to any person

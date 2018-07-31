@@ -1,0 +1,28 @@
+This is not yet the official release, so please do not share this
+code. Type 'make' in the directory with Makefile to compile. Give it a
+minute -- it takes quite a while due to heavy template usage. View
+main.cpp for instructions on how to use the program, it's easy to
+figure out. There are two things that I think are worth mentioning:
+
+1. You might run into an issue of having too many open files when
+running fSAIS. There is an easy fix. Let me know when you run into any
+problems and I can explain the solution.
+
+2. Uncomment the line with MONITOR_DISK_USAGE in the Makefile to
+display additional stats (alternative I/O counter (used mostly to
+verify that the in-code counting of I/O volume is correct), and stats
+about disk usage). The program with this flag enabled runs slower, so
+please use it only when you need these additional stats. I also have
+an external script to measure the peak disk usage (which I used to
+test the in-code tracking of disk usage), which I can share. Let me
+know if you are interested.
+
+
+Feel free to ask if you have any questions or run into any problems,
+e.g., something doesn't work or works slower than expected.
+
+
+Written by
+Dominik Kempa
+
+You can reach me at dominik.kempa@gmail.com
