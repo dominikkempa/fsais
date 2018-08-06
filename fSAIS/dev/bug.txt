@@ -1,0 +1,27 @@
+Running fSAIS v0.1.0
+Timestamp = Mon Aug  6 17:23:21 2018
+Text filename = /home/dkempa/data/zeros.10GiB
+Output filename = /home/dkempa/data/zeros.10GiB.sa5
+Text length = 10737418240
+RAM use = 14680064000 (14000.00MiB)
+Text alphabet size = 256
+sizeof(char_type) = 1
+sizeof(text_offset_type) = 5
+
+
+Enter recursion level 0
+  EM induce substrings:
+    sizeof(block_offset_type) = 4
+    sizeof(block_id_type) = 1
+    Max block size = 2348810035
+    Max permute block size = 2864402731
+    IM induce substrings (small alphabet):
+      sizeof(ext_block_offset_type) = 8
+      Max part size = 234881003 (224.0MiB)
+      Process block [9395240140..10737418240): time = 65.01s, I/O = 41.87MiB/s
+      Process block [7046430105..9395240140): time = 175.44s, I/O = 70.88MiB/s
+      Process block [4697620070..7046430105): time = 221.89s, I/O = 82.01MiB/s
+      Process block [2348810035..4697620070): time = 219.70s, I/O = 82.83MiB/s
+      Process block [0..2348810035): time = 220.49s, I/O = 82.53MiB/s
+      Total time = 902.54s, I/O = 77.28MiB/s, total I/O vol = 6.8 bytes/symbol (of initial text)
+      RAM allocation: cur = 0 bytes, peak = 38648.00MiB                 <<---------------
