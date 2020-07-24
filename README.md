@@ -8,11 +8,12 @@ Description
 fSAIS is an implementation of the external-memory suffix array
 construction algorithm. The algorithm was described in the paper
 
-    @inproceedings{kk16esa,
-      author =    {Juha K{\"{a}}rkk{\"{a}}inen and Dominik Kempa and
-                   Simon J. Puglisi and Bella Zhukova},
-      title =     {19th External Memory Induced Suffix Sorting},
-      booktitle = {2017 Algorithm Engineering and Experimentation (ALENEX 2017)},
+    @inproceedings{kkpz17alenex,
+      author =    {Juha K{\"{a}}rkk{\"{a}}inen and Dominik Kempa
+                   and Simon J. Puglisi and Bella Zhukova},
+      title =     {Engineering External Memory Induced Suffix Sorting},
+      booktitle = {19th Meeting on Algorithm Engineering and Experimentation
+                   (ALENEX 2017)},
       pages     = {98--108},
       year      = {2017},
       doi       = {10.1137/1.9781611974768.8},
@@ -141,6 +142,6 @@ above.
 Authors
 -------
 
-The authors of fSAIS are:
+fSAIS was implemented by:
 - [Dominik Kempa](https://scholar.google.com/citations?user=r0Kn9IUAAAAJ)
 - [Juha Karkkainen](https://scholar.google.com/citations?user=oZepo1cAAAAJ)

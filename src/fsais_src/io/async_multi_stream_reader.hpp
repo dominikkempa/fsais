@@ -3,9 +3,9 @@
  * @section LICENCE
  *
  * This file is part of fSAIS v0.1.0
- * See: http://www.cs.helsinki.fi/group/pads/
+ * See: https://github.com/dkempa/fsais
  *
- * Copyright (C) 2017-2019
+ * Copyright (C) 2016-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
  *   Juha Karkkainen <juha.karkkainen (at) cs.helsinki.fi>
  *
