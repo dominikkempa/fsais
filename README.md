@@ -1,5 +1,5 @@
-fSAIS - external memory suffix array construction algorithm
-===========================================================
+fSAIS - External memory suffix array construction using inducing
+================================================================
 
 
 Description
