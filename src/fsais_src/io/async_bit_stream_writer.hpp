@@ -3,7 +3,7 @@
  * @section LICENCE
  *
  * This file is part of fSAIS v0.1.0
- * See: https://github.com/dkempa/fsais
+ * See: https://github.com/dominikkempa/fsais
  *
  * Copyright (C) 2016-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>

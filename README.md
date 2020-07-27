@@ -20,7 +20,7 @@ construction algorithm. The algorithm was described in the paper
     }
 
 The latest version of fSAIS is available from
-https://github.com/dkempa/fsais.
+https://github.com/dominikkempa/fsais.
 
 
 

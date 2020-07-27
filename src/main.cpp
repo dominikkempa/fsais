@@ -3,7 +3,7 @@
  * @section LICENCE
  *
  * This file is part of fSAIS v0.1.0
- * See: https://github.com/dkempa/fsais
+ * See: https://github.com/dominikkempa/fsais
  *
  * Copyright (C) 2016-2020
  *   Dominik Kempa <dominik.kempa (at) gmail.com>
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
         {
           bool ok = parse_number(optarg, &ram_use);
           if (!ok) {
-            fprintf(stderr, "Error: parsing RAM limit"
+            fprintf(stderr, "Error: parsing RAM "
                 "limit (%s) failed\n\n", optarg);
             usage(EXIT_FAILURE);
           }
