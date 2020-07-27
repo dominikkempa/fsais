@@ -150,7 +150,7 @@ int main(int argc, char **argv) {
     {NULL,       0,                 NULL, 0}
   };
 
-  std::uint64_t ram_use = 3584UL << 20;
+  std::uint64_t ram_use = ((std::uint64_t)3584 << 20);
   std::string output_filename("");
 
   // Parse command-line options.
@@ -165,7 +165,7 @@ int main(int argc, char **argv) {
         {
           bool ok = parse_number(optarg, &ram_use);
           if (!ok) {
-            fprintf(stderr, "Error: parsing phrase length "
+            fprintf(stderr, "Error: parsing RAM limit"
                 "limit (%s) failed\n\n", optarg);
             usage(EXIT_FAILURE);
           }
